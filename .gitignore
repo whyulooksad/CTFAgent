@@ -22,9 +22,5 @@ env/
 *~
 .DS_Store
 
-# CTF challenge runtime artifacts
-challenges/
-*.log
-
 # OS
 Thumbs.db
