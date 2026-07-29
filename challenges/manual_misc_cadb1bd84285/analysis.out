@@ -1,0 +1,7 @@
+pcap < snap 524288 dlt 0
+packets 16836 payload directions 0
+connections 0 paired messages 0
+sql pairs 0
+wire length counts []
+decoded length counts []
+response signatures

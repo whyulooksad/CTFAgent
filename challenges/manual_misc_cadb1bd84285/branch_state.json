@@ -1,0 +1,24 @@
+{
+  "branch_001": {
+    "id": "branch_001",
+    "name": "响应特征恢复",
+    "pid": 15004,
+    "started_at": 1785330795.8256,
+    "timeout": 300,
+    "status": "killed",
+    "exit_code": null,
+    "result_file": "branch_result_branch_001.md",
+    "finished_at": 1785330968.7803376
+  },
+  "branch_002": {
+    "id": "branch_002",
+    "name": "请求序列推断",
+    "pid": 15013,
+    "started_at": 1785330795.8841546,
+    "timeout": 300,
+    "status": "killed",
+    "exit_code": null,
+    "result_file": "branch_result_branch_002.md",
+    "finished_at": 1785330968.8381474
+  }
+}

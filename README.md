@@ -132,6 +132,8 @@ python3 dashboard.py
 - **右侧** Hermes 思考与决策（hermes.log 增量推送）
 - **底部状态栏** 当前 Phase / Round / Flags / Subagents
 
+![](https://fastly.jsdelivr.net/gh/whyulooksad/image_bed@main/images/20260729212058522.png)
+
 ### 方式二：命令行
 
 ```bash
