@@ -63,19 +63,27 @@ Codex 不在 Docker 容器里，直接在宿主机上跑，有完整网络访问
 
 ```
 ~/ctf-agent/
-├── AGENTS.md                    # Codex 系统指令 (CTF 攻击策略、工具规则、输出格式)
+├── AGENTS.md                    # Codex 系统指令 (通用原则、工具规则、输出格式)
 ├── branch.py                    # Subagent daemon + CLI (长驻进程, unix socket 通信)
 ├── monitor.py                   # Hermes 监控脚本 (纯Python, 10s轮询)
-├── run.sh                       # 启动脚本 (含自动续跑循环 + branch daemon + Hermes 监控)
+├── run.sh                       # 启动脚本 (支持 web/crypto/misc 三种题型)
+├── dashboard.py                 # Web 面板后端 (HTTP + SSE, 纯 stdlib)
+├── dashboard.html               # Web 面板前端 (题目选择 + 双日志面板 + 状态栏)
 ├── hooks/
 │   └── check_guidance.py        # PostToolUse hook: 检查 guidance/dead_ends，有新内容则注入 Codex
 ├── hermes_monitor.md            # Hermes 监控 agent 的 prompt 指令
+├── strategies/                  # 按题型拆分的攻击流程 (Codex 按需读取)
+│   ├── web.md                   # Web 题攻击流程 (侦察/验证/利用 + 攻击面清单)
+│   ├── crypto.md                # Crypto 题攻击流程 (RSA/AES/古典密码/哈希等)
+│   └── misc.md                  # Misc 题攻击流程 (隐写/流量分析/内存取证/编码等)
 ├── challenges/
-│   └── manual_<host>_<port>/    # 每次挑战的工作目录
+│   └── manual_<name>/           # 每次挑战的工作目录 (web: host_port, crypto/misc: 文件名)
 │       ├── progress.md          # Codex 写: 轻量状态 (phase, target, next_steps, flags)
 │       ├── board.md             # Hermes 维护: 结构化看板 (ideas + memory)
 │       ├── guidance.md          # Hermes 写: 软建议 (hook 自动注入，读后清空)
 │       ├── dead_ends.md         # Hermes 写: 硬约束 (hook 自动注入，读后清空)
+│       ├── codex.log            # Codex 运行日志
+│       ├── hermes.log           # Hermes 监控日志 (hermes chat -q 输出)
 │       ├── branch.sock          # branch daemon 的 unix socket (运行时生成)
 │       ├── branch_state.json    # branch daemon 持久化状态 (subagent 列表, PID, 状态)
 │       ├── branch_result_{id}.md # Subagent 写: 试探结果
@@ -728,150 +736,86 @@ Layer 2: Hermes agent (按需触发)
 
 ```bash
 #!/bin/bash
-# 用法: ./run.sh <target_url> <background_hint>
+# 用法:
+#   ./run.sh --type web --url "http://target:8080" --hint "SQL注入"
+#   ./run.sh --type crypto --attachment "/path/to/file.zip" --hint "RSA"
+#   ./run.sh --type misc --attachment "/path/to/file.zip" --hint "隐写"
 # 含自动续跑: Codex 退出后如果没找到 flag，自动重启继续
 
-TARGET_URL="$1"
-HINT="$2"
-WORK_DIR="challenges/manual_$(echo $TARGET_URL | sed 's|https\?://||;s|[:/]|_|g')"
-
-mkdir -p "$WORK_DIR/poc_scripts"
-
-# 初始化文件
-cat > "$WORK_DIR/progress.md" << EOF
-## Target
-- URL: $TARGET_URL
-- Background: $HINT
-- Start Time: $(date -Iseconds)
-
-## Current Phase
-recon
-
-## Next Steps
-1. curl 探测目标
-2. 识别技术栈和入口点
-
-## Key Artifacts
-
-## Flags Found
-(无)
-EOF
-
-# 初始化空看板
-cat > "$WORK_DIR/board.md" << 'EOF'
-# Board
-
-## Ideas
-
-| ID | Status | Idea | Result | Updated |
-|----|--------|------|--------|---------|
-
-## Memory
-
-| ID | Kind | Content | Source | Updated |
-|----|------|---------|--------|---------|
-EOF
-
-touch "$WORK_DIR/guidance.md"
-touch "$WORK_DIR/dead_ends.md"
-
-# 启动 branch daemon (后台长驻)
-python3 "$(dirname "$0")/branch.py" daemon --work-dir "$WORK_DIR" &
-BRANCH_DAEMON_PID=$!
-echo "Branch daemon started (PID: $BRANCH_DAEMON_PID)"
-
-# 清理函数: 挑战结束时 shutdown daemon
-cleanup() {
-    python3 "$(dirname "$0")/branch.py" shutdown --work-dir "$WORK_DIR" 2>/dev/null
-    kill $BRANCH_DAEMON_PID 2>/dev/null
-}
-trap cleanup EXIT
-
-# ── 启动 Hermes 监控 (background bash 循环) ──
-# monitor.py 每 10s tail codex.log，有新日志增量时调 hermes agent
-# Hermes agent 看到日志增量后主动判断该不该给建议/搜索/拦
-# 不依赖 gateway/cronjob，直接后台 bash 循环
-MONITOR_LOOP_PID=""
-if [ -f "$SCRIPT_DIR/hermes_monitor.md" ]; then
-    bash -c '
-        SCRIPT_DIR="'"$SCRIPT_DIR"'"
-        WORK_DIR="'"$WORK_DIR"'"
-        while true; do
-            OUTPUT=$(python3 "$SCRIPT_DIR/monitor.py" --work-dir "$WORK_DIR" 2>/dev/null)
-            if [ -n "$OUTPUT" ]; then
-                hermes chat -q "你是 CTF 监督者。以下是 monitor.py 收集的 Codex 最新进展:
-$OUTPUT
-请读 $SCRIPT_DIR/hermes_monitor.md 获取详细指令，然后按指令执行。
-执行完毕后回复简短摘要。" -t terminal,file,web,search --quiet 2>/dev/null || true
-            fi
-            sleep 10
-        done
-    ' &
-    MONITOR_LOOP_PID=$!
-fi
-
-# ── 清理函数 ──
-cleanup() {
-    kill $MONITOR_LOOP_PID 2>/dev/null || true
-    python3 "$SCRIPT_DIR/branch.py" shutdown --work-dir "$WORK_DIR" 2>/dev/null || true
-    kill $BRANCH_DAEMON_PID 2>/dev/null || true
-}
-trap cleanup EXIT
-
-# ── 自动续跑循环 (借鉴 BreachWeave ralph-loop) ──
-# Ctrl+C 不续跑
-INTERRUPTED=0
-trap 'INTERRUPTED=1' SIGINT SIGTERM
-
-MAX_RETRIES=10
-RETRY=0
-while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
-    echo "=== Codex round $((RETRY+1))/$MAX_RETRIES ==="
-
-    cd "$WORK_DIR"
-    codex exec --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust \
-      --ignore-rules --disable guardian_approval -c model_reasoning_effort="medium" \
-      "目标: $TARGET_URL
-背景: $HINT
-
-先读 board.md 了解当前 ideas 和 memory 状态。
-再读 progress.md 了解当前进度。
-然后继续解题。
-每次工具调用后更新 progress.md。" \
-      > codex.log 2>&1 || true
-
-    # Ctrl+C 被按下 -> 不续跑
-    if [ $INTERRUPTED -eq 1 ]; then break; fi
-
-    # 检查 progress.md 的 Flags Found 段 (Codex 主动声明的，不碰 codex.log)
-    FLAGS=$(awk '/^## *Flags Found/{f=1;next} /^##/{f=0} f' "$WORK_DIR/progress.md" | grep -v '^(无)' | grep -v '^$' | head -1)
-    if [ -n "$FLAGS" ]; then
-        echo "=== FLAG FOUND! ==="
-        echo "$FLAGS"
-        break
-    fi
-
-    # Codex 正常退出但没 flag，继续
-    RETRY=$((RETRY+1))
-    if [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; then
-        echo "No flag yet, retrying in 3s... ($RETRY/$MAX_RETRIES)"
-        sleep 3
-    fi
+# 参数解析
+CHALLENGE_TYPE="" TARGET_URL="" ATTACHMENT="" HINT=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --type)       CHALLENGE_TYPE="$2"; shift 2 ;;
+        --url)        TARGET_URL="$2"; shift 2 ;;
+        --attachment) ATTACHMENT="$2"; shift 2 ;;
+        --hint)       HINT="$2"; shift 2 ;;
+        *) exit 1 ;;
+    esac
 done
 
-echo "Done. Work dir: $WORK_DIR"
-echo "Log: $WORK_DIR/codex.log"
+# 工作目录: web 用 host_port, crypto/misc 用文件名
+case "$CHALLENGE_TYPE" in
+    web)        WORK_DIR="challenges/manual_$(echo $TARGET_URL | sed 's|https\?://||;s|[:/]|_|g')" ;;
+    crypto|misc) WORK_DIR="challenges/manual_$(basename "$ATTACHMENT" | sed 's/\.[^.]*$//')"
+                 cp "$ATTACHMENT" "$WORK_DIR/"  # 复制附件到工作目录 ;;
+esac
+
+# 初始化 progress.md / board.md / guidance.md / dead_ends.md / hermes.log
+# (progress.md 按题型区分初始 Next Steps)
+# ...
+
+# 按题型构建 Codex prompt
+case "$CHALLENGE_TYPE" in
+    web)        CODEX_PROMPT="目标: $TARGET_URL\n背景: $HINT\n先读 strategies/web.md ..." ;;
+    crypto|misc) CODEX_PROMPT="附件: $ATTACHMENT\n背景: $HINT\n先读 strategies/$CHALLENGE_TYPE.md ..." ;;
+esac
+
+# 启动 branch daemon + Hermes 监控循环 (Hermes 输出写 hermes.log)
+# ...
+
+# 自动续跑循环
+INTERRUPTED=0
+trap 'INTERRUPTED=1' SIGINT SIGTERM  # Ctrl+C 不续跑
+
+RETRY=0
+while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
+    codex exec --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust \
+      --ignore-rules --disable guardian_approval -c model_reasoning_effort="medium" \
+      "$CODEX_PROMPT" > codex.log 2>&1 || true
+
+    if [ $INTERRUPTED -eq 1 ]; then break; fi
+
+    # 检查 progress.md 的 Flags Found 段
+    FLAGS=$(awk '/^## *Flags Found/{f=1;next} /^##/{f=0} f' progress.md | grep -v '^(无)' | grep -v '^$')
+    if [ -n "$FLAGS" ]; then echo "FLAG FOUND: $FLAGS"; break; fi
+
+    RETRY=$((RETRY+1)); sleep 3
+done
 ```
 
 ### 8.2 完整启动流程
 
+**方式一: Web 面板 (推荐)**
+
 ```
 1. cd ~/ctf-agent
-2. ./run.sh "http://target:port" "这是XX系统，可能存在SQL注入"
-3. Codex 在后台启动，开始解题
-4. Hermes 开始持续监控
-5. 人工也可以随时看 progress.md 了解进度
-6. flag 找到后 Codex 输出到日志和 progress.md
+2. python3 dashboard.py
+3. 浏览器打开 http://localhost:8080
+4. 选择题目类型，填写 URL 或附件路径 + 背景信息，点击启动
+5. 页面实时展示: 左侧 Codex 日志，右侧 Hermes 日志，底部状态栏
+6. 点击停止或等 flag 自动找到
+```
+
+**方式二: 命令行**
+
+```
+1. cd ~/ctf-agent
+2. ./run.sh --type web --url "http://target:port" --hint "背景信息"
+   ./run.sh --type crypto --attachment "/path/to/file.zip" --hint "RSA"
+3. Codex 启动解题，Hermes 开始持续监控
+4. tail -f challenges/manual_<name>/codex.log 看实时日志
+5. flag 找到后 Codex 输出到 progress.md 的 Flags Found 段
 ```
 
 ---
@@ -918,10 +862,12 @@ bash -c '
     while true; do
         OUTPUT=$(python3 "$SCRIPT_DIR/monitor.py" --work-dir "$WORK_DIR" 2>/dev/null)
         if [ -n "$OUTPUT" ]; then
+            echo "=== [$(date "+%H:%M:%S")] Hermes agent 被触发 ===" >> "$WORK_DIR/hermes.log"
             hermes chat -q "你是 CTF 监督者。以下是 monitor.py 收集的 Codex 最新进展:
 $OUTPUT
 请读 $SCRIPT_DIR/hermes_monitor.md 获取详细指令，然后按指令执行。
-执行完毕后回复简短摘要。" -t terminal,file,web,search --quiet 2>/dev/null || true
+执行完毕后回复简短摘要。" -t terminal,file,web,search --quiet >> "$WORK_DIR/hermes.log" 2>&1 || true
+            echo "" >> "$WORK_DIR/hermes.log"
         fi
         sleep 10
     done
@@ -959,16 +905,19 @@ Codex 的 guidance.md / dead_ends.md 通过 PostToolUse hook 实时注入，不�
 
 ## 11. 待实现清单
 
-### 11.1 第一阶段 -- 核心骨架 (先跑通单题)
+### 11.1 第一阶段 -- 核心骨架 (已完成)
 
-| 序号 | 任务 | 文件 | 优先级 |
-|------|------|------|--------|
-| 1 | 安装 Codex CLI | `npm install -g @openai/codex` | P0 |
-| 2 | 写 AGENTS.md (含 board.md 读取指令) | `~/ctf-agent/AGENTS.md` | P0 |
-| 3 | 写 run.sh (含自动续跑循环) | `~/ctf-agent/run.sh` | P0 |
-| 4 | 写 branch.py (daemon + CLI: spawn/status/kill/results/wait/shutdown) | `~/ctf-agent/branch.py` | P0 |
-| 5 | 写 monitor.py (10s轮询+board.md维护+卡住检测+anysearch) | `~/ctf-agent/monitor.py` | P0 |
-| 6 | 端到端测试 | 拿一个简单 CTF 题跑通 | P0 |
+| 序号 | 任务 | 文件 | 状态 |
+|------|------|------|------|
+| 1 | 安装 Codex CLI | `npm install -g @openai/codex` | done |
+| 2 | 写 AGENTS.md (通用指令 + 题型策略引导) | `~/ctf-agent/AGENTS.md` | done |
+| 3 | 写 run.sh (支持 web/crypto/misc + 自动续跑 + Hermes 监控) | `~/ctf-agent/run.sh` | done |
+| 4 | 写 branch.py (daemon + CLI: spawn/status/kill/results/wait/shutdown) | `~/ctf-agent/branch.py` | done |
+| 5 | 写 monitor.py (10s轮询+日志增量+flag检测+停滞检测) | `~/ctf-agent/monitor.py` | done |
+| 6 | PostToolUse hook (guidance/dead_ends 实时注入) | `~/ctf-agent/hooks/check_guidance.py` | done |
+| 7 | 题型策略拆分 (strategies/web.md, crypto.md, misc.md) | `~/ctf-agent/strategies/` | done |
+| 8 | Web 面板 (HTTP + SSE + 双日志面板 + 启停) | `~/ctf-agent/dashboard.py` + `dashboard.html` | done |
+| 9 | 端到端测试 | branch.py 9/9, monitor.py 4/4, hook 实测, dashboard API 5/5 | done |
 
 ### 11.2 第二阶段 -- 看板质量优化
 
@@ -1008,6 +957,7 @@ Codex 的 guidance.md / dead_ends.md 通过 PostToolUse hook 实时注入，不�
 | 竞赛适配 | 批量调度 | 重试+Session Rotation | Planner多题调度+自动续跑 | 自动续跑 (后续加多题) |
 | 外部搜索 | 无 | 无 | security_kimi_search | anysearch (Hermes主动搜WP/CVE/绕过技巧) |
 | 建议分级 | 无 | 无 | 单一 steer | 软建议 + 硬约束 |
+| 监控面板 | 无 | dashboard (8080) | 无 | Web 面板 (双日志 SSE 实时推送) |
 
 本方案的核心优势：
 1. **异步并行试探** -- BreachWeave、newmapta 和 CHYing 都是单线程探索，本方案遇到分岔路口可以异步 spawn 多个 subagent 并行试，某个 FEASIBLE 后可立即 kill 其他省时间，主进程不被阻塞
@@ -1046,3 +996,6 @@ Codex 的 guidance.md / dead_ends.md 通过 PostToolUse hook 实时注入，不�
 | hook 配置 | 全局 ~/.codex/hooks.json | 工作目录不固定 (每次挑战不同)，全局配置 + hook 脚本从 stdin cwd 找文件 |
 | flag 检测 | progress.md Flags Found 段 | 不猜 flag 格式 (前缀/内容/模板不确定)，靠 Codex 主动声明 |
 | Ctrl+C | SIGINT/SIGTERM trap + INTERRUPT 标志 | 用户中断不续跑，只有 Codex 自然退出才续跑 |
+| 题型策略拆分 | strategies/ 目录，AGENTS.md 只保留通用原则 | 三种题型流程差异大，全塞 AGENTS.md 浪费上下文，按需读取更合理 |
+| 题型支持 | web/crypto/misc 三种 | CTF 不只有 web 题，crypto/misc 有本地附件，run.sh 按类型区分 prompt 和附件处理 |
+| 监控面板 | dashboard.py (stdlib HTTP + SSE) | 命令行只看到 Hermes 输出，需要同时看 Codex 日志；零依赖，和项目风格一致 |

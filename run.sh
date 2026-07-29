@@ -2,13 +2,15 @@
 #
 # run.sh -- CTF Agent 启动脚本
 #
-# 用法: ./run.sh <target_url> <background_hint>
-# 示例: ./run.sh "http://target:8080" "这是XX系统，可能存在SQL注入"
+# 用法:
+#   ./run.sh --type web --url "http://target:8080" --hint "SQL注入"
+#   ./run.sh --type crypto --attachment "/path/to/challenge.zip" --hint "RSA"
+#   ./run.sh --type misc --attachment "/path/to/file.zip" --hint "隐写"
 #
 # 功能:
 #   1. 创建挑战工作目录 + 初始化文件
 #   2. 启动 branch.py daemon (subagent 管理)
-#   3. 启动 Hermes 监控 (background loop + agent, 10s 轮询)
+#   3. 启动 Hermes 监控 (background loop, 输出写 hermes.log)
 #   4. 自动续跑 Codex (最多 10 轮)
 #   5. 退出时清理 daemon + Hermes 监控
 
@@ -16,24 +18,58 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# ─── 参数检查 ───
+# ─── 参数解析 ───
 
-if [ $# -lt 1 ]; then
-    echo "用法: $0 <target_url> [background_hint]"
-    echo "示例: $0 \"http://target:8080\" \"这是XX系统，可能存在SQL注入\""
+CHALLENGE_TYPE=""
+TARGET_URL=""
+ATTACHMENT=""
+HINT=""
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --type)       CHALLENGE_TYPE="$2"; shift 2 ;;
+        --url)        TARGET_URL="$2"; shift 2 ;;
+        --attachment) ATTACHMENT="$2"; shift 2 ;;
+        --hint)       HINT="$2"; shift 2 ;;
+        *) echo "未知参数: $1"; exit 1 ;;
+    esac
+done
+
+if [ -z "$CHALLENGE_TYPE" ]; then
+    echo "用法:"
+    echo "  $0 --type web --url \"http://target:8080\" --hint \"背景\""
+    echo "  $0 --type crypto --attachment \"/path/to/file.zip\" --hint \"背景\""
+    echo "  $0 --type misc --attachment \"/path/to/file.zip\" --hint \"背景\""
     exit 1
 fi
 
-TARGET_URL="$1"
-HINT="${2:-}"
-MAX_RETRIES=10
+case "$CHALLENGE_TYPE" in
+    web)
+        if [ -z "$TARGET_URL" ]; then echo "web 类型需要 --url"; exit 1; fi
+        WORK_DIR_NAME="manual_$(echo "$TARGET_URL" | sed 's|https\?://||;s|[:/]|_|g')"
+        ;;
+    crypto|misc)
+        if [ -z "$ATTACHMENT" ]; then echo "$CHALLENGE_TYPE 类型需要 --attachment"; exit 1; fi
+        if [ ! -f "$ATTACHMENT" ]; then echo "附件不存在: $ATTACHMENT"; exit 1; fi
+        # 复制附件到工作目录
+        ATTACHMENT_NAME=$(basename "$ATTACHMENT")
+        WORK_DIR_NAME="manual_${ATTACHMENT_NAME%.*}"
+        ;;
+    *)
+        echo "未知题目类型: $CHALLENGE_TYPE (支持: web, crypto, misc)"
+        exit 1
+        ;;
+esac
 
-# 工作目录: challenges/manual_<host>_<port>
-WORK_DIR_NAME="manual_$(echo "$TARGET_URL" | sed 's|https\?://||;s|[:/]|_|g')"
+MAX_RETRIES=10
 WORK_DIR="$SCRIPT_DIR/challenges/$WORK_DIR_NAME"
 
 echo "=== CTF Agent 启动 ==="
-echo "Target: $TARGET_URL"
+echo "Type: $CHALLENGE_TYPE"
+case "$CHALLENGE_TYPE" in
+    web)        echo "Target: $TARGET_URL" ;;
+    crypto|misc) echo "Attachment: $ATTACHMENT" ;;
+esac
 echo "Work dir: $WORK_DIR"
 echo ""
 
@@ -41,9 +77,18 @@ echo ""
 
 mkdir -p "$WORK_DIR/poc_scripts"
 
-# progress.md
-cat > "$WORK_DIR/progress.md" << EOF
+# crypto/misc: 复制附件到工作目录
+if [ -n "$ATTACHMENT" ]; then
+    cp "$ATTACHMENT" "$WORK_DIR/"
+    ATTACHMENT_IN_WORKDIR="$WORK_DIR/$(basename "$ATTACHMENT")"
+fi
+
+# progress.md -- 按类型区分初始内容
+case "$CHALLENGE_TYPE" in
+    web)
+        cat > "$WORK_DIR/progress.md" << EOF
 ## Target
+- Type: web
 - URL: $TARGET_URL
 - Background: $HINT
 - Start Time: $(date -Iseconds)
@@ -60,6 +105,29 @@ recon
 ## Flags Found
 (无)
 EOF
+        ;;
+    crypto|misc)
+        cat > "$WORK_DIR/progress.md" << EOF
+## Target
+- Type: $CHALLENGE_TYPE
+- Attachment: $ATTACHMENT_NAME
+- Background: $HINT
+- Start Time: $(date -Iseconds)
+
+## Current Phase
+recon
+
+## Next Steps
+1. 解压附件，识别文件类型
+2. 分析文件内容，寻找突破口
+
+## Key Artifacts
+
+## Flags Found
+(无)
+EOF
+        ;;
+esac
 
 # board.md (空看板)
 cat > "$WORK_DIR/board.md" << 'EOF'
@@ -79,6 +147,7 @@ EOF
 # 空文件
 touch "$WORK_DIR/guidance.md"
 touch "$WORK_DIR/dead_ends.md"
+touch "$WORK_DIR/hermes.log"
 
 echo "[run.sh] 工作目录初始化完成"
 
@@ -103,33 +172,31 @@ if [ ! -S "$WORK_DIR/branch.sock" ]; then
     exit 1
 fi
 
-# ─── 启动 Hermes 监控 (background loop) ───
+# ─── 启动 Hermes 监控 (background loop, 输出写 hermes.log) ───
 # monitor.py 每 10s tail codex.log，有新日志增量时调 hermes agent
-# Hermes agent 看到日志增量后主动判断该不该给建议/搜索/拦
-# 不依赖 gateway/cronjob，直接后台 bash 循环
+# Hermes agent 的输出写入 hermes.log (供 dashboard 实时展示)
 
 MONITOR_LOOP_PID=""
 
 if [ -f "$SCRIPT_DIR/hermes_monitor.md" ]; then
-    # 启动后台监控循环
     bash -c '
         SCRIPT_DIR="'"$SCRIPT_DIR"'"
         WORK_DIR="'"$WORK_DIR"'"
         INTERVAL=10
 
         while true; do
-            # 运行 monitor.py，捕获输出 (日志增量 + progress 状态)
             OUTPUT=$(python3 "$SCRIPT_DIR/monitor.py" --work-dir "$WORK_DIR" 2>/dev/null)
 
-            # 有输出 -> 调 hermes agent (Hermes 的眼睛看到新进展)
             if [ -n "$OUTPUT" ]; then
+                echo "=== [$(date "+%H:%M:%S")] Hermes agent 被触发 ===" >> "$WORK_DIR/hermes.log"
                 hermes chat -q "你是 CTF 监督者。以下是 monitor.py 收集的 Codex 最新进展:
 $OUTPUT
 
 请读 $SCRIPT_DIR/hermes_monitor.md 获取详细指令，然后按指令执行。
 执行完毕后回复简短摘要。" \
                     -t terminal,file,web,search \
-                    --quiet 2>/dev/null || true
+                    --quiet >> "$WORK_DIR/hermes.log" 2>&1 || true
+                echo "" >> "$WORK_DIR/hermes.log"
             fi
 
             sleep "$INTERVAL"
@@ -147,13 +214,11 @@ cleanup() {
     echo ""
     echo "[run.sh] 清理中..."
 
-    # 停止 Hermes 监控循环
     if [ -n "$MONITOR_LOOP_PID" ]; then
         kill $MONITOR_LOOP_PID 2>/dev/null || true
         echo "[run.sh] Hermes monitor loop stopped"
     fi
 
-    # 停止 branch daemon
     python3 "$SCRIPT_DIR/branch.py" shutdown --work-dir "$WORK_DIR" 2>/dev/null || true
     kill $BRANCH_DAEMON_PID 2>/dev/null || true
     echo "[run.sh] Done. Work dir: $WORK_DIR"
@@ -166,19 +231,40 @@ trap cleanup EXIT
 INTERRUPTED=0
 trap 'INTERRUPTED=1; echo "[run.sh] 收到中断信号，正在停止..."' SIGINT SIGTERM
 
+# 按题目类型构建 Codex prompt
+case "$CHALLENGE_TYPE" in
+    web)
+        CODEX_PROMPT="目标: $TARGET_URL
+背景: $HINT
+
+先读 strategies/web.md 了解 Web 题攻击流程。
+再读 board.md 了解当前 ideas 和 memory 状态。
+再读 progress.md 了解当前进度。
+然后继续解题。
+每次工具调用后更新 progress.md。"
+        ;;
+    crypto|misc)
+        CODEX_PROMPT="附件: $ATTACHMENT_IN_WORKDIR
+背景: $HINT
+
+这是一个 $CHALLENGE_TYPE 题目。附件已复制到工作目录。
+先读 strategies/$CHALLENGE_TYPE.md 了解 $CHALLENGE_TYPE 题攻击流程。
+再读 board.md 了解当前 ideas 和 memory 状态。
+再读 progress.md 了解当前进度。
+然后开始解题: 先解压/识别附件，分析文件内容，寻找 flag。
+每次工具调用后更新 progress.md。"
+        ;;
+esac
+
 RETRY=0
 while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
     echo ""
     echo "=== Codex round $((RETRY+1))/$MAX_RETRIES ==="
 
     cd "$WORK_DIR"
-    codex exec --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust --ignore-rules --disable guardian_approval -c model_reasoning_effort="medium" "目标: $TARGET_URL
-背景: $HINT
-
-先读 board.md 了解当前 ideas 和 memory 状态。
-再读 progress.md 了解当前进度。
-然后继续解题。
-每次工具调用后更新 progress.md。" \
+    codex exec --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust \
+      --ignore-rules --disable guardian_approval -c model_reasoning_effort="medium" \
+      "$CODEX_PROMPT" \
         > codex.log 2>&1 || true
 
     # Ctrl+C 被按下 -> 不续跑，直接退出
@@ -204,7 +290,7 @@ while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
     fi
 done
 
-if [ $RETRY -ge $MAX_RETRIES ]; then
+if [ $RETRY -ge $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; then
     echo ""
     echo "[run.sh] 达到最大重试次数 ($MAX_RETRIES)，退出"
 fi
