@@ -61,6 +61,12 @@ class ChallengeState:
 
     def start(self, process: subprocess.Popen, work_dir: Path) -> None:
         with self._lock:
+            # 清理残留进程
+            if self._process is not None and self._process.poll() is None:
+                try:
+                    os.killpg(os.getpgid(self._process.pid), signal.SIGTERM)
+                except Exception:
+                    pass
             self._process = process
             self._work_dir = work_dir
 
@@ -72,7 +78,13 @@ class ChallengeState:
                 os.killpg(os.getpgid(self._process.pid), signal.SIGTERM)
             except ProcessLookupError:
                 pass
-            self._process.wait(timeout=5)
+            try:
+                self._process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                try:
+                    os.killpg(os.getpgid(self._process.pid), signal.SIGKILL)
+                except Exception:
+                    pass
             return True
 
     def clear(self) -> None:
@@ -129,6 +141,26 @@ def find_latest_challenge() -> Optional[Path]:
         return None
     dirs = sorted(CHALLENGES_DIR.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True)
     return dirs[0] if dirs else None
+
+
+def kill_all_ctf_processes() -> list[str]:
+    """杀死所有 CTF Agent 相关进程，返回被杀的 PID 列表。"""
+    killed = []
+    # 先杀当前管理的挑战进程
+    if STATE._process is not None:
+        try:
+            os.killpg(os.getpgid(STATE._process.pid), signal.SIGKILL)
+            killed.append(f"run.sh(PID={STATE._process.pid})")
+        except Exception:
+            pass
+    STATE.clear()
+    # 再用 pkill 清理所有残留
+    patterns = ["run.sh", "branch.py", "monitor.py", "codex exec", "hermes chat"]
+    for pat in patterns:
+        r = subprocess.run(["pkill", "-f", pat], capture_output=True)
+        if r.returncode == 0:
+            killed.append(pat)
+    return killed
 
 
 def tail_file(path: Path, offset: int) -> tuple[str, int]:
@@ -193,6 +225,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._handle_start(data)
         elif self.path == "/api/stop":
             self._handle_stop()
+        elif self.path == "/api/killall":
+            self._handle_killall()
         else:
             self._json(HTTPStatus.NOT_FOUND, {"error": "not found"})
 
@@ -244,25 +278,23 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_header("Connection", "keep-alive")
         self.end_headers()
 
-        work_dir = STATE.work_dir or find_latest_challenge()
-        if not work_dir:
-            self.wfile.write(sse_format("error", "No challenge directory"))
-            return
-
-        log_path = work_dir / log_filename
         offset = 0
-        # 先发送已有内容
-        content, offset = tail_file(log_path, 0)
-        if content:
-            try:
-                self.wfile.write(sse_format("batch", content))
-                self.wfile.flush()
-            except BrokenPipeError:
-                return
+        current_work_dir = None
 
-        # 增量推送
         while True:
             try:
+                # 每次循环重新读 work_dir，处理新挑战启动/切换
+                work_dir = STATE.work_dir or find_latest_challenge()
+                if not work_dir:
+                    time.sleep(1.0)
+                    continue
+
+                # work_dir 变了 -> 重置 offset，先发全量
+                if work_dir != current_work_dir:
+                    current_work_dir = work_dir
+                    offset = 0
+
+                log_path = work_dir / log_filename
                 content, offset = tail_file(log_path, offset)
                 if content:
                     self.wfile.write(sse_format("append", content))
@@ -270,6 +302,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 time.sleep(0.5)
             except (BrokenPipeError, ConnectionResetError):
                 break
+            except Exception:
+                time.sleep(1.0)
 
     def _handle_start(self, data: dict) -> None:
         if STATE.is_running:
@@ -299,16 +333,31 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if ctype == "web":
             dir_name = "manual_" + re.sub(r"https?://", "", url).replace(":", "_").replace("/", "_")
         else:
-            dir_name = "manual_" + Path(attachment).stem
+            import hashlib
+            short_hash = hashlib.md5(attachment.encode()).hexdigest()[:12]
+            dir_name = f"manual_{ctype}_{short_hash}"
         work_dir = CHALLENGES_DIR / dir_name
 
         proc = subprocess.Popen(
             cmd,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             preexec_fn=os.setsid,  # 新进程组，方便 kill
         )
         STATE.start(proc, work_dir)
+
+        # 等 2 秒看进程是否秒退（附件不存在/参数错误等）
+        time.sleep(2)
+        if proc.poll() is not None:
+            # 进程已退出，读取输出作为错误信息
+            out = proc.stdout.read(4096).decode(errors="replace").strip() if proc.stdout else ""
+            STATE.clear()
+            # 取最后几行作为错误
+            lines = [l for l in out.split("\n") if l.strip()]
+            err_msg = lines[-1] if lines else "进程启动后立即退出"
+            self._json(HTTPStatus.BAD_REQUEST, {"error": err_msg})
+            return
 
         # 后台线程监控进程退出
         def _watcher():
@@ -325,6 +374,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._json(HTTPStatus.OK, {"stopped": True})
         else:
             self._json(HTTPStatus.OK, {"stopped": False, "reason": "no running process"})
+
+    def _handle_killall(self) -> None:
+        """杀死所有 CTF 相关进程。"""
+        killed = kill_all_ctf_processes()
+        self._json(HTTPStatus.OK, {"killed": killed})
 
     # ── utils ──
 

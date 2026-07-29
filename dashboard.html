@@ -83,6 +83,7 @@
   <input type="text" id="hintInput" class="hint-input" placeholder="题目背景信息" />
   <button class="btn btn-start" id="btnStart" onclick="startChallenge()">启动</button>
   <button class="btn btn-stop" id="btnStop" onclick="stopChallenge()" disabled>停止</button>
+  <button class="btn btn-kill" id="btnKillAll" onclick="killAll()" style="background:#6e2d0d;border-color:#6e2d0d;color:#fff">Kill All</button>
 </div>
 
 <!-- Status Bar -->
@@ -104,7 +105,7 @@
   </div>
   <div class="log-panel">
     <div class="log-header">
-      <span><span class="dot dot-hermes"></span>Hermes 思考与决策</span>
+<span><span class="dot dot-hermes"></span>Hermes 实时日志</span>
       <span class="auto-scroll" id="hermesAutoScroll" onclick="toggleAutoScroll('hermes')">⏸ 自动滚动</span>
     </div>
     <div class="log-body" id="hermesLog"></div>
@@ -144,14 +145,16 @@ async function startChallenge() {
   const data = await resp.json();
   if (!resp.ok) { alert(data.error || '启动失败'); return; }
 
-  document.getElementById('btnStart').disabled = true;
-  document.getElementById('btnStop').disabled = false;
-  document.getElementById('statusBadge').textContent = 'RUNNING';
-  document.getElementById('statusBadge').className = 'status-badge status-running';
-  document.getElementById('workDir').textContent = data.work_dir || '';
+    document.getElementById('btnStart').disabled = true;
+    document.getElementById('btnStop').disabled = false;
+    document.getElementById('statusBadge').textContent = 'RUNNING';
+    document.getElementById('statusBadge').className = 'status-badge status-running';
+    document.getElementById('workDir').textContent = data.work_dir || '';
 
-  connectSSE();
-  startStatusPolling();
+    connectSSE();
+    startStatusPolling();
+    // 立即拉一次状态确认进程确实在跑
+    setTimeout(pollStatus, 500);
 }
 
 async function stopChallenge() {
@@ -169,25 +172,43 @@ function onChallengeEnded() {
   if (statusTimer) { clearInterval(statusTimer); statusTimer = null; }
 }
 
+// ─── Kill All ───
+async function killAll() {
+  const resp = await fetch('/api/killall', { method: 'POST' });
+  const data = await resp.json();
+  onChallengeEnded();
+  document.getElementById('codexLog').textContent = '';
+  document.getElementById('hermesLog').textContent = '';
+  alert('已清理: ' + (data.killed || []).join(', '));
+}
+
 // ─── SSE ───
 function connectSSE() {
   if (codexES) codexES.close();
   if (hermesES) hermesES.close();
 
   codexES = new EventSource('/api/logs/codex');
-  codexES.addEventListener('batch', e => appendLog('codex', e.data));
   codexES.addEventListener('append', e => appendLog('codex', e.data));
-  codexES.addEventListener('error', e => { if (codexES.readyState === 2) setTimeout(() => { if (!document.getElementById('btnStop').disabled) connectCodexSSE(); }, 2000); });
+  codexES.addEventListener('error', e => {
+    if (codexES.readyState === 2 && !document.getElementById('btnStart').disabled) {
+      setTimeout(() => { if (!document.getElementById('btnStart').disabled) reconnectSSE(); }, 2000);
+    }
+  });
 
   hermesES = new EventSource('/api/logs/hermes');
-  hermesES.addEventListener('batch', e => appendLog('hermes', e.data));
   hermesES.addEventListener('append', e => appendLog('hermes', e.data));
+  hermesES.addEventListener('error', e => {
+    if (hermesES.readyState === 2 && !document.getElementById('btnStart').disabled) {
+      setTimeout(() => { if (!document.getElementById('btnStart').disabled) reconnectSSE(); }, 2000);
+    }
+  });
 }
 
-function connectCodexSSE() {
+function reconnectSSE() {
   codexES = new EventSource('/api/logs/codex');
-  codexES.addEventListener('batch', e => appendLog('codex', e.data));
   codexES.addEventListener('append', e => appendLog('codex', e.data));
+  hermesES = new EventSource('/api/logs/hermes');
+  hermesES.addEventListener('append', e => appendLog('hermes', e.data));
 }
 
 function appendLog(panel, text) {
@@ -223,9 +244,15 @@ async function pollStatus() {
     const subs = (data.subagents || []).map(s => `${s.id}(${s.status})`).join(', ');
     document.getElementById('subagentsVal').textContent = subs || '-';
 
-    if (!data.running && !document.getElementById('btnStart').disabled) {
-      // 已结束
-    } else if (!data.running && document.getElementById('btnStart').disabled) {
+    if (data.running && document.getElementById('btnStart').disabled === false) {
+      // 页面刷新后恢复运行状态
+      document.getElementById('btnStart').disabled = true;
+      document.getElementById('btnStop').disabled = false;
+      document.getElementById('statusBadge').textContent = 'RUNNING';
+      document.getElementById('statusBadge').className = 'status-badge status-running';
+      document.getElementById('workDir').textContent = data.work_dir || '';
+    }
+    if (!data.running && document.getElementById('btnStart').disabled) {
       onChallengeEnded();
     }
   } catch (e) {}

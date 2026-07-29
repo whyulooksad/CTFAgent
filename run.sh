@@ -51,9 +51,10 @@ case "$CHALLENGE_TYPE" in
     crypto|misc)
         if [ -z "$ATTACHMENT" ]; then echo "$CHALLENGE_TYPE 类型需要 --attachment"; exit 1; fi
         if [ ! -f "$ATTACHMENT" ]; then echo "附件不存在: $ATTACHMENT"; exit 1; fi
-        # 复制附件到工作目录
+        # 复制附件到工作目录，用短哈希避免 socket 路径超长
         ATTACHMENT_NAME=$(basename "$ATTACHMENT")
-        WORK_DIR_NAME="manual_${ATTACHMENT_NAME%.*}"
+        SHORT_HASH=$(printf '%s' "$ATTACHMENT" | md5sum | cut -c1-12)
+        WORK_DIR_NAME="manual_${CHALLENGE_TYPE}_${SHORT_HASH}"
         ;;
     *)
         echo "未知题目类型: $CHALLENGE_TYPE (支持: web, crypto, misc)"
@@ -237,7 +238,7 @@ case "$CHALLENGE_TYPE" in
         CODEX_PROMPT="目标: $TARGET_URL
 背景: $HINT
 
-先读 strategies/web.md 了解 Web 题攻击流程。
+先读 $SCRIPT_DIR/strategies/web.md 了解 Web 题攻击流程。
 再读 board.md 了解当前 ideas 和 memory 状态。
 再读 progress.md 了解当前进度。
 然后继续解题。
@@ -248,7 +249,7 @@ case "$CHALLENGE_TYPE" in
 背景: $HINT
 
 这是一个 $CHALLENGE_TYPE 题目。附件已复制到工作目录。
-先读 strategies/$CHALLENGE_TYPE.md 了解 $CHALLENGE_TYPE 题攻击流程。
+先读 $SCRIPT_DIR/strategies/$CHALLENGE_TYPE.md 了解 $CHALLENGE_TYPE 题攻击流程。
 再读 board.md 了解当前 ideas 和 memory 状态。
 再读 progress.md 了解当前进度。
 然后开始解题: 先解压/识别附件，分析文件内容，寻找 flag。
@@ -265,7 +266,7 @@ while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
     codex exec --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust \
       --ignore-rules --disable guardian_approval -c model_reasoning_effort="medium" \
       "$CODEX_PROMPT" \
-        > codex.log 2>&1 || true
+        < /dev/null > codex.log 2>&1 || true
 
     # Ctrl+C 被按下 -> 不续跑，直接退出
     if [ $INTERRUPTED -eq 1 ]; then
