@@ -1,0 +1,24 @@
+{
+  "branch_001": {
+    "id": "branch_001",
+    "name": "public-source",
+    "pid": 83449,
+    "started_at": 1785435637.285102,
+    "timeout": 300,
+    "status": "timeout",
+    "exit_code": null,
+    "result_file": "branch_result_branch_001.md",
+    "finished_at": 1785435937.8230393
+  },
+  "branch_002": {
+    "id": "branch_002",
+    "name": "session-blackbox",
+    "pid": 83483,
+    "started_at": 1785435637.3439267,
+    "timeout": 300,
+    "status": "done",
+    "exit_code": 0,
+    "result_file": "branch_result_branch_002.md",
+    "finished_at": 1785435860.0189934
+  }
+}

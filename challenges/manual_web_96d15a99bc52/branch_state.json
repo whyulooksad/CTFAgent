@@ -1,0 +1,24 @@
+{
+  "branch_001": {
+    "id": "branch_001",
+    "name": "shop_logic",
+    "pid": 78837,
+    "started_at": 1785434909.2102077,
+    "timeout": 300,
+    "status": "killed",
+    "exit_code": null,
+    "result_file": "branch_result_branch_001.md",
+    "finished_at": 1785435078.4690478
+  },
+  "branch_002": {
+    "id": "branch_002",
+    "name": "action_parser",
+    "pid": 78890,
+    "started_at": 1785434909.2677827,
+    "timeout": 300,
+    "status": "killed",
+    "exit_code": null,
+    "result_file": "branch_result_branch_002.md",
+    "finished_at": 1785435078.5231307
+  }
+}

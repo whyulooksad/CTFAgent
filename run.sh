@@ -191,19 +191,36 @@ if [ -f "$SCRIPT_DIR/hermes_monitor.md" ]; then
         SCRIPT_DIR="'"$SCRIPT_DIR"'"
         WORK_DIR="'"$WORK_DIR"'"
         INTERVAL=10
+        HERMES_SESSION=""
 
         while true; do
             OUTPUT=$(python3 "$SCRIPT_DIR/monitor.py" --work-dir "$WORK_DIR" 2>/dev/null)
 
             if [ -n "$OUTPUT" ]; then
                 echo "=== [$(date "+%H:%M:%S")] Hermes agent 被触发 ===" >> "$WORK_DIR/hermes.log"
-                hermes chat -q "你是 CTF 监督者。以下是 monitor.py 收集的 Codex 最新进展:
+
+                if [ -z "$HERMES_SESSION" ]; then
+                    # 第一次触发：新会话，给完整指令，捕获 session_id
+                    RESP=$(hermes chat -q "你是 CTF 监督者。以下是 monitor.py 收集的 Codex 最新进展:
 $OUTPUT
 
 请读 $SCRIPT_DIR/hermes_monitor.md 获取详细指令，然后按指令执行。
 执行完毕后回复简短摘要。" \
-                    -t terminal,file,web,search \
-                    --quiet >> "$WORK_DIR/hermes.log" 2>&1 || true
+                        -t terminal,file,web,search \
+                        --quiet 2>&1) || true
+                    HERMES_SESSION=$(echo "$RESP" | grep -oP "session_id:\s*\K[^\s]+" | head -1)
+                    echo "$RESP" >> "$WORK_DIR/hermes.log"
+                else
+                    # 后续触发：复用会话，简短 prompt 即可
+                    hermes chat -q "Codex 最新进展:
+$OUTPUT
+
+请按指令执行，回复简短摘要。" \
+                        -r "$HERMES_SESSION" \
+                        -t terminal,file,web,search \
+                        --quiet >> "$WORK_DIR/hermes.log" 2>&1 || true
+                fi
+
                 echo "" >> "$WORK_DIR/hermes.log"
             fi
 
