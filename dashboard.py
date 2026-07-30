@@ -17,6 +17,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -339,7 +340,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
             short_hash = hashlib.md5(url.encode()).hexdigest()[:12]
             dir_name = f"manual_web_{short_hash}"
         else:
-            import hashlib
             short_hash = hashlib.md5(attachment.encode()).hexdigest()[:12]
             dir_name = f"manual_{ctype}_{short_hash}"
         work_dir = CHALLENGES_DIR / dir_name
