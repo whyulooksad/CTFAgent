@@ -244,6 +244,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._json(HTTPStatus.NOT_FOUND, {"error": "dashboard.html not found"})
 
     def _handle_status(self) -> None:
+        # 没有正在运行的挑战且没有 work_dir -> 返回空状态，不读旧挑战目录
+        if not STATE.is_running and not STATE.work_dir:
+            self._json(HTTPStatus.OK, {"running": False})
+            return
+
         work_dir = STATE.work_dir or find_latest_challenge()
         if not work_dir or not work_dir.exists():
             self._json(HTTPStatus.OK, {"running": False})
