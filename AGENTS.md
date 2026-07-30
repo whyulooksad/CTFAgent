@@ -18,8 +18,8 @@
 |------|------|------|
 | `progress.md` | 你写 | 轻量状态 (phase, target, next_steps, flags)，每次工具调用后更新 |
 | `board.md` | Hermes 写，你只读 | 供你 compact/续跑后恢复上下文 (ideas + memory)，启动/compact后/换路线时读 |
-| `guidance.md` | Hermes 写 | 主动帮你找新路的思路和情报（搜 CTF WP/CVE/绕过技巧等），软建议，可忽略 |
-| `dead_ends.md` | Hermes 写 | 硬约束，卡住了（方向停滞/命令重复/无输出）和走死路了（重复失败路径）都写这里，禁止重试 |
+| `guidance.md` | Hermes 写 | 主动帮你找新路的思路和情报（搜 CTF WP/CVE/绕过技巧等），软建议，可参考，选择性听从（如果你对你目前的思路有把握，就按自己的来；如果你一筹莫展，可以参考这里的建议） |
+| `dead_ends.md` | Hermes 写 | 硬约束，卡住了（方向停滞/命令重复/无输出）和走死路了（重复失败路径）都写这里，要绝对听从。 |
 | `branch_result_{id}.md` | Subagent 写 | 试探结果，你通过 branch.py results 读取 |
 
 ### 实时注入机制

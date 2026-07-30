@@ -1,0 +1,1614 @@
+Reading additional input from stdin...
+OpenAI Codex v0.145.0
+--------
+workdir: /home/stw/ctf-agent/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80
+model: gpt-5.6-sol
+provider: openai
+approval: never
+sandbox: danger-full-access
+reasoning effort: medium
+reasoning summaries: none
+session id: 019fb3f0-6776-7d20-82a2-ed493482c5e3
+--------
+user
+目标 http://2273095efcf1270253338a5c.http-ctf2.dasctf.com:80，首页疑似 Spring Boot/Thymeleaf。只试探常见 actuator/error/h2/swagger/static 路由、版本泄露、路径绕过或可直接利用的 Spring 暴露面。避免大规模扫描。给出 FEASIBLE/INFEASIBLE、证据和请求。
+
+---
+完成后将结果写入 /home/stw/ctf-agent/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/branch_result_branch_002.md，格式:
+## Branch Result
+direction: spring_surface
+subagent_id: branch_002
+status: FEASIBLE | INFEASIBLE
+### 发现
+(列出关键发现)
+### 命令和结果
+(关键命令及其输出)
+### 结论
+(可行/不可行 + 建议)
+warning: `--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation.
+warning: `--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation.
+codex
+我会按限定范围做小规模、针对性的 Spring 暴露面探测，并保留每个关键请求的状态码、响应头和短摘要。先恢复看板与现有进度，再按 Web 策略执行。
+exec
+/bin/bash -lc "pwd && rg --files -g 'board.md' -g 'progress.md' -g 'strategies/web.md' -g 'branch_result_branch_002.md' -g 'branch.py' . .. | sort && sed -n '1,240p' board.md 2>/dev/null && sed -n '1,200p' progress.md 2>/dev/null && sed -n '1,260p' strategies/web.md 2>/dev/null" in /home/stw/ctf-agent/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80
+ exited 2 in 0ms:
+/home/stw/ctf-agent/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80
+../manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/board.md
+../manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+../manual_370debe8ad762a09ea90e53f.http-ctf2.dasctf.com_80/board.md
+../manual_370debe8ad762a09ea90e53f.http-ctf2.dasctf.com_80/branch_result_branch_002.md
+../manual_370debe8ad762a09ea90e53f.http-ctf2.dasctf.com_80/progress.md
+../manual_37f749d8f5e53e90a9692a4f.http-ctf2.dasctf.com_80/board.md
+../manual_37f749d8f5e53e90a9692a4f.http-ctf2.dasctf.com_80/progress.md
+../manual_637b7ac6f87121ceab2a3f87.http-ctf2.dasctf.com_80/board.md
+../manual_637b7ac6f87121ceab2a3f87.http-ctf2.dasctf.com_80/progress.md
+../manual_misc_cadb1bd84285/board.md
+../manual_misc_cadb1bd84285/progress.md
+./board.md
+./progress.md
+# Board
+
+## Ideas
+
+| ID | Status | Idea | Result | Updated |
+|----|--------|------|--------|---------|
+
+## Memory
+
+| ID | Kind | Content | Source | Updated |
+|----|------|---------|--------|---------|
+## Target
+- Type: web
+- URL: http://2273095efcf1270253338a5c.http-ctf2.dasctf.com:80
+- Background: 
+- Start Time: 2026-07-31T00:50:24+08:00
+
+## Current Phase
+login_sqli_recon
+
+## Next Steps
+1. 建立 `/login` 缺参、空值和随机凭据响应基线
+2. 低频验证 username/password 的布尔、报错与认证绕过载荷
+3. 汇总可复现证据到 `branch_result_branch_001.md`
+
+## Key Artifacts
+- 已读取 `/home/stw/ctf-agent/strategies/web.md`
+- `board.md` 当前为空，无历史路线或硬约束
+- `/tmp/ctf_home_response.txt`: 首页完整响应
+- 首页为 `easy_web` 登录页；GET `/login`，参数 `username`、`password`
+- HTML 含 Thymeleaf 命名空间，后端大概率为 Spring Boot/Thymeleaf；前置为 openresty
+- 当前工作目录无 `branch.py`，需从 `/home/stw/ctf-agent` 范围定位 daemon 客户端
+- 已定位 branch 客户端：`/home/stw/ctf-agent/branch.py`
+- `branch_001` (`login_sqli`) 正在验证登录 SQLi/认证绕过
+- 已复核 `board.md`：当前无既有发现或路线约束
+
+## Flags Found
+(无)
+
+hook: PostToolUse
+hook: PostToolUse Completed
+apply patch
+patch: completed
+/home/stw/ctf-agent/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+diff --git a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+index 011f169e01fe4596cc27f235f8506bfbda9afca0..7cb923c7b510ceabd582c6a4ca2414c4959265cd
+--- a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
++++ b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+@@ -5,12 +5,12 @@
+ - Start Time: 2026-07-31T00:50:24+08:00
+ 
+ ## Current Phase
+-login_sqli_recon
++spring_surface_recon
+ 
+ ## Next Steps
+-1. 建立 `/login` 缺参、空值和随机凭据响应基线
+-2. 低频验证 username/password 的布尔、报错与认证绕过载荷
+-3. 汇总可复现证据到 `branch_result_branch_001.md`
++1. 读取 Web 攻击策略并建立首页/404基线
++2. 低频探测常见 actuator/error/h2/swagger/static 暴露面及路径绕过
++3. 汇总可复现证据到 `branch_result_branch_002.md`
+ 
+ ## Key Artifacts
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`
+@@ -22,6 +22,7 @@
+ - 已定位 branch 客户端：`/home/stw/ctf-agent/branch.py`
+ - `branch_001` (`login_sqli`) 正在验证登录 SQLi/认证绕过
+ - 已复核 `board.md`：当前无既有发现或路线约束
++- `board.md` 仍为空；当前切换到限定范围的 Spring 暴露面侦察
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`；本分支按低频验证流程，仅测试登录参数
+ 
+ ## Flags Found
+
+diff --git a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+index 011f169e01fe4596cc27f235f8506bfbda9afca0..7cb923c7b510ceabd582c6a4ca2414c4959265cd
+--- a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
++++ b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+@@ -5,12 +5,12 @@
+ - Start Time: 2026-07-31T00:50:24+08:00
+ 
+ ## Current Phase
+-login_sqli_recon
++spring_surface_recon
+ 
+ ## Next Steps
+-1. 建立 `/login` 缺参、空值和随机凭据响应基线
+-2. 低频验证 username/password 的布尔、报错与认证绕过载荷
+-3. 汇总可复现证据到 `branch_result_branch_001.md`
++1. 读取 Web 攻击策略并建立首页/404基线
++2. 低频探测常见 actuator/error/h2/swagger/static 暴露面及路径绕过
++3. 汇总可复现证据到 `branch_result_branch_002.md`
+ 
+ ## Key Artifacts
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`
+@@ -22,6 +22,7 @@
+ - 已定位 branch 客户端：`/home/stw/ctf-agent/branch.py`
+ - `branch_001` (`login_sqli`) 正在验证登录 SQLi/认证绕过
+ - 已复核 `board.md`：当前无既有发现或路线约束
++- `board.md` 仍为空；当前切换到限定范围的 Spring 暴露面侦察
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`；本分支按低频验证流程，仅测试登录参数
+ 
+ ## Flags Found
+
+exec
+/bin/bash -lc "sed -n '1,300p' /home/stw/ctf-agent/strategies/web.md && target='http://2273095efcf1270253338a5c.http-ctf2.dasctf.com:80'; curl -sS --max-time 10 -D /tmp/spring_home_headers.txt -o /tmp/spring_home_body.txt \""'$target/"; curl -sS --max-time 10 -D /tmp/spring_404_headers.txt -o /tmp/spring_404_body.txt "$target/__spring_probe_not_found_7c91"; echo HOME; sed -n '"'1,20p' /tmp/spring_home_headers.txt; wc -c /tmp/spring_home_body.txt; sed -n '1,40p' /tmp/spring_home_body.txt; echo NOT_FOUND; sed -n '1,20p' /tmp/spring_404_headers.txt; wc -c /tmp/spring_404_body.txt; sed -n '1,40p' /tmp/spring_404_body.txt" in /home/stw/ctf-agent/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80
+hook: PostToolUse
+hook: PostToolUse Completed
+diff --git a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+index 011f169e01fe4596cc27f235f8506bfbda9afca0..7cb923c7b510ceabd582c6a4ca2414c4959265cd
+--- a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
++++ b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+@@ -5,12 +5,12 @@
+ - Start Time: 2026-07-31T00:50:24+08:00
+ 
+ ## Current Phase
+-login_sqli_recon
++spring_surface_recon
+ 
+ ## Next Steps
+-1. 建立 `/login` 缺参、空值和随机凭据响应基线
+-2. 低频验证 username/password 的布尔、报错与认证绕过载荷
+-3. 汇总可复现证据到 `branch_result_branch_001.md`
++1. 读取 Web 攻击策略并建立首页/404基线
++2. 低频探测常见 actuator/error/h2/swagger/static 暴露面及路径绕过
++3. 汇总可复现证据到 `branch_result_branch_002.md`
+ 
+ ## Key Artifacts
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`
+@@ -22,6 +22,7 @@
+ - 已定位 branch 客户端：`/home/stw/ctf-agent/branch.py`
+ - `branch_001` (`login_sqli`) 正在验证登录 SQLi/认证绕过
+ - 已复核 `board.md`：当前无既有发现或路线约束
++- `board.md` 仍为空；当前切换到限定范围的 Spring 暴露面侦察
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`；本分支按低频验证流程，仅测试登录参数
+ 
+ ## Flags Found
+
+ succeeded in 260ms:
+HOME
+HTTP/1.1 200 OK
+Content-Length: 1709
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=utf-8
+Date: Thu, 30 Jul 2026 16:52:10 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Vary: Accept-Encoding
+
+1709 /tmp/spring_home_body.txt
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>easy_web</title>
+
+    <!--JQUERY-->
+    <script src="../static/js/jquery.min.js"></script>
+    
+    <!-- FRAMEWORK BOOTSTRAP para el estilo de la pagina-->
+    <link rel="stylesheet" href="../static/css/bootstrap.min.css">
+    <script src="../static/js/bootstrap.min.js"></script>
+    
+    <!-- Los iconos tipo Solid de Fontawesome-->
+    <link rel="stylesheet" href="../static/css/solid.css">
+    <script src="../static/js/all.js"></script>
+
+    <!-- Nuestro css-->
+    <link rel="stylesheet" type="text/css" href="../static/css/index.css">
+
+</head>
+<body>
+    <div class="modal-dialog text-center">
+        <div class="col-sm-8 main-section">
+            <div class="modal-content">
+                <div class="col-12 user-img">
+                    <img src="../static/images/index_user.png"/>
+                </div>
+                <form class="col-12" action="/login" method="get">
+                    <div class="form-group" id="user-group">
+                        <input type="text" class="form-control" placeholder="Nombre de usuario" name="username"/>
+                    </div>
+                    <div class="form-group" id="contrasena-group">
+                        <input type="password" class="form-control" placeholder="Contrasena" name="password"/>
+                    </div>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-sign-in-alt"></i>  Ingresar </button>
+                </form>
+                <div class="col-12 forgot">
+                    <a href="#">Recordar contrasena?</a>
+                </div>
+            </div>
+NOT_FOUND
+HTTP/1.1 404 Not Found
+Content-Length: 563
+Connection: keep-alive
+Content-Type: text/html; charset=utf-8
+Date: Thu, 30 Jul 2026 16:52:10 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+563 /tmp/spring_404_body.txt
+<!doctype html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <title>Error 404 - __spring_probe_not_found_7c91 Not Found!</title>
+    <link rel="stylesheet" type="text/css" href="../static/css/style.css" />
+    <link href="../static/images/favicon.png" rel="shortcut icon" type="image/x-icon" />
+</head>
+
+<body>
+    <div class="container">
+        <img class="ops" src="../static/images/404.svg" />
+    </div>
+</body>
+
+</html>
+apply patch
+patch: completed
+/home/stw/ctf-agent/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+diff --git a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+index 011f169e01fe4596cc27f235f8506bfbda9afca0..291e1e46df4e1a0c763499df31f3ebb0a35bf515
+--- a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
++++ b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+@@ -5,12 +5,12 @@
+ - Start Time: 2026-07-31T00:50:24+08:00
+ 
+ ## Current Phase
+-login_sqli_recon
++spring_surface_recon
+ 
+ ## Next Steps
+-1. 建立 `/login` 缺参、空值和随机凭据响应基线
+-2. 低频验证 username/password 的布尔、报错与认证绕过载荷
+-3. 汇总可复现证据到 `branch_result_branch_001.md`
++1. 批量但低频探测约 25 个常见 Spring 路由
++2. 对异常状态或响应体做少量路径绕过复核
++3. 汇总可复现证据到 `branch_result_branch_002.md`
+ 
+ ## Key Artifacts
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`
+@@ -22,6 +22,10 @@
+ - 已定位 branch 客户端：`/home/stw/ctf-agent/branch.py`
+ - `branch_001` (`login_sqli`) 正在验证登录 SQLi/认证绕过
+ - 已复核 `board.md`：当前无既有发现或路线约束
++- `board.md` 仍为空；当前切换到限定范围的 Spring 暴露面侦察
++- 已读取 `/home/stw/ctf-agent/strategies/web.md`
++- `/tmp/spring_home_{headers,body}.txt`: `/` 为 200，1709 字节，HTML 有 Thymeleaf 命名空间
++- `/tmp/spring_404_{headers,body}.txt`: 随机路径为 openresty 定制 404，563 字节，无 Spring Whitelabel/异常细节
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`；本分支按低频验证流程，仅测试登录参数
+ 
+ ## Flags Found
+
+diff --git a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+index 011f169e01fe4596cc27f235f8506bfbda9afca0..291e1e46df4e1a0c763499df31f3ebb0a35bf515
+--- a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
++++ b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+@@ -5,12 +5,12 @@
+ - Start Time: 2026-07-31T00:50:24+08:00
+ 
+ ## Current Phase
+-login_sqli_recon
++spring_surface_recon
+ 
+ ## Next Steps
+-1. 建立 `/login` 缺参、空值和随机凭据响应基线
+-2. 低频验证 username/password 的布尔、报错与认证绕过载荷
+-3. 汇总可复现证据到 `branch_result_branch_001.md`
++1. 批量但低频探测约 25 个常见 Spring 路由
++2. 对异常状态或响应体做少量路径绕过复核
++3. 汇总可复现证据到 `branch_result_branch_002.md`
+ 
+ ## Key Artifacts
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`
+@@ -22,6 +22,10 @@
+ - 已定位 branch 客户端：`/home/stw/ctf-agent/branch.py`
+ - `branch_001` (`login_sqli`) 正在验证登录 SQLi/认证绕过
+ - 已复核 `board.md`：当前无既有发现或路线约束
++- `board.md` 仍为空；当前切换到限定范围的 Spring 暴露面侦察
++- 已读取 `/home/stw/ctf-agent/strategies/web.md`
++- `/tmp/spring_home_{headers,body}.txt`: `/` 为 200，1709 字节，HTML 有 Thymeleaf 命名空间
++- `/tmp/spring_404_{headers,body}.txt`: 随机路径为 openresty 定制 404，563 字节，无 Spring Whitelabel/异常细节
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`；本分支按低频验证流程，仅测试登录参数
+ 
+ ## Flags Found
+
+codex
+基线已确认：随机不存在路径由 openresty 返回固定 563 字节定制 404，首页自身没有 Spring 版本头。接下来只请求一组约 30 个高价值常见路由，不做字典爆破；重点看与该 404 基线不同的状态、长度和内容类型。
+exec
+/bin/bash -lc "target='http://2273095efcf1270253338a5c.http-ctf2.dasctf.com:80'; paths=(/actuator /actuator/ /actuator/health /actuator/info /actuator/env /actuator/configprops /actuator/beans /actuator/mappings /actuator/heapdump /actuator/logfile /error /h2-console /h2-console/ /swagger-ui.html /swagger-ui/index.html /swagger-ui/ /v2/api-docs /v3/api-docs /api-docs /webjars/ /static/ /static/js/jquery.min.js /resources/ /META-INF/resources/ /.well-known/../actuator /actuator%2fhealth /actuator%252fhealth /%2e/actuator /;/actuator /actuator;/health); : > /tmp/spring_routes.tsv; for p in \""'${paths[@]}"; do curl -sS --max-time 8 -o /tmp/spring_probe_body -D /tmp/spring_probe_head -w "$p'"\\t%{http_code}\\t%{size_download}\\t%{content_type}\\t%{redirect_url}\\n\" \""'$target$p" >> /tmp/spring_routes.tsv || printf '"'%s\\tCURL_ERROR\\n' \""'$p" >> /tmp/spring_routes.tsv; done; column -t -s $'"'\\t' /tmp/spring_routes.tsv; printf '\\nNon-baseline body snippets:\\n'; while IFS="'$'"'\\t' read -r p code size ctype redir; do if [ \""'$code" != 404 ] || [ "$size" != 563 ]; then printf '"'%s => ' \""'$p"; curl -sS --max-time 8 "$target$p" | tr '"'\\r\\n' ' ' | head -c 220; printf '\\n'; fi; done < /tmp/spring_routes.tsv" in /home/stw/ctf-agent/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80
+ exited 1 in 0ms:
+/bin/bash: -c: line 1: syntax error near unexpected token `;'
+/bin/bash: -c: line 1: `target='http://2273095efcf1270253338a5c.http-ctf2.dasctf.com:80'; paths=(/actuator /actuator/ /actuator/health /actuator/info /actuator/env /actuator/configprops /actuator/beans /actuator/mappings /actuator/heapdump /actuator/logfile /error /h2-console /h2-console/ /swagger-ui.html /swagger-ui/index.html /swagger-ui/ /v2/api-docs /v3/api-docs /api-docs /webjars/ /static/ /static/js/jquery.min.js /resources/ /META-INF/resources/ /.well-known/../actuator /actuator%2fhealth /actuator%252fhealth /%2e/actuator /;/actuator /actuator;/health); : > /tmp/spring_routes.tsv; for p in "${paths[@]}"; do curl -sS --max-time 8 -o /tmp/spring_probe_body -D /tmp/spring_probe_head -w "$p\t%{http_code}\t%{size_download}\t%{content_type}\t%{redirect_url}\n" "$target$p" >> /tmp/spring_routes.tsv || printf '%s\tCURL_ERROR\n' "$p" >> /tmp/spring_routes.tsv; done; column -t -s $'\t' /tmp/spring_routes.tsv; printf '\nNon-baseline body snippets:\n'; while IFS=$'\t' read -r p code size ctype redir; do if [ "$code" != 404 ] || [ "$size" != 563 ]; then printf '%s => ' "$p"; curl -sS --max-time 8 "$target$p" | tr '\r\n' ' ' | head -c 220; printf '\n'; fi; done < /tmp/spring_routes.tsv'
+
+hook: PostToolUse
+hook: PostToolUse Completed
+diff --git a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+index 011f169e01fe4596cc27f235f8506bfbda9afca0..291e1e46df4e1a0c763499df31f3ebb0a35bf515
+--- a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
++++ b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+@@ -5,12 +5,12 @@
+ - Start Time: 2026-07-31T00:50:24+08:00
+ 
+ ## Current Phase
+-login_sqli_recon
++spring_surface_recon
+ 
+ ## Next Steps
+-1. 建立 `/login` 缺参、空值和随机凭据响应基线
+-2. 低频验证 username/password 的布尔、报错与认证绕过载荷
+-3. 汇总可复现证据到 `branch_result_branch_001.md`
++1. 批量但低频探测约 25 个常见 Spring 路由
++2. 对异常状态或响应体做少量路径绕过复核
++3. 汇总可复现证据到 `branch_result_branch_002.md`
+ 
+ ## Key Artifacts
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`
+@@ -22,6 +22,10 @@
+ - 已定位 branch 客户端：`/home/stw/ctf-agent/branch.py`
+ - `branch_001` (`login_sqli`) 正在验证登录 SQLi/认证绕过
+ - 已复核 `board.md`：当前无既有发现或路线约束
++- `board.md` 仍为空；当前切换到限定范围的 Spring 暴露面侦察
++- 已读取 `/home/stw/ctf-agent/strategies/web.md`
++- `/tmp/spring_home_{headers,body}.txt`: `/` 为 200，1709 字节，HTML 有 Thymeleaf 命名空间
++- `/tmp/spring_404_{headers,body}.txt`: 随机路径为 openresty 定制 404，563 字节，无 Spring Whitelabel/异常细节
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`；本分支按低频验证流程，仅测试登录参数
+ 
+ ## Flags Found
+
+apply patch
+patch: completed
+/home/stw/ctf-agent/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+diff --git a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+index 011f169e01fe4596cc27f235f8506bfbda9afca0..abf3b5dbb59045826cb52f7420e33e140b468172
+--- a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
++++ b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+@@ -5,12 +5,12 @@
+ - Start Time: 2026-07-31T00:50:24+08:00
+ 
+ ## Current Phase
+-login_sqli_recon
++spring_surface_recon
+ 
+ ## Next Steps
+-1. 建立 `/login` 缺参、空值和随机凭据响应基线
+-2. 低频验证 username/password 的布尔、报错与认证绕过载荷
+-3. 汇总可复现证据到 `branch_result_branch_001.md`
++1. 批量但低频探测约 25 个常见 Spring 路由
++2. 对异常状态或响应体做少量路径绕过复核
++3. 汇总可复现证据到 `branch_result_branch_002.md`
+ 
+ ## Key Artifacts
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`
+@@ -22,7 +22,13 @@
+ - 已定位 branch 客户端：`/home/stw/ctf-agent/branch.py`
+ - `branch_001` (`login_sqli`) 正在验证登录 SQLi/认证绕过
+ - 已复核 `board.md`：当前无既有发现或路线约束
++- `board.md` 仍为空；当前切换到限定范围的 Spring 暴露面侦察
++- 已读取 `/home/stw/ctf-agent/strategies/web.md`
++- `/tmp/spring_home_{headers,body}.txt`: `/` 为 200，1709 字节，HTML 有 Thymeleaf 命名空间
++- `/tmp/spring_404_{headers,body}.txt`: 随机路径为 openresty 定制 404，563 字节，无 Spring Whitelabel/异常细节
++- 首次路由批量命令因未引用含分号的路径而触发 Bash 语法错误；未向目标发送该批请求，下一步修正数组引用后重试
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`；本分支按低频验证流程，仅测试登录参数
++- branch_001 基线：`GET /login` 缺参、空值、随机凭据均为 openresty `404`、539 bytes、正文 SHA-256 `46e4eb01...dab25bb3`
+ 
+ ## Flags Found
+ (无)
+
+diff --git a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+index 011f169e01fe4596cc27f235f8506bfbda9afca0..abf3b5dbb59045826cb52f7420e33e140b468172
+--- a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
++++ b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+@@ -5,12 +5,12 @@
+ - Start Time: 2026-07-31T00:50:24+08:00
+ 
+ ## Current Phase
+-login_sqli_recon
++spring_surface_recon
+ 
+ ## Next Steps
+-1. 建立 `/login` 缺参、空值和随机凭据响应基线
+-2. 低频验证 username/password 的布尔、报错与认证绕过载荷
+-3. 汇总可复现证据到 `branch_result_branch_001.md`
++1. 批量但低频探测约 25 个常见 Spring 路由
++2. 对异常状态或响应体做少量路径绕过复核
++3. 汇总可复现证据到 `branch_result_branch_002.md`
+ 
+ ## Key Artifacts
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`
+@@ -22,7 +22,13 @@
+ - 已定位 branch 客户端：`/home/stw/ctf-agent/branch.py`
+ - `branch_001` (`login_sqli`) 正在验证登录 SQLi/认证绕过
+ - 已复核 `board.md`：当前无既有发现或路线约束
++- `board.md` 仍为空；当前切换到限定范围的 Spring 暴露面侦察
++- 已读取 `/home/stw/ctf-agent/strategies/web.md`
++- `/tmp/spring_home_{headers,body}.txt`: `/` 为 200，1709 字节，HTML 有 Thymeleaf 命名空间
++- `/tmp/spring_404_{headers,body}.txt`: 随机路径为 openresty 定制 404，563 字节，无 Spring Whitelabel/异常细节
++- 首次路由批量命令因未引用含分号的路径而触发 Bash 语法错误；未向目标发送该批请求，下一步修正数组引用后重试
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`；本分支按低频验证流程，仅测试登录参数
++- branch_001 基线：`GET /login` 缺参、空值、随机凭据均为 openresty `404`、539 bytes、正文 SHA-256 `46e4eb01...dab25bb3`
+ 
+ ## Flags Found
+ (无)
+
+exec
+/bin/bash -lc "target='http://2273095efcf1270253338a5c.http-ctf2.dasctf.com:80'; paths=( '/actuator' '/actuator/' '/actuator/health' '/actuator/info' '/actuator/env' '/actuator/configprops' '/actuator/beans' '/actuator/mappings' '/actuator/heapdump' '/actuator/logfile' '/error' '/h2-console' '/h2-console/' '/swagger-ui.html' '/swagger-ui/index.html' '/swagger-ui/' '/v2/api-docs' '/v3/api-docs' '/api-docs' '/webjars/' '/static/' '/static/js/jquery.min.js' '/resources/' '/META-INF/resources/' '/.well-known/../actuator' '/actuator%2fhealth' '/actuator%252fhealth' '/%2e/actuator' '/;/actuator' '/actuator;/health' ); : > /tmp/spring_routes.tsv; for p in \""'${paths[@]}"; do curl --path-as-is -sS --max-time 8 -o /tmp/spring_probe_body -D /tmp/spring_probe_head -w "$p'"\\t%{http_code}\\t%{size_download}\\t%{content_type}\\t%{redirect_url}\\n\" \""'$target$p" >> /tmp/spring_routes.tsv || printf '"'%s\\tCURL_ERROR\\n' \""'$p" >> /tmp/spring_routes.tsv; done; column -t -s $'"'\\t' /tmp/spring_routes.tsv; printf '\\nNon-baseline body snippets:\\n'; while IFS="'$'"'\\t' read -r p code size ctype redir; do if [ \""'$code" != 404 ] || [ "$size" != 563 ]; then printf '"'%s => ' \""'$p"; curl --path-as-is -sS --max-time 8 "$target$p" | tr '"'\\r\\n' ' ' | head -c 220; printf '\\n'; fi; done < /tmp/spring_routes.tsv" in /home/stw/ctf-agent/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80
+hook: PostToolUse
+hook: PostToolUse Completed
+diff --git a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+index 011f169e01fe4596cc27f235f8506bfbda9afca0..abf3b5dbb59045826cb52f7420e33e140b468172
+--- a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
++++ b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+@@ -5,12 +5,12 @@
+ - Start Time: 2026-07-31T00:50:24+08:00
+ 
+ ## Current Phase
+-login_sqli_recon
++spring_surface_recon
+ 
+ ## Next Steps
+-1. 建立 `/login` 缺参、空值和随机凭据响应基线
+-2. 低频验证 username/password 的布尔、报错与认证绕过载荷
+-3. 汇总可复现证据到 `branch_result_branch_001.md`
++1. 批量但低频探测约 25 个常见 Spring 路由
++2. 对异常状态或响应体做少量路径绕过复核
++3. 汇总可复现证据到 `branch_result_branch_002.md`
+ 
+ ## Key Artifacts
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`
+@@ -22,7 +22,13 @@
+ - 已定位 branch 客户端：`/home/stw/ctf-agent/branch.py`
+ - `branch_001` (`login_sqli`) 正在验证登录 SQLi/认证绕过
+ - 已复核 `board.md`：当前无既有发现或路线约束
++- `board.md` 仍为空；当前切换到限定范围的 Spring 暴露面侦察
++- 已读取 `/home/stw/ctf-agent/strategies/web.md`
++- `/tmp/spring_home_{headers,body}.txt`: `/` 为 200，1709 字节，HTML 有 Thymeleaf 命名空间
++- `/tmp/spring_404_{headers,body}.txt`: 随机路径为 openresty 定制 404，563 字节，无 Spring Whitelabel/异常细节
++- 首次路由批量命令因未引用含分号的路径而触发 Bash 语法错误；未向目标发送该批请求，下一步修正数组引用后重试
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`；本分支按低频验证流程，仅测试登录参数
++- branch_001 基线：`GET /login` 缺参、空值、随机凭据均为 openresty `404`、539 bytes、正文 SHA-256 `46e4eb01...dab25bb3`
+ 
+ ## Flags Found
+ (无)
+
+ succeeded in 6574ms:
+/actuator                 404  542    text/html; charset=utf-8  
+/actuator/                404  654    text/html; charset=utf-8  
+/actuator/health          404  654    text/html; charset=utf-8  
+/actuator/info            404  654    text/html; charset=utf-8  
+/actuator/env             404  654    text/html; charset=utf-8  
+/actuator/configprops     404  654    text/html; charset=utf-8  
+/actuator/beans           404  654    text/html; charset=utf-8  
+/actuator/mappings        404  654    text/html; charset=utf-8  
+/actuator/heapdump        404  654    text/html; charset=utf-8  
+/actuator/logfile         404  654    text/html; charset=utf-8  
+/error                    404  539    text/html; charset=utf-8  
+/h2-console               404  544    text/html; charset=utf-8  
+/h2-console/              404  654    text/html; charset=utf-8  
+/swagger-ui.html          404  549    text/html; charset=utf-8  
+/swagger-ui/index.html    404  654    text/html; charset=utf-8  
+/swagger-ui/              404  654    text/html; charset=utf-8  
+/v2/api-docs              404  654    text/html; charset=utf-8  
+/v3/api-docs              404  654    text/html; charset=utf-8  
+/api-docs                 404  542    text/html; charset=utf-8  
+/webjars/                 404  654    text/html; charset=utf-8  
+/static/                  404  654    text/html; charset=utf-8  
+/static/js/jquery.min.js  200  95992  application/javascript    
+/resources/               404  654    text/html; charset=utf-8  
+/META-INF/resources/      404  654    text/html; charset=utf-8  
+/.well-known/../actuator  404  654    text/html; charset=utf-8  
+/actuator%2fhealth        404  654    text/html; charset=utf-8  
+/actuator%252fhealth      404  551    text/html; charset=utf-8  
+/%2e/actuator             404  654    text/html; charset=utf-8  
+/;/actuator               404  654    text/html; charset=utf-8  
+/actuator;/health         404  654    text/html; charset=utf-8  
+
+Non-baseline body snippets:
+/actuator => <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">     <title>Error 404 - ac
+/actuator/ => <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">     <title>Error 404 - Th
+/actuator/health => <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">     <title>Error 404 - Th
+/actuator/info => <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">     <title>Error 404 - Th
+/actuator/env => <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">     <title>Error 404 - Th
+/actuator/configprops => <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">     <title>Error 404 - Th
+/actuator/beans => <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">     <title>Error 404 - Th
+/actuator/mappings => <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">     <title>Error 404 - Th
+/actuator/heapdump => <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">     <title>Error 404 - Th
+/actuator/logfile => <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">     <title>Error 404 - Th
+/error => <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">     <title>Error 404 - er
+/h2-console => <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">     <title>Error 404 - h2
+/h2-console/ => <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">     <title>Error 404 - Th
+/swagger-ui.html => <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">     <title>Error 404 - sw
+/swagger-ui/index.html => <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">     <title>Error 404 - Th
+/swagger-ui/ => <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">     <title>Error 404 - Th
+/v2/api-docs => <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">     <title>Error 404 - Th
+/v3/api-docs => <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">     <title>Error 404 - Th
+/api-docs => <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">     <title>Error 404 - ap
+/webjars/ => <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">     <title>Error 404 - Th
+/static/ => <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">     <title>Error 404 - Th
+/static/js/jquery.min.js => /*! jQuery v1.11.3 | (c) 2005, 2015 jQuery Foundation, Inc. | jquery.org/license */ !function(a,b){"object"==typeof module&&"object"==typeof module.exports?module.exports=a.document?b(a,!0):function(a){if(!a.document)thrcurl: (23) Failure writing output to destination
+
+/resources/ => <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">     <title>Error 404 - Th
+/META-INF/resources/ => <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">     <title>Error 404 - Th
+/.well-known/../actuator => <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">     <title>Error 404 - Th
+/actuator%2fhealth => <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">     <title>Error 404 - Th
+/actuator%252fhealth => <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">     <title>Error 404 - ac
+/%2e/actuator => <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">     <title>Error 404 - Th
+/;/actuator => <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">     <title>Error 404 - Th
+/actuator;/health => <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">     <title>Error 404 - Th
+
+apply patch
+patch: completed
+/home/stw/ctf-agent/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+diff --git a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+index 011f169e01fe4596cc27f235f8506bfbda9afca0..61248f2d2905d514d53a09c77844e5e678f5567b
+--- a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
++++ b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+@@ -5,12 +5,12 @@
+ - Start Time: 2026-07-31T00:50:24+08:00
+ 
+ ## Current Phase
+-login_sqli_recon
++spring_surface_recon
+ 
+ ## Next Steps
+-1. 建立 `/login` 缺参、空值和随机凭据响应基线
+-2. 低频验证 username/password 的布尔、报错与认证绕过载荷
+-3. 汇总可复现证据到 `branch_result_branch_001.md`
++1. 对 `/error` 的内容协商/方法及少量静态路径穿越变体复核
++2. 检查公开静态资产与响应头是否泄露框架版本
++3. 汇总可复现证据到 `branch_result_branch_002.md`
+ 
+ ## Key Artifacts
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`
+@@ -22,7 +22,25 @@
+ - 已定位 branch 客户端：`/home/stw/ctf-agent/branch.py`
+ - `branch_001` (`login_sqli`) 正在验证登录 SQLi/认证绕过
+ - 已复核 `board.md`：当前无既有发现或路线约束
++- `board.md` 仍为空；当前切换到限定范围的 Spring 暴露面侦察
++- 已读取 `/home/stw/ctf-agent/strategies/web.md`
++- `/tmp/spring_home_{headers,body}.txt`: `/` 为 200，1709 字节，HTML 有 Thymeleaf 命名空间
++- `/tmp/spring_404_{headers,body}.txt`: 随机路径为 openresty 定制 404，563 字节，无 Spring Whitelabel/异常细节
++- 首次路由批量命令因未引用含分号的路径而触发 Bash 语法错误；未向目标发送该批请求，下一步修正数组引用后重试
++- `/tmp/spring_routes.tsv`: actuator、error、H2、Swagger/OpenAPI、webjars、resources 及少量编码/分号绕过均为 404
++- 唯一 200 是首页已引用的 `/static/js/jquery.min.js`（95992 字节，jQuery 1.11.3），属于正常静态资源，不构成 Spring 暴露面
++- 404 长度随路径展示方式变化（无斜杠短名约 539–551 字节，多级/斜杠路径 654 字节），响应均为相同 openresty 定制错误模板
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`；本分支按低频验证流程，仅测试登录参数
++- branch_001 基线：`GET /login` 缺参、空值、随机凭据均为 openresty `404`、539 bytes、正文 SHA-256 `46e4eb01...dab25bb3`
++- branch_001 注入矩阵：username/password 单引号、`OR` 真/假条件、`admin'-- `、`#` 注释及双参数绕过共 10 个请求，全部 `404`/539 bytes/同一正文哈希，无跳转、报错或认证差异
++
++- `/tmp/login_{missing,empty,random,post}.txt`: 登录基线响应
++- GET `/login` 对缺参、空值、随机凭据均返回同一自定义 404；POST 返回 Werkzeug 风格 405，`Allow: OPTIONS, GET, HEAD`
++- 后端表现更像 Flask/Werkzeug，首页 Thymeleaf 标记可能是误导或复用模板；应重新枚举真实路由
++
++- 小规模路由检查：`robots.txt`、`sitemap.xml`、`index`、`admin`、`flag`、`source`、`app.py`、`.git/HEAD` 均无暴露
++- `/static/css/index.css` 和 `/static/js/jquery.min.js` 可访问；`/static/../app.py` 被框架 404 拦截
++- 自定义 404 页会将请求路径反射到 `<title>`（例如 `Error 404 - robots.txt Not Found!`），形成新的模板注入/XSS 检查点
+ 
+ ## Flags Found
+ (无)
+
+diff --git a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+index 011f169e01fe4596cc27f235f8506bfbda9afca0..61248f2d2905d514d53a09c77844e5e678f5567b
+--- a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
++++ b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+@@ -5,12 +5,12 @@
+ - Start Time: 2026-07-31T00:50:24+08:00
+ 
+ ## Current Phase
+-login_sqli_recon
++spring_surface_recon
+ 
+ ## Next Steps
+-1. 建立 `/login` 缺参、空值和随机凭据响应基线
+-2. 低频验证 username/password 的布尔、报错与认证绕过载荷
+-3. 汇总可复现证据到 `branch_result_branch_001.md`
++1. 对 `/error` 的内容协商/方法及少量静态路径穿越变体复核
++2. 检查公开静态资产与响应头是否泄露框架版本
++3. 汇总可复现证据到 `branch_result_branch_002.md`
+ 
+ ## Key Artifacts
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`
+@@ -22,7 +22,25 @@
+ - 已定位 branch 客户端：`/home/stw/ctf-agent/branch.py`
+ - `branch_001` (`login_sqli`) 正在验证登录 SQLi/认证绕过
+ - 已复核 `board.md`：当前无既有发现或路线约束
++- `board.md` 仍为空；当前切换到限定范围的 Spring 暴露面侦察
++- 已读取 `/home/stw/ctf-agent/strategies/web.md`
++- `/tmp/spring_home_{headers,body}.txt`: `/` 为 200，1709 字节，HTML 有 Thymeleaf 命名空间
++- `/tmp/spring_404_{headers,body}.txt`: 随机路径为 openresty 定制 404，563 字节，无 Spring Whitelabel/异常细节
++- 首次路由批量命令因未引用含分号的路径而触发 Bash 语法错误；未向目标发送该批请求，下一步修正数组引用后重试
++- `/tmp/spring_routes.tsv`: actuator、error、H2、Swagger/OpenAPI、webjars、resources 及少量编码/分号绕过均为 404
++- 唯一 200 是首页已引用的 `/static/js/jquery.min.js`（95992 字节，jQuery 1.11.3），属于正常静态资源，不构成 Spring 暴露面
++- 404 长度随路径展示方式变化（无斜杠短名约 539–551 字节，多级/斜杠路径 654 字节），响应均为相同 openresty 定制错误模板
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`；本分支按低频验证流程，仅测试登录参数
++- branch_001 基线：`GET /login` 缺参、空值、随机凭据均为 openresty `404`、539 bytes、正文 SHA-256 `46e4eb01...dab25bb3`
++- branch_001 注入矩阵：username/password 单引号、`OR` 真/假条件、`admin'-- `、`#` 注释及双参数绕过共 10 个请求，全部 `404`/539 bytes/同一正文哈希，无跳转、报错或认证差异
++
++- `/tmp/login_{missing,empty,random,post}.txt`: 登录基线响应
++- GET `/login` 对缺参、空值、随机凭据均返回同一自定义 404；POST 返回 Werkzeug 风格 405，`Allow: OPTIONS, GET, HEAD`
++- 后端表现更像 Flask/Werkzeug，首页 Thymeleaf 标记可能是误导或复用模板；应重新枚举真实路由
++
++- 小规模路由检查：`robots.txt`、`sitemap.xml`、`index`、`admin`、`flag`、`source`、`app.py`、`.git/HEAD` 均无暴露
++- `/static/css/index.css` 和 `/static/js/jquery.min.js` 可访问；`/static/../app.py` 被框架 404 拦截
++- 自定义 404 页会将请求路径反射到 `<title>`（例如 `Error 404 - robots.txt Not Found!`），形成新的模板注入/XSS 检查点
+ 
+ ## Flags Found
+ (无)
+
+2026-07-30T16:53:23.164616Z ERROR codex_core::tools::router: error=exec_command failed for `/bin/bash -lc "target='http://2273095efcf1270253338a5c.http-ctf2.dasctf.com:80'; : > /tmp/spring_focused.txt; request(){ label=\""'$1"; shift; body=$(mktemp); head=$(mktemp); curl --path-as-is -sS --max-time 8 -D "$head" -o "$body" "$@"; code=$(awk '"'toupper("'$1) ~ /''^HTTP'"\\// {c="'$2} END{print c}'"' \""'$head"); size=$(wc -c < "$body"); ctype=$(awk '"'BEGIN{IGNORECASE=1} /"'^Content-Type:/ {sub(/'"\\r"'$/,""); $1=""; sub(/''^ /,""); print; exit}'"' \""'$head"); server=$(awk '"'BEGIN{IGNORECASE=1} /"'^Server:/ {sub(/'"\\r"'$/,""); $1=""; sub(/''^ /,""); print; exit}'"' \""'$head"); snippet=$(tr '"'\\r\\n' ' ' < \""'$body" | head -c 180); printf '"'%s\\t%s\\t%s\\t%s\\tserver=%s\\t%s\\n' \""'$label" "$code" "$size" "$ctype" "$server" "$snippet" >> /tmp/spring_focused.txt; rm -f "$head" "$body"; }; request '"'GET /error Accept:json' -H 'Accept: application/json' \""'$target/error"; request '"'POST /error' -X POST \""'$target/error"; request '"'OPTIONS /actuator' -X OPTIONS \""'$target/actuator"; request '"'GET /swagger-resources' \""'$target/swagger-resources"; request '"'GET /swagger-resources/configuration/ui' \""'$target/swagger-resources/configuration/ui"; request '"'GET /application.properties' \""'$target/application.properties"; request '"'GET /application.yml' \""'$target/application.yml"; request '"'GET /bootstrap.yml' \""'$target/bootstrap.yml"; request '"'static raw traversal' \""'$target/static/../application.properties"; request '"'static encoded traversal' \""'$target/static/%2e%2e/application.properties"; request '"'static encoded slash traversal' \""'$target/static/%2e%2e%2fapplication.properties"; request '"'static matrix traversal' \""'$target/static/..;/application.properties"; request '"'static double-encoded traversal' \""'$target/static/%252e%252e/application.properties"; column -t -s $'"'\\t' /tmp/spring_focused.txt"`: CreateProcess { message: "Rejected(\"`/bin/bash -lc \\\"target='http://2273095efcf1270253338a5c.http-ctf2.dasctf.com:80'; : > /tmp/spring_focused.txt; request(){ label=\\\\\\\"\\\"'$1\\\"; shift; body=$(mktemp); head=$(mktemp); curl --path-as-is -sS --max-time 8 -D \\\"$head\\\" -o \\\"$body\\\" \\\"$@\\\"; code=$(awk '\\\"'toupper(\\\"'$1) ~ /''^HTTP'\\\"\\\\\\\\// {c=\\\"'$2} END{print c}'\\\"' \\\\\\\"\\\"'$head\\\"); size=$(wc -c < \\\"$body\\\"); ctype=$(awk '\\\"'BEGIN{IGNORECASE=1} /\\\"'^Content-Type:/ {sub(/'\\\"\\\\\\\\r\\\"'$/,\\\"\\\"); $1=\\\"\\\"; sub(/''^ /,\\\"\\\"); print; exit}'\\\"' \\\\\\\"\\\"'$head\\\"); server=$(awk '\\\"'BEGIN{IGNORECASE=1} /\\\"'^Server:/ {sub(/'\\\"\\\\\\\\r\\\"'$/,\\\"\\\"); $1=\\\"\\\"; sub(/''^ /,\\\"\\\"); print; exit}'\\\"' \\\\\\\"\\\"'$head\\\"); snippet=$(tr '\\\"'\\\\\\\\r\\\\\\\\n' ' ' < \\\\\\\"\\\"'$body\\\" | head -c 180); printf '\\\"'%s\\\\\\\\t%s\\\\\\\\t%s\\\\\\\\t%s\\\\\\\\tserver=%s\\\\\\\\t%s\\\\\\\\n' \\\\\\\"\\\"'$label\\\" \\\"$code\\\" \\\"$size\\\" \\\"$ctype\\\" \\\"$server\\\" \\\"$snippet\\\" >> /tmp/spring_focused.txt; rm -f \\\"$head\\\" \\\"$body\\\"; }; request '\\\"'GET /error Accept:json' -H 'Accept: application/json' \\\\\\\"\\\"'$target/error\\\"; request '\\\"'POST /error' -X POST \\\\\\\"\\\"'$target/error\\\"; request '\\\"'OPTIONS /actuator' -X OPTIONS \\\\\\\"\\\"'$target/actuator\\\"; request '\\\"'GET /swagger-resources' \\\\\\\"\\\"'$target/swagger-resources\\\"; request '\\\"'GET /swagger-resources/configuration/ui' \\\\\\\"\\\"'$target/swagger-resources/configuration/ui\\\"; request '\\\"'GET /application.properties' \\\\\\\"\\\"'$target/application.properties\\\"; request '\\\"'GET /application.yml' \\\\\\\"\\\"'$target/application.yml\\\"; request '\\\"'GET /bootstrap.yml' \\\\\\\"\\\"'$target/bootstrap.yml\\\"; request '\\\"'static raw traversal' \\\\\\\"\\\"'$target/static/../application.properties\\\"; request '\\\"'static encoded traversal' \\\\\\\"\\\"'$target/static/%2e%2e/application.properties\\\"; request '\\\"'static encoded slash traversal' \\\\\\\"\\\"'$target/static/%2e%2e%2fapplication.properties\\\"; request '\\\"'static matrix traversal' \\\\\\\"\\\"'$target/static/..;/application.properties\\\"; request '\\\"'static double-encoded traversal' \\\\\\\"\\\"'$target/static/%252e%252e/application.properties\\\"; column -t -s $'\\\"'\\\\\\\\t' /tmp/spring_focused.txt\\\"` rejected: rm -f style commands are not permitted. Use a safer approach\")" }
+diff --git a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+index 011f169e01fe4596cc27f235f8506bfbda9afca0..61248f2d2905d514d53a09c77844e5e678f5567b
+--- a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
++++ b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+@@ -5,12 +5,12 @@
+ - Start Time: 2026-07-31T00:50:24+08:00
+ 
+ ## Current Phase
+-login_sqli_recon
++spring_surface_recon
+ 
+ ## Next Steps
+-1. 建立 `/login` 缺参、空值和随机凭据响应基线
+-2. 低频验证 username/password 的布尔、报错与认证绕过载荷
+-3. 汇总可复现证据到 `branch_result_branch_001.md`
++1. 对 `/error` 的内容协商/方法及少量静态路径穿越变体复核
++2. 检查公开静态资产与响应头是否泄露框架版本
++3. 汇总可复现证据到 `branch_result_branch_002.md`
+ 
+ ## Key Artifacts
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`
+@@ -22,7 +22,25 @@
+ - 已定位 branch 客户端：`/home/stw/ctf-agent/branch.py`
+ - `branch_001` (`login_sqli`) 正在验证登录 SQLi/认证绕过
+ - 已复核 `board.md`：当前无既有发现或路线约束
++- `board.md` 仍为空；当前切换到限定范围的 Spring 暴露面侦察
++- 已读取 `/home/stw/ctf-agent/strategies/web.md`
++- `/tmp/spring_home_{headers,body}.txt`: `/` 为 200，1709 字节，HTML 有 Thymeleaf 命名空间
++- `/tmp/spring_404_{headers,body}.txt`: 随机路径为 openresty 定制 404，563 字节，无 Spring Whitelabel/异常细节
++- 首次路由批量命令因未引用含分号的路径而触发 Bash 语法错误；未向目标发送该批请求，下一步修正数组引用后重试
++- `/tmp/spring_routes.tsv`: actuator、error、H2、Swagger/OpenAPI、webjars、resources 及少量编码/分号绕过均为 404
++- 唯一 200 是首页已引用的 `/static/js/jquery.min.js`（95992 字节，jQuery 1.11.3），属于正常静态资源，不构成 Spring 暴露面
++- 404 长度随路径展示方式变化（无斜杠短名约 539–551 字节，多级/斜杠路径 654 字节），响应均为相同 openresty 定制错误模板
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`；本分支按低频验证流程，仅测试登录参数
++- branch_001 基线：`GET /login` 缺参、空值、随机凭据均为 openresty `404`、539 bytes、正文 SHA-256 `46e4eb01...dab25bb3`
++- branch_001 注入矩阵：username/password 单引号、`OR` 真/假条件、`admin'-- `、`#` 注释及双参数绕过共 10 个请求，全部 `404`/539 bytes/同一正文哈希，无跳转、报错或认证差异
++
++- `/tmp/login_{missing,empty,random,post}.txt`: 登录基线响应
++- GET `/login` 对缺参、空值、随机凭据均返回同一自定义 404；POST 返回 Werkzeug 风格 405，`Allow: OPTIONS, GET, HEAD`
++- 后端表现更像 Flask/Werkzeug，首页 Thymeleaf 标记可能是误导或复用模板；应重新枚举真实路由
++
++- 小规模路由检查：`robots.txt`、`sitemap.xml`、`index`、`admin`、`flag`、`source`、`app.py`、`.git/HEAD` 均无暴露
++- `/static/css/index.css` 和 `/static/js/jquery.min.js` 可访问；`/static/../app.py` 被框架 404 拦截
++- 自定义 404 页会将请求路径反射到 `<title>`（例如 `Error 404 - robots.txt Not Found!`），形成新的模板注入/XSS 检查点
+ 
+ ## Flags Found
+ (无)
+
+apply patch
+patch: completed
+/home/stw/ctf-agent/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+diff --git a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+index 011f169e01fe4596cc27f235f8506bfbda9afca0..367a54aa20fe1051b432ac32d7596d3acddec950
+--- a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
++++ b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+@@ -5,12 +5,12 @@
+ - Start Time: 2026-07-31T00:50:24+08:00
+ 
+ ## Current Phase
+-login_sqli_recon
++spring_surface_recon
+ 
+ ## Next Steps
+-1. 建立 `/login` 缺参、空值和随机凭据响应基线
+-2. 低频验证 username/password 的布尔、报错与认证绕过载荷
+-3. 汇总可复现证据到 `branch_result_branch_001.md`
++1. 对 `/error` 的内容协商/方法及少量静态路径穿越变体复核
++2. 检查公开静态资产与响应头是否泄露框架版本
++3. 汇总可复现证据到 `branch_result_branch_002.md`
+ 
+ ## Key Artifacts
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`
+@@ -22,7 +22,30 @@
+ - 已定位 branch 客户端：`/home/stw/ctf-agent/branch.py`
+ - `branch_001` (`login_sqli`) 正在验证登录 SQLi/认证绕过
+ - 已复核 `board.md`：当前无既有发现或路线约束
++- `board.md` 仍为空；当前切换到限定范围的 Spring 暴露面侦察
++- 已读取 `/home/stw/ctf-agent/strategies/web.md`
++- `/tmp/spring_home_{headers,body}.txt`: `/` 为 200，1709 字节，HTML 有 Thymeleaf 命名空间
++- `/tmp/spring_404_{headers,body}.txt`: 随机路径为 openresty 定制 404，563 字节，无 Spring Whitelabel/异常细节
++- 首次路由批量命令因未引用含分号的路径而触发 Bash 语法错误；未向目标发送该批请求，下一步修正数组引用后重试
++- `/tmp/spring_routes.tsv`: actuator、error、H2、Swagger/OpenAPI、webjars、resources 及少量编码/分号绕过均为 404
++- 唯一 200 是首页已引用的 `/static/js/jquery.min.js`（95992 字节，jQuery 1.11.3），属于正常静态资源，不构成 Spring 暴露面
++- 404 长度随路径展示方式变化（无斜杠短名约 539–551 字节，多级/斜杠路径 654 字节），响应均为相同 openresty 定制错误模板
++- 首次聚焦复核命令因包含临时文件删除被安全策略拒绝，未向目标发送请求；改用固定临时文件且不删除后重试
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`；本分支按低频验证流程，仅测试登录参数
++- branch_001 基线：`GET /login` 缺参、空值、随机凭据均为 openresty `404`、539 bytes、正文 SHA-256 `46e4eb01...dab25bb3`
++- branch_001 注入矩阵：username/password 单引号、`OR` 真/假条件、`admin'-- `、`#` 注释及双参数绕过共 10 个请求，全部 `404`/539 bytes/同一正文哈希，无跳转、报错或认证差异
++
++- `/tmp/login_{missing,empty,random,post}.txt`: 登录基线响应
++- GET `/login` 对缺参、空值、随机凭据均返回同一自定义 404；POST 返回 Werkzeug 风格 405，`Allow: OPTIONS, GET, HEAD`
++- 后端表现更像 Flask/Werkzeug，首页 Thymeleaf 标记可能是误导或复用模板；应重新枚举真实路由
++
++- 小规模路由检查：`robots.txt`、`sitemap.xml`、`index`、`admin`、`flag`、`source`、`app.py`、`.git/HEAD` 均无暴露
++- `/static/css/index.css` 和 `/static/js/jquery.min.js` 可访问；`/static/../app.py` 被框架 404 拦截
++- 自定义 404 页会将请求路径反射到 `<title>`（例如 `Error 404 - robots.txt Not Found!`），形成新的模板注入/XSS 检查点
++
++- 404 模板探测：`${7*7}` 与 `<%=7*7%>` 原样/转义反射；HTML 标签被转义
++- Jinja 载荷 `{{7*7}}` 被替换为字面量 `nonono\{\{.*\d.*\}\}`，确认存在针对“双花括号内含数字”的过滤器；这高度提示 404 Jinja SSTI 是预期方向
++- 下一步用不含数字的 Jinja 全局对象（`config`/`request`/`cycler`）验证过滤绕过和实际求值
+ 
+ ## Flags Found
+ (无)
+
+diff --git a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+index 011f169e01fe4596cc27f235f8506bfbda9afca0..367a54aa20fe1051b432ac32d7596d3acddec950
+--- a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
++++ b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+@@ -5,12 +5,12 @@
+ - Start Time: 2026-07-31T00:50:24+08:00
+ 
+ ## Current Phase
+-login_sqli_recon
++spring_surface_recon
+ 
+ ## Next Steps
+-1. 建立 `/login` 缺参、空值和随机凭据响应基线
+-2. 低频验证 username/password 的布尔、报错与认证绕过载荷
+-3. 汇总可复现证据到 `branch_result_branch_001.md`
++1. 对 `/error` 的内容协商/方法及少量静态路径穿越变体复核
++2. 检查公开静态资产与响应头是否泄露框架版本
++3. 汇总可复现证据到 `branch_result_branch_002.md`
+ 
+ ## Key Artifacts
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`
+@@ -22,7 +22,30 @@
+ - 已定位 branch 客户端：`/home/stw/ctf-agent/branch.py`
+ - `branch_001` (`login_sqli`) 正在验证登录 SQLi/认证绕过
+ - 已复核 `board.md`：当前无既有发现或路线约束
++- `board.md` 仍为空；当前切换到限定范围的 Spring 暴露面侦察
++- 已读取 `/home/stw/ctf-agent/strategies/web.md`
++- `/tmp/spring_home_{headers,body}.txt`: `/` 为 200，1709 字节，HTML 有 Thymeleaf 命名空间
++- `/tmp/spring_404_{headers,body}.txt`: 随机路径为 openresty 定制 404，563 字节，无 Spring Whitelabel/异常细节
++- 首次路由批量命令因未引用含分号的路径而触发 Bash 语法错误；未向目标发送该批请求，下一步修正数组引用后重试
++- `/tmp/spring_routes.tsv`: actuator、error、H2、Swagger/OpenAPI、webjars、resources 及少量编码/分号绕过均为 404
++- 唯一 200 是首页已引用的 `/static/js/jquery.min.js`（95992 字节，jQuery 1.11.3），属于正常静态资源，不构成 Spring 暴露面
++- 404 长度随路径展示方式变化（无斜杠短名约 539–551 字节，多级/斜杠路径 654 字节），响应均为相同 openresty 定制错误模板
++- 首次聚焦复核命令因包含临时文件删除被安全策略拒绝，未向目标发送请求；改用固定临时文件且不删除后重试
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`；本分支按低频验证流程，仅测试登录参数
++- branch_001 基线：`GET /login` 缺参、空值、随机凭据均为 openresty `404`、539 bytes、正文 SHA-256 `46e4eb01...dab25bb3`
++- branch_001 注入矩阵：username/password 单引号、`OR` 真/假条件、`admin'-- `、`#` 注释及双参数绕过共 10 个请求，全部 `404`/539 bytes/同一正文哈希，无跳转、报错或认证差异
++
++- `/tmp/login_{missing,empty,random,post}.txt`: 登录基线响应
++- GET `/login` 对缺参、空值、随机凭据均返回同一自定义 404；POST 返回 Werkzeug 风格 405，`Allow: OPTIONS, GET, HEAD`
++- 后端表现更像 Flask/Werkzeug，首页 Thymeleaf 标记可能是误导或复用模板；应重新枚举真实路由
++
++- 小规模路由检查：`robots.txt`、`sitemap.xml`、`index`、`admin`、`flag`、`source`、`app.py`、`.git/HEAD` 均无暴露
++- `/static/css/index.css` 和 `/static/js/jquery.min.js` 可访问；`/static/../app.py` 被框架 404 拦截
++- 自定义 404 页会将请求路径反射到 `<title>`（例如 `Error 404 - robots.txt Not Found!`），形成新的模板注入/XSS 检查点
++
++- 404 模板探测：`${7*7}` 与 `<%=7*7%>` 原样/转义反射；HTML 标签被转义
++- Jinja 载荷 `{{7*7}}` 被替换为字面量 `nonono\{\{.*\d.*\}\}`，确认存在针对“双花括号内含数字”的过滤器；这高度提示 404 Jinja SSTI 是预期方向
++- 下一步用不含数字的 Jinja 全局对象（`config`/`request`/`cycler`）验证过滤绕过和实际求值
+ 
+ ## Flags Found
+ (无)
+
+exec
+/bin/bash -lc "target='http://2273095efcf1270253338a5c.http-ctf2.dasctf.com:80'; : > /tmp/spring_focused.txt; request(){ label=\""'$1"; shift; curl --path-as-is -sS --max-time 8 -D /tmp/spring_focus_head -o /tmp/spring_focus_body "$@"; code=$(awk '"'toupper("'$1) ~ /''^HTTP'"\\// {c="'$2} END{print c}'"' /tmp/spring_focus_head); size="'$(wc -c < /tmp/spring_focus_body); ctype=$(awk '"'BEGIN{IGNORECASE=1} /"'^Content-Type:/ {sub(/'"\\r"'$/,""); $1=""; sub(/''^ /,""); print; exit}'"' /tmp/spring_focus_head); server="'$(awk '"'BEGIN{IGNORECASE=1} /"'^Server:/ {sub(/'"\\r"'$/,""); $1=""; sub(/''^ /,""); print; exit}'"' /tmp/spring_focus_head); snippet="'$(tr '"'\\r\\n' ' ' < /tmp/spring_focus_body | head -c 180); printf '%s\\t%s\\t%s\\t%s\\tserver=%s\\t%s\\n' \""'$label" "$code" "$size" "$ctype" "$server" "$snippet" >> /tmp/spring_focused.txt; }; request '"'GET /error Accept:json' -H 'Accept: application/json' \""'$target/error"; request '"'POST /error' -X POST \""'$target/error"; request '"'OPTIONS /actuator' -X OPTIONS \""'$target/actuator"; request '"'GET /swagger-resources' \""'$target/swagger-resources"; request '"'GET /swagger-resources/configuration/ui' \""'$target/swagger-resources/configuration/ui"; request '"'GET /application.properties' \""'$target/application.properties"; request '"'GET /application.yml' \""'$target/application.yml"; request '"'GET /bootstrap.yml' \""'$target/bootstrap.yml"; request '"'static raw traversal' \""'$target/static/../application.properties"; request '"'static encoded traversal' \""'$target/static/%2e%2e/application.properties"; request '"'static encoded slash traversal' \""'$target/static/%2e%2e%2fapplication.properties"; request '"'static matrix traversal' \""'$target/static/..;/application.properties"; request '"'static double-encoded traversal' \""'$target/static/%252e%252e/application.properties"; column -t -s $'"'\\t' /tmp/spring_focused.txt" in /home/stw/ctf-agent/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80
+hook: PostToolUse
+hook: PostToolUse Completed
+diff --git a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+index 011f169e01fe4596cc27f235f8506bfbda9afca0..367a54aa20fe1051b432ac32d7596d3acddec950
+--- a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
++++ b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+@@ -5,12 +5,12 @@
+ - Start Time: 2026-07-31T00:50:24+08:00
+ 
+ ## Current Phase
+-login_sqli_recon
++spring_surface_recon
+ 
+ ## Next Steps
+-1. 建立 `/login` 缺参、空值和随机凭据响应基线
+-2. 低频验证 username/password 的布尔、报错与认证绕过载荷
+-3. 汇总可复现证据到 `branch_result_branch_001.md`
++1. 对 `/error` 的内容协商/方法及少量静态路径穿越变体复核
++2. 检查公开静态资产与响应头是否泄露框架版本
++3. 汇总可复现证据到 `branch_result_branch_002.md`
+ 
+ ## Key Artifacts
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`
+@@ -22,7 +22,30 @@
+ - 已定位 branch 客户端：`/home/stw/ctf-agent/branch.py`
+ - `branch_001` (`login_sqli`) 正在验证登录 SQLi/认证绕过
+ - 已复核 `board.md`：当前无既有发现或路线约束
++- `board.md` 仍为空；当前切换到限定范围的 Spring 暴露面侦察
++- 已读取 `/home/stw/ctf-agent/strategies/web.md`
++- `/tmp/spring_home_{headers,body}.txt`: `/` 为 200，1709 字节，HTML 有 Thymeleaf 命名空间
++- `/tmp/spring_404_{headers,body}.txt`: 随机路径为 openresty 定制 404，563 字节，无 Spring Whitelabel/异常细节
++- 首次路由批量命令因未引用含分号的路径而触发 Bash 语法错误；未向目标发送该批请求，下一步修正数组引用后重试
++- `/tmp/spring_routes.tsv`: actuator、error、H2、Swagger/OpenAPI、webjars、resources 及少量编码/分号绕过均为 404
++- 唯一 200 是首页已引用的 `/static/js/jquery.min.js`（95992 字节，jQuery 1.11.3），属于正常静态资源，不构成 Spring 暴露面
++- 404 长度随路径展示方式变化（无斜杠短名约 539–551 字节，多级/斜杠路径 654 字节），响应均为相同 openresty 定制错误模板
++- 首次聚焦复核命令因包含临时文件删除被安全策略拒绝，未向目标发送请求；改用固定临时文件且不删除后重试
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`；本分支按低频验证流程，仅测试登录参数
++- branch_001 基线：`GET /login` 缺参、空值、随机凭据均为 openresty `404`、539 bytes、正文 SHA-256 `46e4eb01...dab25bb3`
++- branch_001 注入矩阵：username/password 单引号、`OR` 真/假条件、`admin'-- `、`#` 注释及双参数绕过共 10 个请求，全部 `404`/539 bytes/同一正文哈希，无跳转、报错或认证差异
++
++- `/tmp/login_{missing,empty,random,post}.txt`: 登录基线响应
++- GET `/login` 对缺参、空值、随机凭据均返回同一自定义 404；POST 返回 Werkzeug 风格 405，`Allow: OPTIONS, GET, HEAD`
++- 后端表现更像 Flask/Werkzeug，首页 Thymeleaf 标记可能是误导或复用模板；应重新枚举真实路由
++
++- 小规模路由检查：`robots.txt`、`sitemap.xml`、`index`、`admin`、`flag`、`source`、`app.py`、`.git/HEAD` 均无暴露
++- `/static/css/index.css` 和 `/static/js/jquery.min.js` 可访问；`/static/../app.py` 被框架 404 拦截
++- 自定义 404 页会将请求路径反射到 `<title>`（例如 `Error 404 - robots.txt Not Found!`），形成新的模板注入/XSS 检查点
++
++- 404 模板探测：`${7*7}` 与 `<%=7*7%>` 原样/转义反射；HTML 标签被转义
++- Jinja 载荷 `{{7*7}}` 被替换为字面量 `nonono\{\{.*\d.*\}\}`，确认存在针对“双花括号内含数字”的过滤器；这高度提示 404 Jinja SSTI 是预期方向
++- 下一步用不含数字的 Jinja 全局对象（`config`/`request`/`cycler`）验证过滤绕过和实际求值
+ 
+ ## Flags Found
+ (无)
+
+ succeeded in 1725ms:
+GET /error Accept:json                   404  539  text/html; charset=utf-8  server=openresty  <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, max
+POST /error                              405  178  text/html; charset=utf-8  server=openresty  <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"> <title>405 Method Not Allowed</title> <h1>Method Not Allowed</h1> <p>The method is not allowed for the requested URL.</p> 
+OPTIONS /actuator                        200  0    text/html; charset=utf-8  server=openresty  
+GET /swagger-resources                   404  551  text/html; charset=utf-8  server=openresty  <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, max
+GET /swagger-resources/configuration/ui  404  654  text/html; charset=utf-8  server=openresty  <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, max
+GET /application.properties              404  556  text/html; charset=utf-8  server=openresty  <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, max
+GET /application.yml                     404  549  text/html; charset=utf-8  server=openresty  <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, max
+GET /bootstrap.yml                       404  547  text/html; charset=utf-8  server=openresty  <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, max
+static raw traversal                     404  654  text/html; charset=utf-8  server=openresty  <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, max
+static encoded traversal                 404  654  text/html; charset=utf-8  server=openresty  <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, max
+static encoded slash traversal           404  654  text/html; charset=utf-8  server=openresty  <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, max
+static matrix traversal                  404  654  text/html; charset=utf-8  server=openresty  <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, max
+static double-encoded traversal          404  654  text/html; charset=utf-8  server=openresty  <!doctype html> <html>  <head>     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />     <meta name="viewport" content="width=device-width, initial-scale=1, max
+
+apply patch
+patch: completed
+/home/stw/ctf-agent/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+diff --git a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+index 011f169e01fe4596cc27f235f8506bfbda9afca0..7bf2b16f81bc2f2bf2ca028d610210a2f486c889
+--- a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
++++ b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+@@ -5,12 +5,12 @@
+ - Start Time: 2026-07-31T00:50:24+08:00
+ 
+ ## Current Phase
+-login_sqli_recon
++spring_surface_recon
+ 
+ ## Next Steps
+-1. 建立 `/login` 缺参、空值和随机凭据响应基线
+-2. 低频验证 username/password 的布尔、报错与认证绕过载荷
+-3. 汇总可复现证据到 `branch_result_branch_001.md`
++1. 复核 `OPTIONS /actuator` 的 Allow 头并检查首页/静态资产完整响应头
++2. 判断错误页特征是否更符合非 Spring 后端
++3. 汇总可复现证据到 `branch_result_branch_002.md`
+ 
+ ## Key Artifacts
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`
+@@ -22,7 +22,37 @@
+ - 已定位 branch 客户端：`/home/stw/ctf-agent/branch.py`
+ - `branch_001` (`login_sqli`) 正在验证登录 SQLi/认证绕过
+ - 已复核 `board.md`：当前无既有发现或路线约束
++- `board.md` 仍为空；当前切换到限定范围的 Spring 暴露面侦察
++- 已读取 `/home/stw/ctf-agent/strategies/web.md`
++- `/tmp/spring_home_{headers,body}.txt`: `/` 为 200，1709 字节，HTML 有 Thymeleaf 命名空间
++- `/tmp/spring_404_{headers,body}.txt`: 随机路径为 openresty 定制 404，563 字节，无 Spring Whitelabel/异常细节
++- 首次路由批量命令因未引用含分号的路径而触发 Bash 语法错误；未向目标发送该批请求，下一步修正数组引用后重试
++- `/tmp/spring_routes.tsv`: actuator、error、H2、Swagger/OpenAPI、webjars、resources 及少量编码/分号绕过均为 404
++- 唯一 200 是首页已引用的 `/static/js/jquery.min.js`（95992 字节，jQuery 1.11.3），属于正常静态资源，不构成 Spring 暴露面
++- 404 长度随路径展示方式变化（无斜杠短名约 539–551 字节，多级/斜杠路径 654 字节），响应均为相同 openresty 定制错误模板
++- 首次聚焦复核命令因包含临时文件删除被安全策略拒绝，未向目标发送请求；改用固定临时文件且不删除后重试
++- `/tmp/spring_focused.txt`: `/error` JSON 协商仍为 HTML 404；Spring 配置文件直取、Swagger resources 及 5 个静态穿越变体均 404
++- `POST /error` 返回 405 和简短通用 HTML；`OPTIONS /actuator` 返回 200 空体，需检查 `Allow` 以排除框架自动 OPTIONS，并非 actuator 可用证据
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`；本分支按低频验证流程，仅测试登录参数
++- branch_001 基线：`GET /login` 缺参、空值、随机凭据均为 openresty `404`、539 bytes、正文 SHA-256 `46e4eb01...dab25bb3`
++- branch_001 注入矩阵：username/password 单引号、`OR` 真/假条件、`admin'-- `、`#` 注释及双参数绕过共 10 个请求，全部 `404`/539 bytes/同一正文哈希，无跳转、报错或认证差异
++- `branch_result_branch_001.md`: branch_001 已完成，结论 `INFEASIBLE`（限 GET `/login`），未发现 flag
++
++- `/tmp/login_{missing,empty,random,post}.txt`: 登录基线响应
++- GET `/login` 对缺参、空值、随机凭据均返回同一自定义 404；POST 返回 Werkzeug 风格 405，`Allow: OPTIONS, GET, HEAD`
++- 后端表现更像 Flask/Werkzeug，首页 Thymeleaf 标记可能是误导或复用模板；应重新枚举真实路由
++
++- 小规模路由检查：`robots.txt`、`sitemap.xml`、`index`、`admin`、`flag`、`source`、`app.py`、`.git/HEAD` 均无暴露
++- `/static/css/index.css` 和 `/static/js/jquery.min.js` 可访问；`/static/../app.py` 被框架 404 拦截
++- 自定义 404 页会将请求路径反射到 `<title>`（例如 `Error 404 - robots.txt Not Found!`），形成新的模板注入/XSS 检查点
++
++- 404 模板探测：`${7*7}` 与 `<%=7*7%>` 原样/转义反射；HTML 标签被转义
++- Jinja 载荷 `{{7*7}}` 被替换为字面量 `nonono\{\{.*\d.*\}\}`，确认存在针对“双花括号内含数字”的过滤器；这高度提示 404 Jinja SSTI 是预期方向
++- 下一步用不含数字的 Jinja 全局对象（`config`/`request`/`cycler`）验证过滤绕过和实际求值
++
++- `{{config}}` 被实际求值并泄露 Flask 配置，`{{cycler}}` 返回 Jinja `Cycler` 类：404 路径 SSTI 已确认
++- `{{request}}` 被替换成 `nonono\{\{.*request.*\}\}`，说明额外黑名单包含 `request`
++- 当前进入利用阶段：优先尝试不含数字/request 的 `cycler.__init__.__globals__.os.popen(...).read()` 链
+ 
+ ## Flags Found
+ (无)
+
+diff --git a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+index 011f169e01fe4596cc27f235f8506bfbda9afca0..7bf2b16f81bc2f2bf2ca028d610210a2f486c889
+--- a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
++++ b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+@@ -5,12 +5,12 @@
+ - Start Time: 2026-07-31T00:50:24+08:00
+ 
+ ## Current Phase
+-login_sqli_recon
++spring_surface_recon
+ 
+ ## Next Steps
+-1. 建立 `/login` 缺参、空值和随机凭据响应基线
+-2. 低频验证 username/password 的布尔、报错与认证绕过载荷
+-3. 汇总可复现证据到 `branch_result_branch_001.md`
++1. 复核 `OPTIONS /actuator` 的 Allow 头并检查首页/静态资产完整响应头
++2. 判断错误页特征是否更符合非 Spring 后端
++3. 汇总可复现证据到 `branch_result_branch_002.md`
+ 
+ ## Key Artifacts
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`
+@@ -22,7 +22,37 @@
+ - 已定位 branch 客户端：`/home/stw/ctf-agent/branch.py`
+ - `branch_001` (`login_sqli`) 正在验证登录 SQLi/认证绕过
+ - 已复核 `board.md`：当前无既有发现或路线约束
++- `board.md` 仍为空；当前切换到限定范围的 Spring 暴露面侦察
++- 已读取 `/home/stw/ctf-agent/strategies/web.md`
++- `/tmp/spring_home_{headers,body}.txt`: `/` 为 200，1709 字节，HTML 有 Thymeleaf 命名空间
++- `/tmp/spring_404_{headers,body}.txt`: 随机路径为 openresty 定制 404，563 字节，无 Spring Whitelabel/异常细节
++- 首次路由批量命令因未引用含分号的路径而触发 Bash 语法错误；未向目标发送该批请求，下一步修正数组引用后重试
++- `/tmp/spring_routes.tsv`: actuator、error、H2、Swagger/OpenAPI、webjars、resources 及少量编码/分号绕过均为 404
++- 唯一 200 是首页已引用的 `/static/js/jquery.min.js`（95992 字节，jQuery 1.11.3），属于正常静态资源，不构成 Spring 暴露面
++- 404 长度随路径展示方式变化（无斜杠短名约 539–551 字节，多级/斜杠路径 654 字节），响应均为相同 openresty 定制错误模板
++- 首次聚焦复核命令因包含临时文件删除被安全策略拒绝，未向目标发送请求；改用固定临时文件且不删除后重试
++- `/tmp/spring_focused.txt`: `/error` JSON 协商仍为 HTML 404；Spring 配置文件直取、Swagger resources 及 5 个静态穿越变体均 404
++- `POST /error` 返回 405 和简短通用 HTML；`OPTIONS /actuator` 返回 200 空体，需检查 `Allow` 以排除框架自动 OPTIONS，并非 actuator 可用证据
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`；本分支按低频验证流程，仅测试登录参数
++- branch_001 基线：`GET /login` 缺参、空值、随机凭据均为 openresty `404`、539 bytes、正文 SHA-256 `46e4eb01...dab25bb3`
++- branch_001 注入矩阵：username/password 单引号、`OR` 真/假条件、`admin'-- `、`#` 注释及双参数绕过共 10 个请求，全部 `404`/539 bytes/同一正文哈希，无跳转、报错或认证差异
++- `branch_result_branch_001.md`: branch_001 已完成，结论 `INFEASIBLE`（限 GET `/login`），未发现 flag
++
++- `/tmp/login_{missing,empty,random,post}.txt`: 登录基线响应
++- GET `/login` 对缺参、空值、随机凭据均返回同一自定义 404；POST 返回 Werkzeug 风格 405，`Allow: OPTIONS, GET, HEAD`
++- 后端表现更像 Flask/Werkzeug，首页 Thymeleaf 标记可能是误导或复用模板；应重新枚举真实路由
++
++- 小规模路由检查：`robots.txt`、`sitemap.xml`、`index`、`admin`、`flag`、`source`、`app.py`、`.git/HEAD` 均无暴露
++- `/static/css/index.css` 和 `/static/js/jquery.min.js` 可访问；`/static/../app.py` 被框架 404 拦截
++- 自定义 404 页会将请求路径反射到 `<title>`（例如 `Error 404 - robots.txt Not Found!`），形成新的模板注入/XSS 检查点
++
++- 404 模板探测：`${7*7}` 与 `<%=7*7%>` 原样/转义反射；HTML 标签被转义
++- Jinja 载荷 `{{7*7}}` 被替换为字面量 `nonono\{\{.*\d.*\}\}`，确认存在针对“双花括号内含数字”的过滤器；这高度提示 404 Jinja SSTI 是预期方向
++- 下一步用不含数字的 Jinja 全局对象（`config`/`request`/`cycler`）验证过滤绕过和实际求值
++
++- `{{config}}` 被实际求值并泄露 Flask 配置，`{{cycler}}` 返回 Jinja `Cycler` 类：404 路径 SSTI 已确认
++- `{{request}}` 被替换成 `nonono\{\{.*request.*\}\}`，说明额外黑名单包含 `request`
++- 当前进入利用阶段：优先尝试不含数字/request 的 `cycler.__init__.__globals__.os.popen(...).read()` 链
+ 
+ ## Flags Found
+ (无)
+
+codex
+聚焦复核没有发现可读配置或路径穿越。一个关键迹象是 `POST /error` 的 405 页面形态更像通用 Python/WSGI 错误页；我再比较任意不存在路径的自动 `OPTIONS`，确认 200 是否只是全站方法处理，而非 actuator endpoint。
+exec
+/bin/bash -lc "target='http://2273095efcf1270253338a5c.http-ctf2.dasctf.com:80'; for p in /actuator /__random_options_8d31 /; do printf 'REQUEST OPTIONS %s\\n' \""'$p"; curl --path-as-is -sS --max-time 8 -i -X OPTIONS "$target$p" | sed -n '"'1,18p'; done; printf 'REQUEST HEAD /\\n'; curl -sS --max-time 8 -I \""'$target/" | sed -n '"'1,25p'; printf 'ASSET VERSION MARKERS\\n'; for p in /static/js/jquery.min.js /static/css/bootstrap.min.css /static/js/bootstrap.min.js; do printf '%s: ' \""'$p"; curl -sS --max-time 8 "$target$p" | head -c 160 | tr '"'\\r\\n' ' '; printf '\\n'; done" in /home/stw/ctf-agent/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80
+hook: PostToolUse
+hook: PostToolUse Completed
+diff --git a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+index 011f169e01fe4596cc27f235f8506bfbda9afca0..7bf2b16f81bc2f2bf2ca028d610210a2f486c889
+--- a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
++++ b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+@@ -5,12 +5,12 @@
+ - Start Time: 2026-07-31T00:50:24+08:00
+ 
+ ## Current Phase
+-login_sqli_recon
++spring_surface_recon
+ 
+ ## Next Steps
+-1. 建立 `/login` 缺参、空值和随机凭据响应基线
+-2. 低频验证 username/password 的布尔、报错与认证绕过载荷
+-3. 汇总可复现证据到 `branch_result_branch_001.md`
++1. 复核 `OPTIONS /actuator` 的 Allow 头并检查首页/静态资产完整响应头
++2. 判断错误页特征是否更符合非 Spring 后端
++3. 汇总可复现证据到 `branch_result_branch_002.md`
+ 
+ ## Key Artifacts
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`
+@@ -22,7 +22,37 @@
+ - 已定位 branch 客户端：`/home/stw/ctf-agent/branch.py`
+ - `branch_001` (`login_sqli`) 正在验证登录 SQLi/认证绕过
+ - 已复核 `board.md`：当前无既有发现或路线约束
++- `board.md` 仍为空；当前切换到限定范围的 Spring 暴露面侦察
++- 已读取 `/home/stw/ctf-agent/strategies/web.md`
++- `/tmp/spring_home_{headers,body}.txt`: `/` 为 200，1709 字节，HTML 有 Thymeleaf 命名空间
++- `/tmp/spring_404_{headers,body}.txt`: 随机路径为 openresty 定制 404，563 字节，无 Spring Whitelabel/异常细节
++- 首次路由批量命令因未引用含分号的路径而触发 Bash 语法错误；未向目标发送该批请求，下一步修正数组引用后重试
++- `/tmp/spring_routes.tsv`: actuator、error、H2、Swagger/OpenAPI、webjars、resources 及少量编码/分号绕过均为 404
++- 唯一 200 是首页已引用的 `/static/js/jquery.min.js`（95992 字节，jQuery 1.11.3），属于正常静态资源，不构成 Spring 暴露面
++- 404 长度随路径展示方式变化（无斜杠短名约 539–551 字节，多级/斜杠路径 654 字节），响应均为相同 openresty 定制错误模板
++- 首次聚焦复核命令因包含临时文件删除被安全策略拒绝，未向目标发送请求；改用固定临时文件且不删除后重试
++- `/tmp/spring_focused.txt`: `/error` JSON 协商仍为 HTML 404；Spring 配置文件直取、Swagger resources 及 5 个静态穿越变体均 404
++- `POST /error` 返回 405 和简短通用 HTML；`OPTIONS /actuator` 返回 200 空体，需检查 `Allow` 以排除框架自动 OPTIONS，并非 actuator 可用证据
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`；本分支按低频验证流程，仅测试登录参数
++- branch_001 基线：`GET /login` 缺参、空值、随机凭据均为 openresty `404`、539 bytes、正文 SHA-256 `46e4eb01...dab25bb3`
++- branch_001 注入矩阵：username/password 单引号、`OR` 真/假条件、`admin'-- `、`#` 注释及双参数绕过共 10 个请求，全部 `404`/539 bytes/同一正文哈希，无跳转、报错或认证差异
++- `branch_result_branch_001.md`: branch_001 已完成，结论 `INFEASIBLE`（限 GET `/login`），未发现 flag
++
++- `/tmp/login_{missing,empty,random,post}.txt`: 登录基线响应
++- GET `/login` 对缺参、空值、随机凭据均返回同一自定义 404；POST 返回 Werkzeug 风格 405，`Allow: OPTIONS, GET, HEAD`
++- 后端表现更像 Flask/Werkzeug，首页 Thymeleaf 标记可能是误导或复用模板；应重新枚举真实路由
++
++- 小规模路由检查：`robots.txt`、`sitemap.xml`、`index`、`admin`、`flag`、`source`、`app.py`、`.git/HEAD` 均无暴露
++- `/static/css/index.css` 和 `/static/js/jquery.min.js` 可访问；`/static/../app.py` 被框架 404 拦截
++- 自定义 404 页会将请求路径反射到 `<title>`（例如 `Error 404 - robots.txt Not Found!`），形成新的模板注入/XSS 检查点
++
++- 404 模板探测：`${7*7}` 与 `<%=7*7%>` 原样/转义反射；HTML 标签被转义
++- Jinja 载荷 `{{7*7}}` 被替换为字面量 `nonono\{\{.*\d.*\}\}`，确认存在针对“双花括号内含数字”的过滤器；这高度提示 404 Jinja SSTI 是预期方向
++- 下一步用不含数字的 Jinja 全局对象（`config`/`request`/`cycler`）验证过滤绕过和实际求值
++
++- `{{config}}` 被实际求值并泄露 Flask 配置，`{{cycler}}` 返回 Jinja `Cycler` 类：404 路径 SSTI 已确认
++- `{{request}}` 被替换成 `nonono\{\{.*request.*\}\}`，说明额外黑名单包含 `request`
++- 当前进入利用阶段：优先尝试不含数字/request 的 `cycler.__init__.__globals__.os.popen(...).read()` 链
+ 
+ ## Flags Found
+ (无)
+
+ succeeded in 763ms:
+HTTP/1.1 200 OK
+Allow: OPTIONS, GET, HEAD
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=utf-8
+Date: Thu, 30 Jul 2026 16:54:00 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Content-Length: 0
+
+REQUEST OPTIONS /
+HTTP/1.1 200 OK
+Allow: OPTIONS, GET, HEAD
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=utf-8
+Date: Thu, 30 Jul 2026 16:54:00 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Content-Length: 0
+
+REQUEST HEAD /
+HTTP/1.1 200 OK
+Content-Length: 1709
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=utf-8
+Date: Thu, 30 Jul 2026 16:54:00 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Vary: Accept-Encoding
+
+ASSET VERSION MARKERS
+/static/js/jquery.min.js: /*! jQuery v1.11.3 | (c) 2005, 2015 jQuery Foundation, Inc. | jquery.org/license */ !function(a,b){"object"==typeof module&&"object"==typeof module.exports?moducurl: (23) Failure writing output to destination
+
+/static/css/bootstrap.min.css: /*!  * Bootstrap v4.4.1 (https://getbootstrap.com/)  * Copyright 2011-2019 The Bootstrap Authors  * Copyright 2011-2019 Twitter, Inc.  * Licensed under MIT (httcurl: (23) Failure writing output to destination
+
+/static/js/bootstrap.min.js: curl: (23) Failure writing output to destination
+/*!  * Bootstrap v3.3.5 (http://getbootstrap.com)  * Copyright 2011-2015 Twitter, Inc.  * Licensed under the MIT license  */ if("undefined"==typeof jQuery)throw
+
+apply patch
+patch: completed
+/home/stw/ctf-agent/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/branch_result_branch_002.md
+/home/stw/ctf-agent/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+diff --git a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/branch_result_branch_002.md b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/branch_result_branch_002.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..50234cff0db1fcb7d4ab37735cf0d463add77289
+--- /dev/null
++++ b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/branch_result_branch_002.md
+@@ -0,0 +1,77 @@
++## Branch Result
++direction: spring_surface
++subagent_id: branch_002
++status: INFEASIBLE
++
++### 发现
++- 首页 `GET /` 返回 `200`、`Content-Type: text/html; charset=utf-8`、`Server: openresty`，HTML 含 `xmlns:th="http://www.thymeleaf.org"`；但这只是静态命名空间标记，响应头和正文均未泄露 Spring Boot、Tomcat、Thymeleaf 或 Java 版本。
++- 随机不存在路径返回 openresty 后的定制 HTML 404；直接访问 `/error` 即使指定 `Accept: application/json` 仍是同类 HTML 404，没有 Spring Whitelabel、异常堆栈、时间戳、应用路径或版本信息。
++- 常见 Actuator 入口及敏感端点 `/actuator[/]`、`health`、`info`、`env`、`configprops`、`beans`、`mappings`、`heapdump`、`logfile` 全部为 `404`。
++- H2、Swagger/OpenAPI、Webjars 和资源入口均未暴露：`/h2-console[/]`、`/swagger-ui.html`、`/swagger-ui[/index.html]`、`/v2/api-docs`、`/v3/api-docs`、`/api-docs`、`/swagger-resources[/configuration/ui]`、`/webjars/`、`/resources/`、`/META-INF/resources/` 全部为 `404`。
++- `/static/js/jquery.min.js` 可正常读取（`200`），这是首页已引用的普通静态资产。可见前端版本为 jQuery 1.11.3、Bootstrap CSS 4.4.1、Bootstrap JS 3.3.5，但没有 Spring 组件版本泄露。
++- 少量路径绕过 `/actuator%2fhealth`、`/actuator%252fhealth`、`/%2e/actuator`、`/;/actuator`、`/actuator;/health` 均为 `404`。
++- 静态目录穿越变体 `/static/../application.properties`、`/static/%2e%2e/application.properties`、编码斜杠、矩阵参数和双重编码版本均为 `404`；根路径下 `application.properties`、`application.yml`、`bootstrap.yml` 也均为 `404`。
++- `OPTIONS /actuator` 虽返回 `200`，但随机不存在路径和 `/` 的 `OPTIONS` 完全相同，均为 `Allow: OPTIONS, GET, HEAD` 和空响应体，因此这是全站自动 OPTIONS 行为，不代表 actuator 存在。
++- `POST /error` 返回简短通用 `405 Method Not Allowed` HTML，其页面形态和自动 OPTIONS 行为并不提供 Spring 证据，反而说明仅凭首页的 `xmlns:th` 不能确认后端是 Spring。
++
++### 命令和结果
++基线：
++
++```bash
++curl -sS -D - http://2273095efcf1270253338a5c.http-ctf2.dasctf.com/
++# HTTP/1.1 200 OK
++# Server: openresty
++# Content-Type: text/html; charset=utf-8
++# Content-Length: 1709
++# 正文含：<html lang="en" xmlns:th="http://www.thymeleaf.org">
++
++curl -sS -D - http://2273095efcf1270253338a5c.http-ctf2.dasctf.com/__spring_probe_not_found_7c91
++# HTTP/1.1 404 Not Found
++# Server: openresty
++# Content-Length: 563
++# 定制 HTML 404，无 Spring 错误字段
++```
++
++核心路由探测（实际使用 `curl --path-as-is -sS --max-time 8`，状态/长度记录于 `/tmp/spring_routes.tsv`）：
++
++```text
++/actuator                 404
++/actuator/health          404
++/actuator/env             404
++/actuator/mappings        404
++/actuator/heapdump        404
++/error                    404
++/h2-console/              404
++/swagger-ui.html          404
++/swagger-ui/index.html    404
++/v2/api-docs              404
++/v3/api-docs              404
++/swagger-resources        404
++/webjars/                 404
++/static/js/jquery.min.js  200  application/javascript  95992 bytes
++```
++
++内容协商与 OPTIONS 对照：
++
++```bash
++curl -sS -H 'Accept: application/json' -D - http://2273095efcf1270253338a5c.http-ctf2.dasctf.com/error
++# 404 text/html; charset=utf-8，仍为定制 HTML 404
++
++curl -sS -X OPTIONS -D - http://2273095efcf1270253338a5c.http-ctf2.dasctf.com/actuator
++curl -sS -X OPTIONS -D - http://2273095efcf1270253338a5c.http-ctf2.dasctf.com/__random_options_8d31
++# 两者均：200，Allow: OPTIONS, GET, HEAD，Content-Length: 0
++```
++
++路径绕过与配置文件：
++
++```bash
++curl --path-as-is -sS -D - http://2273095efcf1270253338a5c.http-ctf2.dasctf.com/actuator%2fhealth
++curl --path-as-is -sS -D - http://2273095efcf1270253338a5c.http-ctf2.dasctf.com/actuator%252fhealth
++curl --path-as-is -sS -D - http://2273095efcf1270253338a5c.http-ctf2.dasctf.com/actuator;/health
++curl --path-as-is -sS -D - http://2273095efcf1270253338a5c.http-ctf2.dasctf.com/static/%2e%2e/application.properties
++curl --path-as-is -sS -D - http://2273095efcf1270253338a5c.http-ctf2.dasctf.com/static/%252e%252e/application.properties
++# 全部 404，响应为同类定制错误页
++```
++
++### 结论
++INFEASIBLE。限定范围内没有发现可直接利用的 Spring Boot Actuator、`/error` 信息泄露、H2 Console、Swagger/OpenAPI、敏感配置静态暴露或常见路径绕过。首页的 Thymeleaf XML 命名空间不足以证明真实后端技术栈，现有 HTTP 行为也没有给出 Spring 版本或组件证据。建议主线转向登录逻辑、参数处理或应用自身业务端点，不再扩大 Spring 常见路由扫描。
+diff --git a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+index 011f169e01fe4596cc27f235f8506bfbda9afca0..12571042e81dffd847404eac73c3a05dcde2f30c
+--- a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
++++ b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+@@ -5,12 +5,11 @@
+ - Start Time: 2026-07-31T00:50:24+08:00
+ 
+ ## Current Phase
+-login_sqli_recon
++spring_surface_complete
+ 
+ ## Next Steps
+-1. 建立 `/login` 缺参、空值和随机凭据响应基线
+-2. 低频验证 username/password 的布尔、报错与认证绕过载荷
+-3. 汇总可复现证据到 `branch_result_branch_001.md`
++1. 主线继续登录逻辑或应用自身业务端点
++2. 不再扩大 Spring 常见路由扫描
+ 
+ ## Key Artifacts
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`
+@@ -22,7 +21,51 @@
+ - 已定位 branch 客户端：`/home/stw/ctf-agent/branch.py`
+ - `branch_001` (`login_sqli`) 正在验证登录 SQLi/认证绕过
+ - 已复核 `board.md`：当前无既有发现或路线约束
++- `board.md` 仍为空；当前切换到限定范围的 Spring 暴露面侦察
++- 已读取 `/home/stw/ctf-agent/strategies/web.md`
++- `/tmp/spring_home_{headers,body}.txt`: `/` 为 200，1709 字节，HTML 有 Thymeleaf 命名空间
++- `/tmp/spring_404_{headers,body}.txt`: 随机路径为 openresty 定制 404，563 字节，无 Spring Whitelabel/异常细节
++- 首次路由批量命令因未引用含分号的路径而触发 Bash 语法错误；未向目标发送该批请求，下一步修正数组引用后重试
++- `/tmp/spring_routes.tsv`: actuator、error、H2、Swagger/OpenAPI、webjars、resources 及少量编码/分号绕过均为 404
++- 唯一 200 是首页已引用的 `/static/js/jquery.min.js`（95992 字节，jQuery 1.11.3），属于正常静态资源，不构成 Spring 暴露面
++- 404 长度随路径展示方式变化（无斜杠短名约 539–551 字节，多级/斜杠路径 654 字节），响应均为相同 openresty 定制错误模板
++- 首次聚焦复核命令因包含临时文件删除被安全策略拒绝，未向目标发送请求；改用固定临时文件且不删除后重试
++- `/tmp/spring_focused.txt`: `/error` JSON 协商仍为 HTML 404；Spring 配置文件直取、Swagger resources 及 5 个静态穿越变体均 404
++- `POST /error` 返回 405 和简短通用 HTML；`OPTIONS /actuator` 返回 200 空体，需检查 `Allow` 以排除框架自动 OPTIONS，并非 actuator 可用证据
++- `OPTIONS /actuator`、随机不存在路径和 `/` 均返回相同 `200`、`Allow: OPTIONS, GET, HEAD`、空体，确认是全站自动 OPTIONS，并非 actuator 暴露
++- 静态资产仅泄露前端库版本（jQuery 1.11.3、Bootstrap CSS 4.4.1、Bootstrap JS 3.3.5），无 Spring/Java 版本
++- 已完成并写入 `branch_result_branch_002.md`，结论为 `INFEASIBLE`
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`；本分支按低频验证流程，仅测试登录参数
++- branch_001 基线：`GET /login` 缺参、空值、随机凭据均为 openresty `404`、539 bytes、正文 SHA-256 `46e4eb01...dab25bb3`
++- branch_001 注入矩阵：username/password 单引号、`OR` 真/假条件、`admin'-- `、`#` 注释及双参数绕过共 10 个请求，全部 `404`/539 bytes/同一正文哈希，无跳转、报错或认证差异
++- `branch_result_branch_001.md`: branch_001 已完成，结论 `INFEASIBLE`（限 GET `/login`），未发现 flag
++
++- `/tmp/login_{missing,empty,random,post}.txt`: 登录基线响应
++- GET `/login` 对缺参、空值、随机凭据均返回同一自定义 404；POST 返回 Werkzeug 风格 405，`Allow: OPTIONS, GET, HEAD`
++- 后端表现更像 Flask/Werkzeug，首页 Thymeleaf 标记可能是误导或复用模板；应重新枚举真实路由
++
++- 小规模路由检查：`robots.txt`、`sitemap.xml`、`index`、`admin`、`flag`、`source`、`app.py`、`.git/HEAD` 均无暴露
++- `/static/css/index.css` 和 `/static/js/jquery.min.js` 可访问；`/static/../app.py` 被框架 404 拦截
++- 自定义 404 页会将请求路径反射到 `<title>`（例如 `Error 404 - robots.txt Not Found!`），形成新的模板注入/XSS 检查点
++
++- 404 模板探测：`${7*7}` 与 `<%=7*7%>` 原样/转义反射；HTML 标签被转义
++- Jinja 载荷 `{{7*7}}` 被替换为字面量 `nonono\{\{.*\d.*\}\}`，确认存在针对“双花括号内含数字”的过滤器；这高度提示 404 Jinja SSTI 是预期方向
++- 下一步用不含数字的 Jinja 全局对象（`config`/`request`/`cycler`）验证过滤绕过和实际求值
++
++- `{{config}}` 被实际求值并泄露 Flask 配置，`{{cycler}}` 返回 Jinja `Cycler` 类：404 路径 SSTI 已确认
++- `{{request}}` 被替换成 `nonono\{\{.*request.*\}\}`，说明额外黑名单包含 `request`
++- 当前进入利用阶段：优先尝试不含数字/request 的 `cycler.__init__.__globals__.os.popen(...).read()` 链
++
++- 经典点号属性链被过滤为 `nonono\{\{.*\..*\}\}`，确认黑名单还禁止 `.` 
++- 下一步以 Jinja `|attr('...')` 和 `__getitem__` 替代所有点号完成 `cycler -> globals -> os -> popen -> read`
++- `/tmp/ssti_id_response.txt`: 点号链过滤证据
++
++- 首次无点号 attr 链返回 500（未出现 `nonono`），可能是运行时链式过滤或 URL 中 `|`/引号解析问题；需拆成单级表达式定位
++
++- 单级 `cycler|attr('__init__')` 同样 500；问题集中在双下划线或 `attr` 过滤器本身，而非链长度
++- 中括号变体也 500；下一步以无下划线属性和无参数 filter 区分语法能力与 `__` 黑名单
++
++- 本轮探测因环境缺少 `jq`，编码变量为空，实际误请求首页（200），不计为表达式结果；后续改用手工百分号编码
+ 
+ ## Flags Found
+ (无)
+
+diff --git a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/branch_result_branch_002.md b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/branch_result_branch_002.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..50234cff0db1fcb7d4ab37735cf0d463add77289
+--- /dev/null
++++ b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/branch_result_branch_002.md
+@@ -0,0 +1,77 @@
++## Branch Result
++direction: spring_surface
++subagent_id: branch_002
++status: INFEASIBLE
++
++### 发现
++- 首页 `GET /` 返回 `200`、`Content-Type: text/html; charset=utf-8`、`Server: openresty`，HTML 含 `xmlns:th="http://www.thymeleaf.org"`；但这只是静态命名空间标记，响应头和正文均未泄露 Spring Boot、Tomcat、Thymeleaf 或 Java 版本。
++- 随机不存在路径返回 openresty 后的定制 HTML 404；直接访问 `/error` 即使指定 `Accept: application/json` 仍是同类 HTML 404，没有 Spring Whitelabel、异常堆栈、时间戳、应用路径或版本信息。
++- 常见 Actuator 入口及敏感端点 `/actuator[/]`、`health`、`info`、`env`、`configprops`、`beans`、`mappings`、`heapdump`、`logfile` 全部为 `404`。
++- H2、Swagger/OpenAPI、Webjars 和资源入口均未暴露：`/h2-console[/]`、`/swagger-ui.html`、`/swagger-ui[/index.html]`、`/v2/api-docs`、`/v3/api-docs`、`/api-docs`、`/swagger-resources[/configuration/ui]`、`/webjars/`、`/resources/`、`/META-INF/resources/` 全部为 `404`。
++- `/static/js/jquery.min.js` 可正常读取（`200`），这是首页已引用的普通静态资产。可见前端版本为 jQuery 1.11.3、Bootstrap CSS 4.4.1、Bootstrap JS 3.3.5，但没有 Spring 组件版本泄露。
++- 少量路径绕过 `/actuator%2fhealth`、`/actuator%252fhealth`、`/%2e/actuator`、`/;/actuator`、`/actuator;/health` 均为 `404`。
++- 静态目录穿越变体 `/static/../application.properties`、`/static/%2e%2e/application.properties`、编码斜杠、矩阵参数和双重编码版本均为 `404`；根路径下 `application.properties`、`application.yml`、`bootstrap.yml` 也均为 `404`。
++- `OPTIONS /actuator` 虽返回 `200`，但随机不存在路径和 `/` 的 `OPTIONS` 完全相同，均为 `Allow: OPTIONS, GET, HEAD` 和空响应体，因此这是全站自动 OPTIONS 行为，不代表 actuator 存在。
++- `POST /error` 返回简短通用 `405 Method Not Allowed` HTML，其页面形态和自动 OPTIONS 行为并不提供 Spring 证据，反而说明仅凭首页的 `xmlns:th` 不能确认后端是 Spring。
++
++### 命令和结果
++基线：
++
++```bash
++curl -sS -D - http://2273095efcf1270253338a5c.http-ctf2.dasctf.com/
++# HTTP/1.1 200 OK
++# Server: openresty
++# Content-Type: text/html; charset=utf-8
++# Content-Length: 1709
++# 正文含：<html lang="en" xmlns:th="http://www.thymeleaf.org">
++
++curl -sS -D - http://2273095efcf1270253338a5c.http-ctf2.dasctf.com/__spring_probe_not_found_7c91
++# HTTP/1.1 404 Not Found
++# Server: openresty
++# Content-Length: 563
++# 定制 HTML 404，无 Spring 错误字段
++```
++
++核心路由探测（实际使用 `curl --path-as-is -sS --max-time 8`，状态/长度记录于 `/tmp/spring_routes.tsv`）：
++
++```text
++/actuator                 404
++/actuator/health          404
++/actuator/env             404
++/actuator/mappings        404
++/actuator/heapdump        404
++/error                    404
++/h2-console/              404
++/swagger-ui.html          404
++/swagger-ui/index.html    404
++/v2/api-docs              404
++/v3/api-docs              404
++/swagger-resources        404
++/webjars/                 404
++/static/js/jquery.min.js  200  application/javascript  95992 bytes
++```
++
++内容协商与 OPTIONS 对照：
++
++```bash
++curl -sS -H 'Accept: application/json' -D - http://2273095efcf1270253338a5c.http-ctf2.dasctf.com/error
++# 404 text/html; charset=utf-8，仍为定制 HTML 404
++
++curl -sS -X OPTIONS -D - http://2273095efcf1270253338a5c.http-ctf2.dasctf.com/actuator
++curl -sS -X OPTIONS -D - http://2273095efcf1270253338a5c.http-ctf2.dasctf.com/__random_options_8d31
++# 两者均：200，Allow: OPTIONS, GET, HEAD，Content-Length: 0
++```
++
++路径绕过与配置文件：
++
++```bash
++curl --path-as-is -sS -D - http://2273095efcf1270253338a5c.http-ctf2.dasctf.com/actuator%2fhealth
++curl --path-as-is -sS -D - http://2273095efcf1270253338a5c.http-ctf2.dasctf.com/actuator%252fhealth
++curl --path-as-is -sS -D - http://2273095efcf1270253338a5c.http-ctf2.dasctf.com/actuator;/health
++curl --path-as-is -sS -D - http://2273095efcf1270253338a5c.http-ctf2.dasctf.com/static/%2e%2e/application.properties
++curl --path-as-is -sS -D - http://2273095efcf1270253338a5c.http-ctf2.dasctf.com/static/%252e%252e/application.properties
++# 全部 404，响应为同类定制错误页
++```
++
++### 结论
++INFEASIBLE。限定范围内没有发现可直接利用的 Spring Boot Actuator、`/error` 信息泄露、H2 Console、Swagger/OpenAPI、敏感配置静态暴露或常见路径绕过。首页的 Thymeleaf XML 命名空间不足以证明真实后端技术栈，现有 HTTP 行为也没有给出 Spring 版本或组件证据。建议主线转向登录逻辑、参数处理或应用自身业务端点，不再扩大 Spring 常见路由扫描。
+diff --git a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+index 011f169e01fe4596cc27f235f8506bfbda9afca0..12571042e81dffd847404eac73c3a05dcde2f30c
+--- a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
++++ b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+@@ -5,12 +5,11 @@
+ - Start Time: 2026-07-31T00:50:24+08:00
+ 
+ ## Current Phase
+-login_sqli_recon
++spring_surface_complete
+ 
+ ## Next Steps
+-1. 建立 `/login` 缺参、空值和随机凭据响应基线
+-2. 低频验证 username/password 的布尔、报错与认证绕过载荷
+-3. 汇总可复现证据到 `branch_result_branch_001.md`
++1. 主线继续登录逻辑或应用自身业务端点
++2. 不再扩大 Spring 常见路由扫描
+ 
+ ## Key Artifacts
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`
+@@ -22,7 +21,51 @@
+ - 已定位 branch 客户端：`/home/stw/ctf-agent/branch.py`
+ - `branch_001` (`login_sqli`) 正在验证登录 SQLi/认证绕过
+ - 已复核 `board.md`：当前无既有发现或路线约束
++- `board.md` 仍为空；当前切换到限定范围的 Spring 暴露面侦察
++- 已读取 `/home/stw/ctf-agent/strategies/web.md`
++- `/tmp/spring_home_{headers,body}.txt`: `/` 为 200，1709 字节，HTML 有 Thymeleaf 命名空间
++- `/tmp/spring_404_{headers,body}.txt`: 随机路径为 openresty 定制 404，563 字节，无 Spring Whitelabel/异常细节
++- 首次路由批量命令因未引用含分号的路径而触发 Bash 语法错误；未向目标发送该批请求，下一步修正数组引用后重试
++- `/tmp/spring_routes.tsv`: actuator、error、H2、Swagger/OpenAPI、webjars、resources 及少量编码/分号绕过均为 404
++- 唯一 200 是首页已引用的 `/static/js/jquery.min.js`（95992 字节，jQuery 1.11.3），属于正常静态资源，不构成 Spring 暴露面
++- 404 长度随路径展示方式变化（无斜杠短名约 539–551 字节，多级/斜杠路径 654 字节），响应均为相同 openresty 定制错误模板
++- 首次聚焦复核命令因包含临时文件删除被安全策略拒绝，未向目标发送请求；改用固定临时文件且不删除后重试
++- `/tmp/spring_focused.txt`: `/error` JSON 协商仍为 HTML 404；Spring 配置文件直取、Swagger resources 及 5 个静态穿越变体均 404
++- `POST /error` 返回 405 和简短通用 HTML；`OPTIONS /actuator` 返回 200 空体，需检查 `Allow` 以排除框架自动 OPTIONS，并非 actuator 可用证据
++- `OPTIONS /actuator`、随机不存在路径和 `/` 均返回相同 `200`、`Allow: OPTIONS, GET, HEAD`、空体，确认是全站自动 OPTIONS，并非 actuator 暴露
++- 静态资产仅泄露前端库版本（jQuery 1.11.3、Bootstrap CSS 4.4.1、Bootstrap JS 3.3.5），无 Spring/Java 版本
++- 已完成并写入 `branch_result_branch_002.md`，结论为 `INFEASIBLE`
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`；本分支按低频验证流程，仅测试登录参数
++- branch_001 基线：`GET /login` 缺参、空值、随机凭据均为 openresty `404`、539 bytes、正文 SHA-256 `46e4eb01...dab25bb3`
++- branch_001 注入矩阵：username/password 单引号、`OR` 真/假条件、`admin'-- `、`#` 注释及双参数绕过共 10 个请求，全部 `404`/539 bytes/同一正文哈希，无跳转、报错或认证差异
++- `branch_result_branch_001.md`: branch_001 已完成，结论 `INFEASIBLE`（限 GET `/login`），未发现 flag
++
++- `/tmp/login_{missing,empty,random,post}.txt`: 登录基线响应
++- GET `/login` 对缺参、空值、随机凭据均返回同一自定义 404；POST 返回 Werkzeug 风格 405，`Allow: OPTIONS, GET, HEAD`
++- 后端表现更像 Flask/Werkzeug，首页 Thymeleaf 标记可能是误导或复用模板；应重新枚举真实路由
++
++- 小规模路由检查：`robots.txt`、`sitemap.xml`、`index`、`admin`、`flag`、`source`、`app.py`、`.git/HEAD` 均无暴露
++- `/static/css/index.css` 和 `/static/js/jquery.min.js` 可访问；`/static/../app.py` 被框架 404 拦截
++- 自定义 404 页会将请求路径反射到 `<title>`（例如 `Error 404 - robots.txt Not Found!`），形成新的模板注入/XSS 检查点
++
++- 404 模板探测：`${7*7}` 与 `<%=7*7%>` 原样/转义反射；HTML 标签被转义
++- Jinja 载荷 `{{7*7}}` 被替换为字面量 `nonono\{\{.*\d.*\}\}`，确认存在针对“双花括号内含数字”的过滤器；这高度提示 404 Jinja SSTI 是预期方向
++- 下一步用不含数字的 Jinja 全局对象（`config`/`request`/`cycler`）验证过滤绕过和实际求值
++
++- `{{config}}` 被实际求值并泄露 Flask 配置，`{{cycler}}` 返回 Jinja `Cycler` 类：404 路径 SSTI 已确认
++- `{{request}}` 被替换成 `nonono\{\{.*request.*\}\}`，说明额外黑名单包含 `request`
++- 当前进入利用阶段：优先尝试不含数字/request 的 `cycler.__init__.__globals__.os.popen(...).read()` 链
++
++- 经典点号属性链被过滤为 `nonono\{\{.*\..*\}\}`，确认黑名单还禁止 `.` 
++- 下一步以 Jinja `|attr('...')` 和 `__getitem__` 替代所有点号完成 `cycler -> globals -> os -> popen -> read`
++- `/tmp/ssti_id_response.txt`: 点号链过滤证据
++
++- 首次无点号 attr 链返回 500（未出现 `nonono`），可能是运行时链式过滤或 URL 中 `|`/引号解析问题；需拆成单级表达式定位
++
++- 单级 `cycler|attr('__init__')` 同样 500；问题集中在双下划线或 `attr` 过滤器本身，而非链长度
++- 中括号变体也 500；下一步以无下划线属性和无参数 filter 区分语法能力与 `__` 黑名单
++
++- 本轮探测因环境缺少 `jq`，编码变量为空，实际误请求首页（200），不计为表达式结果；后续改用手工百分号编码
+ 
+ ## Flags Found
+ (无)
+
+codex
+{
+  "solved": false,
+  "flag": null,
+  "status": "INFEASIBLE",
+  "summary": "未发现可利用的 Spring Actuator、error、H2、Swagger、静态配置泄露或路径绕过。",
+  "result_file": "/home/stw/ctf-agent/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/branch_result_branch_002.md",
+  "confidence": 0.96
+}
+diff --git a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/branch_result_branch_002.md b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/branch_result_branch_002.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..50234cff0db1fcb7d4ab37735cf0d463add77289
+--- /dev/null
++++ b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/branch_result_branch_002.md
+@@ -0,0 +1,77 @@
++## Branch Result
++direction: spring_surface
++subagent_id: branch_002
++status: INFEASIBLE
++
++### 发现
++- 首页 `GET /` 返回 `200`、`Content-Type: text/html; charset=utf-8`、`Server: openresty`，HTML 含 `xmlns:th="http://www.thymeleaf.org"`；但这只是静态命名空间标记，响应头和正文均未泄露 Spring Boot、Tomcat、Thymeleaf 或 Java 版本。
++- 随机不存在路径返回 openresty 后的定制 HTML 404；直接访问 `/error` 即使指定 `Accept: application/json` 仍是同类 HTML 404，没有 Spring Whitelabel、异常堆栈、时间戳、应用路径或版本信息。
++- 常见 Actuator 入口及敏感端点 `/actuator[/]`、`health`、`info`、`env`、`configprops`、`beans`、`mappings`、`heapdump`、`logfile` 全部为 `404`。
++- H2、Swagger/OpenAPI、Webjars 和资源入口均未暴露：`/h2-console[/]`、`/swagger-ui.html`、`/swagger-ui[/index.html]`、`/v2/api-docs`、`/v3/api-docs`、`/api-docs`、`/swagger-resources[/configuration/ui]`、`/webjars/`、`/resources/`、`/META-INF/resources/` 全部为 `404`。
++- `/static/js/jquery.min.js` 可正常读取（`200`），这是首页已引用的普通静态资产。可见前端版本为 jQuery 1.11.3、Bootstrap CSS 4.4.1、Bootstrap JS 3.3.5，但没有 Spring 组件版本泄露。
++- 少量路径绕过 `/actuator%2fhealth`、`/actuator%252fhealth`、`/%2e/actuator`、`/;/actuator`、`/actuator;/health` 均为 `404`。
++- 静态目录穿越变体 `/static/../application.properties`、`/static/%2e%2e/application.properties`、编码斜杠、矩阵参数和双重编码版本均为 `404`；根路径下 `application.properties`、`application.yml`、`bootstrap.yml` 也均为 `404`。
++- `OPTIONS /actuator` 虽返回 `200`，但随机不存在路径和 `/` 的 `OPTIONS` 完全相同，均为 `Allow: OPTIONS, GET, HEAD` 和空响应体，因此这是全站自动 OPTIONS 行为，不代表 actuator 存在。
++- `POST /error` 返回简短通用 `405 Method Not Allowed` HTML，其页面形态和自动 OPTIONS 行为并不提供 Spring 证据，反而说明仅凭首页的 `xmlns:th` 不能确认后端是 Spring。
++
++### 命令和结果
++基线：
++
++```bash
++curl -sS -D - http://2273095efcf1270253338a5c.http-ctf2.dasctf.com/
++# HTTP/1.1 200 OK
++# Server: openresty
++# Content-Type: text/html; charset=utf-8
++# Content-Length: 1709
++# 正文含：<html lang="en" xmlns:th="http://www.thymeleaf.org">
++
++curl -sS -D - http://2273095efcf1270253338a5c.http-ctf2.dasctf.com/__spring_probe_not_found_7c91
++# HTTP/1.1 404 Not Found
++# Server: openresty
++# Content-Length: 563
++# 定制 HTML 404，无 Spring 错误字段
++```
++
++核心路由探测（实际使用 `curl --path-as-is -sS --max-time 8`，状态/长度记录于 `/tmp/spring_routes.tsv`）：
++
++```text
++/actuator                 404
++/actuator/health          404
++/actuator/env             404
++/actuator/mappings        404
++/actuator/heapdump        404
++/error                    404
++/h2-console/              404
++/swagger-ui.html          404
++/swagger-ui/index.html    404
++/v2/api-docs              404
++/v3/api-docs              404
++/swagger-resources        404
++/webjars/                 404
++/static/js/jquery.min.js  200  application/javascript  95992 bytes
++```
++
++内容协商与 OPTIONS 对照：
++
++```bash
++curl -sS -H 'Accept: application/json' -D - http://2273095efcf1270253338a5c.http-ctf2.dasctf.com/error
++# 404 text/html; charset=utf-8，仍为定制 HTML 404
++
++curl -sS -X OPTIONS -D - http://2273095efcf1270253338a5c.http-ctf2.dasctf.com/actuator
++curl -sS -X OPTIONS -D - http://2273095efcf1270253338a5c.http-ctf2.dasctf.com/__random_options_8d31
++# 两者均：200，Allow: OPTIONS, GET, HEAD，Content-Length: 0
++```
++
++路径绕过与配置文件：
++
++```bash
++curl --path-as-is -sS -D - http://2273095efcf1270253338a5c.http-ctf2.dasctf.com/actuator%2fhealth
++curl --path-as-is -sS -D - http://2273095efcf1270253338a5c.http-ctf2.dasctf.com/actuator%252fhealth
++curl --path-as-is -sS -D - http://2273095efcf1270253338a5c.http-ctf2.dasctf.com/actuator;/health
++curl --path-as-is -sS -D - http://2273095efcf1270253338a5c.http-ctf2.dasctf.com/static/%2e%2e/application.properties
++curl --path-as-is -sS -D - http://2273095efcf1270253338a5c.http-ctf2.dasctf.com/static/%252e%252e/application.properties
++# 全部 404，响应为同类定制错误页
++```
++
++### 结论
++INFEASIBLE。限定范围内没有发现可直接利用的 Spring Boot Actuator、`/error` 信息泄露、H2 Console、Swagger/OpenAPI、敏感配置静态暴露或常见路径绕过。首页的 Thymeleaf XML 命名空间不足以证明真实后端技术栈，现有 HTTP 行为也没有给出 Spring 版本或组件证据。建议主线转向登录逻辑、参数处理或应用自身业务端点，不再扩大 Spring 常见路由扫描。
+diff --git a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+index 011f169e01fe4596cc27f235f8506bfbda9afca0..12571042e81dffd847404eac73c3a05dcde2f30c
+--- a/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
++++ b/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/progress.md
+@@ -5,12 +5,11 @@
+ - Start Time: 2026-07-31T00:50:24+08:00
+ 
+ ## Current Phase
+-login_sqli_recon
++spring_surface_complete
+ 
+ ## Next Steps
+-1. 建立 `/login` 缺参、空值和随机凭据响应基线
+-2. 低频验证 username/password 的布尔、报错与认证绕过载荷
+-3. 汇总可复现证据到 `branch_result_branch_001.md`
++1. 主线继续登录逻辑或应用自身业务端点
++2. 不再扩大 Spring 常见路由扫描
+ 
+ ## Key Artifacts
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`
+@@ -22,7 +21,51 @@
+ - 已定位 branch 客户端：`/home/stw/ctf-agent/branch.py`
+ - `branch_001` (`login_sqli`) 正在验证登录 SQLi/认证绕过
+ - 已复核 `board.md`：当前无既有发现或路线约束
++- `board.md` 仍为空；当前切换到限定范围的 Spring 暴露面侦察
++- 已读取 `/home/stw/ctf-agent/strategies/web.md`
++- `/tmp/spring_home_{headers,body}.txt`: `/` 为 200，1709 字节，HTML 有 Thymeleaf 命名空间
++- `/tmp/spring_404_{headers,body}.txt`: 随机路径为 openresty 定制 404，563 字节，无 Spring Whitelabel/异常细节
++- 首次路由批量命令因未引用含分号的路径而触发 Bash 语法错误；未向目标发送该批请求，下一步修正数组引用后重试
++- `/tmp/spring_routes.tsv`: actuator、error、H2、Swagger/OpenAPI、webjars、resources 及少量编码/分号绕过均为 404
++- 唯一 200 是首页已引用的 `/static/js/jquery.min.js`（95992 字节，jQuery 1.11.3），属于正常静态资源，不构成 Spring 暴露面
++- 404 长度随路径展示方式变化（无斜杠短名约 539–551 字节，多级/斜杠路径 654 字节），响应均为相同 openresty 定制错误模板
++- 首次聚焦复核命令因包含临时文件删除被安全策略拒绝，未向目标发送请求；改用固定临时文件且不删除后重试
++- `/tmp/spring_focused.txt`: `/error` JSON 协商仍为 HTML 404；Spring 配置文件直取、Swagger resources 及 5 个静态穿越变体均 404
++- `POST /error` 返回 405 和简短通用 HTML；`OPTIONS /actuator` 返回 200 空体，需检查 `Allow` 以排除框架自动 OPTIONS，并非 actuator 可用证据
++- `OPTIONS /actuator`、随机不存在路径和 `/` 均返回相同 `200`、`Allow: OPTIONS, GET, HEAD`、空体，确认是全站自动 OPTIONS，并非 actuator 暴露
++- 静态资产仅泄露前端库版本（jQuery 1.11.3、Bootstrap CSS 4.4.1、Bootstrap JS 3.3.5），无 Spring/Java 版本
++- 已完成并写入 `branch_result_branch_002.md`，结论为 `INFEASIBLE`
+ - 已读取 `/home/stw/ctf-agent/strategies/web.md`；本分支按低频验证流程，仅测试登录参数
++- branch_001 基线：`GET /login` 缺参、空值、随机凭据均为 openresty `404`、539 bytes、正文 SHA-256 `46e4eb01...dab25bb3`
++- branch_001 注入矩阵：username/password 单引号、`OR` 真/假条件、`admin'-- `、`#` 注释及双参数绕过共 10 个请求，全部 `404`/539 bytes/同一正文哈希，无跳转、报错或认证差异
++- `branch_result_branch_001.md`: branch_001 已完成，结论 `INFEASIBLE`（限 GET `/login`），未发现 flag
++
++- `/tmp/login_{missing,empty,random,post}.txt`: 登录基线响应
++- GET `/login` 对缺参、空值、随机凭据均返回同一自定义 404；POST 返回 Werkzeug 风格 405，`Allow: OPTIONS, GET, HEAD`
++- 后端表现更像 Flask/Werkzeug，首页 Thymeleaf 标记可能是误导或复用模板；应重新枚举真实路由
++
++- 小规模路由检查：`robots.txt`、`sitemap.xml`、`index`、`admin`、`flag`、`source`、`app.py`、`.git/HEAD` 均无暴露
++- `/static/css/index.css` 和 `/static/js/jquery.min.js` 可访问；`/static/../app.py` 被框架 404 拦截
++- 自定义 404 页会将请求路径反射到 `<title>`（例如 `Error 404 - robots.txt Not Found!`），形成新的模板注入/XSS 检查点
++
++- 404 模板探测：`${7*7}` 与 `<%=7*7%>` 原样/转义反射；HTML 标签被转义
++- Jinja 载荷 `{{7*7}}` 被替换为字面量 `nonono\{\{.*\d.*\}\}`，确认存在针对“双花括号内含数字”的过滤器；这高度提示 404 Jinja SSTI 是预期方向
++- 下一步用不含数字的 Jinja 全局对象（`config`/`request`/`cycler`）验证过滤绕过和实际求值
++
++- `{{config}}` 被实际求值并泄露 Flask 配置，`{{cycler}}` 返回 Jinja `Cycler` 类：404 路径 SSTI 已确认
++- `{{request}}` 被替换成 `nonono\{\{.*request.*\}\}`，说明额外黑名单包含 `request`
++- 当前进入利用阶段：优先尝试不含数字/request 的 `cycler.__init__.__globals__.os.popen(...).read()` 链
++
++- 经典点号属性链被过滤为 `nonono\{\{.*\..*\}\}`，确认黑名单还禁止 `.` 
++- 下一步以 Jinja `|attr('...')` 和 `__getitem__` 替代所有点号完成 `cycler -> globals -> os -> popen -> read`
++- `/tmp/ssti_id_response.txt`: 点号链过滤证据
++
++- 首次无点号 attr 链返回 500（未出现 `nonono`），可能是运行时链式过滤或 URL 中 `|`/引号解析问题；需拆成单级表达式定位
++
++- 单级 `cycler|attr('__init__')` 同样 500；问题集中在双下划线或 `attr` 过滤器本身，而非链长度
++- 中括号变体也 500；下一步以无下划线属性和无参数 filter 区分语法能力与 `__` 黑名单
++
++- 本轮探测因环境缺少 `jq`，编码变量为空，实际误请求首页（200），不计为表达式结果；后续改用手工百分号编码
+ 
+ ## Flags Found
+ (无)
+
+tokens used
+50,484
+{
+  "solved": false,
+  "flag": null,
+  "status": "INFEASIBLE",
+  "summary": "未发现可利用的 Spring Actuator、error、H2、Swagger、静态配置泄露或路径绕过。",
+  "result_file": "/home/stw/ctf-agent/challenges/manual_2273095efcf1270253338a5c.http-ctf2.dasctf.com_80/branch_result_branch_002.md",
+  "confidence": 0.96
+}

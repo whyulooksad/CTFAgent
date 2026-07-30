@@ -1,0 +1,24 @@
+{
+  "branch_001": {
+    "id": "branch_001",
+    "name": "request_merge_chain",
+    "pid": 25853,
+    "started_at": 1785426513.7148411,
+    "timeout": 300,
+    "status": "done",
+    "exit_code": 0,
+    "result_file": "branch_result_branch_001.md",
+    "finished_at": 1785426656.758228
+  },
+  "branch_002": {
+    "id": "branch_002",
+    "name": "dynamic_callable",
+    "pid": 25862,
+    "started_at": 1785426513.7847428,
+    "timeout": 300,
+    "status": "done",
+    "exit_code": 0,
+    "result_file": "branch_result_branch_002.md",
+    "finished_at": 1785426774.502213
+  }
+}

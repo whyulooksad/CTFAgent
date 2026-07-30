@@ -336,7 +336,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         # 计算工作目录
         if ctype == "web":
-            dir_name = "manual_" + re.sub(r"https?://", "", url).replace(":", "_").replace("/", "_")
+            short_hash = hashlib.md5(url.encode()).hexdigest()[:12]
+            dir_name = f"manual_web_{short_hash}"
         else:
             import hashlib
             short_hash = hashlib.md5(attachment.encode()).hexdigest()[:12]

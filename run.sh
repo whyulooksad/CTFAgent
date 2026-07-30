@@ -46,7 +46,9 @@ fi
 case "$CHALLENGE_TYPE" in
     web)
         if [ -z "$TARGET_URL" ]; then echo "web 类型需要 --url"; exit 1; fi
-        WORK_DIR_NAME="manual_$(echo "$TARGET_URL" | sed 's|https\?://||;s|[:/]|_|g')"
+        # 用 MD5 短哈希避免 URL 带路径时 socket 路径超长 (AF_UNIX 限制 108)
+        SHORT_HASH=$(printf '%s' "$TARGET_URL" | md5sum | cut -c1-12)
+        WORK_DIR_NAME="manual_web_${SHORT_HASH}"
         ;;
     crypto|misc)
         if [ -z "$ATTACHMENT" ]; then echo "$CHALLENGE_TYPE 类型需要 --attachment"; exit 1; fi
@@ -75,6 +77,11 @@ echo "Work dir: $WORK_DIR"
 echo ""
 
 # ─── 初始化工作目录 ───
+
+# 清理上一次运行的残留状态（同一 URL 会复用工作目录）
+rm -f "$WORK_DIR/branch_state.json" "$WORK_DIR/branch.sock"
+rm -f "$WORK_DIR/branch_result_"*.md
+rm -f "$WORK_DIR/codex.log" "$WORK_DIR/hermes.log" "$WORK_DIR/monitor_state.json"
 
 mkdir -p "$WORK_DIR/poc_scripts"
 
@@ -274,7 +281,10 @@ while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
     fi
 
     # 检查 progress.md 的 Flags Found 段 (Codex 主动声明的，不碰 codex.log)
-    FLAGS=$(awk '/^## *Flags Found/{f=1;next} /^##/{f=0} f' "$WORK_DIR/progress.md" | grep -v '^(无)' | grep -v '^$' | head -1)
+    # 注意: grep 无匹配时返回 1，不能用 set -e 让它退出整个脚本
+    # 注意: 过滤 HTML 注释 (Codex/branch 会写 <!-- --> 进度笔记到 Flags Found 段)
+    FLAGS=$(awk '/^## *Flags Found/{f=1;next} /^##/{f=0} f' "$WORK_DIR/progress.md" \
+        | grep -v '^(无)' | grep -v '^<!--' | grep -v '^$' | head -1 || true)
     if [ -n "$FLAGS" ]; then
         echo ""
         echo "=== FLAG FOUND! ==="
