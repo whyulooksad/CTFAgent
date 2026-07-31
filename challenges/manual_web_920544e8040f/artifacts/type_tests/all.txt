@@ -1,0 +1,47 @@
+== type test summary ==
+01 raw=zip http=200 time=0.122150 size=1565 ctype=application/zip cdisp=attachment; filename="u1785494157-2a66ffb262bb8dd2.zip"; file=Zip archive data, at least v2.0 to extract, compression method=deflate
+02 raw=tar http=200 time=0.122154 size=8192 ctype=application/zip cdisp=attachment; filename="u1785494157-e5cb6a0cf45a3017.tar"; file=POSIX tar archive
+03 raw=zip;sleep 4;# http=200 time=0.162214 size=1565 ctype=application/zip cdisp=attachment; filename="u1785494157-322cd87449a75ff7.zip;sleep 4;#"; file=Zip archive data, at least v2.0 to extract, compression method=deflate
+04 raw=tar;sleep 4;# http=200 time=0.125714 size=1565 ctype=application/zip cdisp=attachment; filename="u1785494157-e2bbee922cb48e20.tar;sleep 4;#"; file=Zip archive data, at least v2.0 to extract, compression method=deflate
+05 raw=zip$(sleep 4) http=200 time=0.159939 size=1565 ctype=application/zip cdisp=attachment; filename="u1785494157-ff287a09f540b9df.zip$(sleep 4)"; file=Zip archive data, at least v2.0 to extract, compression method=deflate
+06 raw=tar$(sleep 4) http=200 time=0.110411 size=1565 ctype=application/zip cdisp=attachment; filename="u1785494157-54c9edbd4f3ff5c0.tar$(sleep 4)"; file=Zip archive data, at least v2.0 to extract, compression method=deflate
+07 raw=zip`id` http=200 time=0.118583 size=1565 ctype=application/zip cdisp=attachment; filename="u1785494157-19e73e355eb7c52a.zip`id`"; file=Zip archive data, at least v2.0 to extract, compression method=deflate
+08 raw=tar`id` http=200 time=0.106661 size=1565 ctype=application/zip cdisp=attachment; filename="u1785494157-f775b0278533fc57.tar`id`"; file=Zip archive data, at least v2.0 to extract, compression method=deflate
+09 raw=../zip http=200 time=0.105656 size=0 ctype=application/zip cdisp=attachment; filename="u1785494157-fce31083507c90d3./zip"; file=empty
+10 raw=php://filter http=200 time=0.117540 size=0 ctype=application/zip cdisp=attachment; filename="u1785494157-aca02e3d76bcfb91.php://filter"; file=empty
+
+== type archive listings ==
+== body_1.bin 1565 ==
+magic 504b03041400020008000555ff5c0968 b'PK\x03\x04\x14\x00\x02\x00\x08\x00\x05U\xff\\\th'
+zip ['0_alpha-note.json', '1_trav_---pwn.json', '2_cmd_x;sleep-4;#.json']
+== body_10.bin 0 ==
+magic  b''
+archive_err ReadError file could not be opened successfully:
+- method gz: ReadError('empty file')
+- me
+== body_2.bin 8192 ==
+magic 305f616c7068612d6e6f74652e6a736f b'0_alpha-note.jso'
+tar ['0_alpha-note.json', '1_trav_---pwn.json', '2_cmd_x;sleep-4;#.json']
+== body_3.bin 1565 ==
+magic 504b03041400020008000555ff5c0968 b'PK\x03\x04\x14\x00\x02\x00\x08\x00\x05U\xff\\\th'
+zip ['0_alpha-note.json', '1_trav_---pwn.json', '2_cmd_x;sleep-4;#.json']
+== body_4.bin 1565 ==
+magic 504b03041400020008000555ff5c0968 b'PK\x03\x04\x14\x00\x02\x00\x08\x00\x05U\xff\\\th'
+zip ['0_alpha-note.json', '1_trav_---pwn.json', '2_cmd_x;sleep-4;#.json']
+== body_5.bin 1565 ==
+magic 504b03041400020008000555ff5c0968 b'PK\x03\x04\x14\x00\x02\x00\x08\x00\x05U\xff\\\th'
+zip ['0_alpha-note.json', '1_trav_---pwn.json', '2_cmd_x;sleep-4;#.json']
+== body_6.bin 1565 ==
+magic 504b03041400020008000555ff5c0968 b'PK\x03\x04\x14\x00\x02\x00\x08\x00\x05U\xff\\\th'
+zip ['0_alpha-note.json', '1_trav_---pwn.json', '2_cmd_x;sleep-4;#.json']
+== body_7.bin 1565 ==
+magic 504b03041400020008000555ff5c0968 b'PK\x03\x04\x14\x00\x02\x00\x08\x00\x05U\xff\\\th'
+zip ['0_alpha-note.json', '1_trav_---pwn.json', '2_cmd_x;sleep-4;#.json']
+== body_8.bin 1565 ==
+magic 504b03041400020008000555ff5c0968 b'PK\x03\x04\x14\x00\x02\x00\x08\x00\x05U\xff\\\th'
+zip ['0_alpha-note.json', '1_trav_---pwn.json', '2_cmd_x;sleep-4;#.json']
+== body_9.bin 0 ==
+magic  b''
+archive_err ReadError file could not be opened successfully:
+- method gz: ReadError('empty file')
+- me

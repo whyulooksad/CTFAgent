@@ -18,7 +18,7 @@
                ▼
 ┌─────────────────────────────────────────────────────┐
 │                  Codex (解题者)                       │
-│  模型: GPT5.6 | reasoning: medium | 模式: --dangerously-bypass | 指令: AGENTS.md │
+│  模型: GPT5.6 | reasoning: xhigh | 模式: --dangerously-bypass | 指令: AGENTS.md │
 │  主会话: 侦察 -> 分析 -> 决策 -> 利用                  │
 │  读 board.md 恢复状态 (compact 后也靠它)              │
 │  分岔口: 异步调 branch.py spawn -> daemon 管理并行试探  │
@@ -50,7 +50,7 @@
 | Codex CLI | `npm install -g @openai/codex`，已安装 |
 | Codex 模型 | GPT5.6 |
 | Codex 模式 | `--dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust --ignore-rules --disable guardian_approval` (无沙箱，无审批，无安全扫描) |
-| Codex 推理 | `model_reasoning_effort = "medium"` (config.toml + CLI -c 双保险) |
+| Codex 推理 | `model_reasoning_effort = "xhigh"` (config.toml + CLI -c 双保险) |
 | 系统指令 | 项目根目录 `AGENTS.md` |
 | Hermes | 已部署，作为监督者常驻运行 |
 | 工作目录 | `~/ctf-agent/` (每次挑战一个子目录) |
@@ -513,7 +513,7 @@ class BranchDaemon:
             [CODEX_CMD, "exec", "--dangerously-bypass-approvals-and-sandbox",
              "--dangerously-bypass-hook-trust", "--ignore-rules",
              "--disable", "guardian_approval",
-             "-c", "model_reasoning_effort=medium", full_prompt],
+             "-c", "model_reasoning_effort=xhigh", full_prompt],
             stdout=open(self.work_dir / f"{sid}.log", "w"),
             stderr=subprocess.STDOUT,
             cwd=str(self.work_dir),
@@ -781,7 +781,7 @@ trap 'INTERRUPTED=1' SIGINT SIGTERM  # Ctrl+C 不续跑
 RETRY=0
 while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
     codex exec --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust \
-      --ignore-rules --disable guardian_approval -c model_reasoning_effort="medium" \
+      --ignore-rules --disable guardian_approval -c model_reasoning_effort="xhigh" \
       "$CODEX_PROMPT" > codex.log 2>&1 || true
 
     if [ $INTERRUPTED -eq 1 ]; then break; fi

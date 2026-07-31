@@ -1,0 +1,10 @@
+01	user=pollute01&admin=1	Hello, pollute01	You are not an admin 
+02	user=pollute02&is_admin=1	Hello, pollute02	You are not an admin 
+03	user=pollute03&role=admin	Hello, pollute03	You are not an admin 
+04	user=pollute04&admin=true	Hello, pollute04	You are not an admin 
+05	user=pollute05&admin=on	Hello, pollute05	You are not an admin 
+06	user=pollute06&isAdmin=1	Hello, pollute06	You are not an admin 
+07	user=pollute07&user=admin&admin=1	Hello, admin	You are not an admin 
+08	user=admin&is_admin=1&role=admin	Hello, admin	You are not an admin 
+09	user=pollute08&_SESSION[admin]=1	Hello, pollute08	You are not an admin 
+10	user=pollute09&session[admin]=1	Hello, pollute09	You are not an admin 

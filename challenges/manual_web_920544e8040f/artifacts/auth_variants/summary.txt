@@ -1,0 +1,9 @@
+01 user=Admin           code=200 OK user="Hello, Admin" verdict="You are not an admin "
+02 user=admin_          code=200 OK user="Hello, admin_" verdict="You are not an admin "
+03 user=1               code=200 OK user="" verdict="You are not an admin "
+04 user=true            code=200 OK user="Hello, true" verdict="You are not an admin "
+05 user=../../admin     code=200 OK user="" verdict="You are not an admin "
+06 user=%00admin        code=200 OK user="" verdict="You are not an admin "
+07 user[]=admin         code=200 OK user="" verdict="You are not an admin "
+08 user[admin]=1        code=200 OK user="" verdict="You are not an admin "
+09 user=irizaki_mei     code=200 OK user="Hello, irizaki_mei" verdict="You are not an admin "

@@ -1,0 +1,34 @@
+== body_1.bin 1565 ==
+magic 504b03041400020008000555ff5c0968 b'PK\x03\x04\x14\x00\x02\x00\x08\x00\x05U\xff\\\th'
+zip ['0_alpha-note.json', '1_trav_---pwn.json', '2_cmd_x;sleep-4;#.json']
+== body_10.bin 0 ==
+magic  b''
+archive_err ReadError file could not be opened successfully:
+- method gz: ReadError('empty file')
+- me
+== body_2.bin 8192 ==
+magic 305f616c7068612d6e6f74652e6a736f b'0_alpha-note.jso'
+tar ['0_alpha-note.json', '1_trav_---pwn.json', '2_cmd_x;sleep-4;#.json']
+== body_3.bin 1565 ==
+magic 504b03041400020008000555ff5c0968 b'PK\x03\x04\x14\x00\x02\x00\x08\x00\x05U\xff\\\th'
+zip ['0_alpha-note.json', '1_trav_---pwn.json', '2_cmd_x;sleep-4;#.json']
+== body_4.bin 1565 ==
+magic 504b03041400020008000555ff5c0968 b'PK\x03\x04\x14\x00\x02\x00\x08\x00\x05U\xff\\\th'
+zip ['0_alpha-note.json', '1_trav_---pwn.json', '2_cmd_x;sleep-4;#.json']
+== body_5.bin 1565 ==
+magic 504b03041400020008000555ff5c0968 b'PK\x03\x04\x14\x00\x02\x00\x08\x00\x05U\xff\\\th'
+zip ['0_alpha-note.json', '1_trav_---pwn.json', '2_cmd_x;sleep-4;#.json']
+== body_6.bin 1565 ==
+magic 504b03041400020008000555ff5c0968 b'PK\x03\x04\x14\x00\x02\x00\x08\x00\x05U\xff\\\th'
+zip ['0_alpha-note.json', '1_trav_---pwn.json', '2_cmd_x;sleep-4;#.json']
+== body_7.bin 1565 ==
+magic 504b03041400020008000555ff5c0968 b'PK\x03\x04\x14\x00\x02\x00\x08\x00\x05U\xff\\\th'
+zip ['0_alpha-note.json', '1_trav_---pwn.json', '2_cmd_x;sleep-4;#.json']
+== body_8.bin 1565 ==
+magic 504b03041400020008000555ff5c0968 b'PK\x03\x04\x14\x00\x02\x00\x08\x00\x05U\xff\\\th'
+zip ['0_alpha-note.json', '1_trav_---pwn.json', '2_cmd_x;sleep-4;#.json']
+== body_9.bin 0 ==
+magic  b''
+archive_err ReadError file could not be opened successfully:
+- method gz: ReadError('empty file')
+- me

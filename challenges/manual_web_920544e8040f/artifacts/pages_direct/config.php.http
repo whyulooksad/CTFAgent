@@ -1,0 +1,11 @@
+HTTP/1.1 200 OK
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:41:11 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+

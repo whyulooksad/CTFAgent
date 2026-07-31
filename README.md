@@ -16,7 +16,7 @@ Codex 解题 + Hermes 监督 + Subagent 并行试探的 CTF 自动解题系统�
                    ▼
 ┌───────────────────────────────────────────────┐
 │              Codex (主决策者/解题者)             │
-│  模型: GPT5.6 | reasoning: medium              │
+│  模型: GPT5.6 | reasoning: xhigh               │
 │  按题型读 strategies/<type>.md，自动续跑最多10轮  │
 │  guidance/dead_ends 通过 hook 实时注入(读后清空)  │
 └──────────────────┬────────────────────────────┘
@@ -49,7 +49,7 @@ Codex 解题 + Hermes 监督 + Subagent 并行试探的 CTF 自动解题系统�
 
 ```toml
 model = "gpt-5.6-sol"
-model_reasoning_effort = "medium"
+model_reasoning_effort = "xhigh"
 
 [features]
 guardian_approval = false
@@ -204,8 +204,42 @@ rm challenges/manual_<name>/branch.sock
 | STALE_LOG_SECONDS | 300 | 日志无更新 >5 分钟触发 stale 信号 |
 | DEFAULT_TIMEOUT (subagent) | 300 | 单个 subagent 默认 5 分钟 |
 | 监控轮询间隔 | 10s | monitor.py 每 10 秒执行一次 |
-| model_reasoning_effort | medium | Codex 推理程度 |
+| model_reasoning_effort | xhigh | Codex 推理程度 |
 | MAX_LOG_LINES | 80 | monitor.py 单次输出最大日志行数 |
 | Dashboard 端口 | 8080 | `python3 dashboard.py --port <port>` 可改 |
 
 可通过环境变量 `CODEX_CMD` 覆盖 codex 命令路径（默认 `codex`）。
+
+# 待改
+
+- [ ] board.md — 全量更新，8 条 Ideas（6 failed + 1 verified + 2 testing）+ 12 条 Memory   有点小，但改大的话是单纯改大，还是做个压缩管理？
+
+- [ ] 环境未安装 ffuf/feroxbuster/gobuster/dirsearch/wfuzz；目录字典扫描需用 curl 并发脚本实现。后续可能需要补充更多工具。
+
+- [ ] hermes可能需要更多的ctf 的做题技巧，而且人应该可以和Hermes交互
+
+- [ ] === [01:22:53] Hermes agent 被触发 ===
+  Error: Response remained truncated after 3 continuation attempts
+
+  session_id: 20260731_012256_fb13a0    有时候会超限，考虑换更大的max_token的模型，或者作压缩管理
+
+  不只是 monitor.py 的 prompt。看数据：
+
+      - monitor.py 输出：8.5KB（这个不算大）
+      - 但 hermes_monitor.md 告诉 Hermes 读这些文件：
+        - progress.md：7KB
+        - codex.log tail -30：codex.log 已经 5.2MB 了，30 行每行都很长
+        - board.md：4KB
+      - 然后 Hermes 还要：搜 web + 写 guidance.md + 全量更新 board.md + 回复摘要
+      
+      前面几题没崩是因为 5 分钟就解完了，codex.log 短、progress.md 短、board.md 短，Hermes 读写量都小。这次 Codex 跑了 40 多分钟，SSTI 利用链又长又密，Hermes 要读的、要写的全都膨胀了，总输出超过 ARK API 的上限，续写 3 次都拼不完。
+
+- [ ] - `branch.py results branch_003` 因 daemon 连接拒绝失败；结果文件已存在，改为只读该文件恢复结论。ConnectionRefusedError 说明 socket 文件还在但 daemon 进程已经不在了。daemon 可能在 _reap_subagents() 或 _check_timeouts() 里崩了，或者被信号杀了。daemon 一死，socket 文件残留，CLI 连上去被拒绝。
+
+  Codex 自己处理得挺好 -- 连不上就直接读 branch_result_branch_003.md 文件，不影响结果。不是致命 bug，只是 daemon 不够健壮。
+
+- [x] subagent超时问题，可以把时间拉大
+
+- [ ] 会先按指定顺序读取 Web 攻击流程、看板和当前进度；之后严格维护 `progress.md`，并根据现有线索继续利用直到拿到 flag。。。但现在的这个攻击流程的指导很弱
+
+- [ ] 但目前仍有一个架构缺口：结果文件完全依赖模型听话写。 如果模型卡住、提前被杀、API 断开，文件仍可能不存在。更稳妥的做法是 daemon 在 spawn 时先原子创建一个“进行中”的 branch_result_branch_001.md，并在 timeout/killed/crashed 时自动写入终态模板和日志路径。这样无论如何文件都存在，主 Agent 永远可以读到分支状态和 branch_001.log 的位置。这才是应该补上的可靠性机制。

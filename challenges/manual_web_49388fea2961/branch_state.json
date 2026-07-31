@@ -1,0 +1,24 @@
+{
+  "branch_001": {
+    "id": "branch_001",
+    "name": "dangerous_sink_scan",
+    "pid": 93464,
+    "started_at": 1785475100.307692,
+    "timeout": 300,
+    "status": "timeout",
+    "exit_code": null,
+    "result_file": "branch_result_branch_001.md",
+    "finished_at": 1785475400.8592038
+  },
+  "branch_002": {
+    "id": "branch_002",
+    "name": "code_clustering",
+    "pid": 93488,
+    "started_at": 1785475100.3610098,
+    "timeout": 300,
+    "status": "timeout",
+    "exit_code": null,
+    "result_file": "branch_result_branch_002.md",
+    "finished_at": 1785475400.8592255
+  }
+}

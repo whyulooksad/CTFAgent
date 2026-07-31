@@ -1,0 +1,10 @@
+01 raw=zip http=200 time=0.122150 size=1565 ctype=application/zip cdisp=attachment; filename="u1785494157-2a66ffb262bb8dd2.zip"; file=Zip archive data, at least v2.0 to extract, compression method=deflate
+02 raw=tar http=200 time=0.122154 size=8192 ctype=application/zip cdisp=attachment; filename="u1785494157-e5cb6a0cf45a3017.tar"; file=POSIX tar archive
+03 raw=zip;sleep 4;# http=200 time=0.162214 size=1565 ctype=application/zip cdisp=attachment; filename="u1785494157-322cd87449a75ff7.zip;sleep 4;#"; file=Zip archive data, at least v2.0 to extract, compression method=deflate
+04 raw=tar;sleep 4;# http=200 time=0.125714 size=1565 ctype=application/zip cdisp=attachment; filename="u1785494157-e2bbee922cb48e20.tar;sleep 4;#"; file=Zip archive data, at least v2.0 to extract, compression method=deflate
+05 raw=zip$(sleep 4) http=200 time=0.159939 size=1565 ctype=application/zip cdisp=attachment; filename="u1785494157-ff287a09f540b9df.zip$(sleep 4)"; file=Zip archive data, at least v2.0 to extract, compression method=deflate
+06 raw=tar$(sleep 4) http=200 time=0.110411 size=1565 ctype=application/zip cdisp=attachment; filename="u1785494157-54c9edbd4f3ff5c0.tar$(sleep 4)"; file=Zip archive data, at least v2.0 to extract, compression method=deflate
+07 raw=zip`id` http=200 time=0.118583 size=1565 ctype=application/zip cdisp=attachment; filename="u1785494157-19e73e355eb7c52a.zip`id`"; file=Zip archive data, at least v2.0 to extract, compression method=deflate
+08 raw=tar`id` http=200 time=0.106661 size=1565 ctype=application/zip cdisp=attachment; filename="u1785494157-f775b0278533fc57.tar`id`"; file=Zip archive data, at least v2.0 to extract, compression method=deflate
+09 raw=../zip http=200 time=0.105656 size=0 ctype=application/zip cdisp=attachment; filename="u1785494157-fce31083507c90d3./zip"; file=empty
+10 raw=php://filter http=200 time=0.117540 size=0 ctype=application/zip cdisp=attachment; filename="u1785494157-aca02e3d76bcfb91.php://filter"; file=empty

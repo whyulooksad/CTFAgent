@@ -1,0 +1,70 @@
+HTTP/1.1 302 Found
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:46:22 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Location: /?page=home
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+HTTP/1.1 200 OK
+Transfer-Encoding: chunked
+Cache-Control: no-store, no-cache, must-revalidate
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:46:22 GMT
+Expires: Thu, 19 Nov 1981 08:52:00 GMT
+Keep-Alive: timeout=4
+Pragma: no-cache
+Proxy-Connection: keep-alive
+Server: openresty
+Vary: Accept-Encoding
+Vary: Accept-Encoding
+X-Powered-By: PHP/7.3.9
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+    <title>Easy Notes</title>
+  </head>
+  <body>
+    <div class="container">
+      <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <a class="navbar-brand" href="/">Easy Notes</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarDropdown" aria-controls="navbarDropdown" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarDropdown">
+          <ul class="navbar-nav mr-auto">
+            <li class="nav-item"><a class="nav-link" href="/">Home</a></li>
+                        <li class="nav-item"><a class="nav-link disabled" href="?page=flag">Get flag</a></li>
+          </ul>
+          <ul class="navbar-nav">
+                        <li class="nav-item"><a class="nav-link" href="?page=login">Log in</a></li>
+                      </ul>
+        </div>
+      </nav>
+    </div>
+    <main class="container">
+      <section class="jumbotron">
+        <h1>Easy Notes</h1>
+        <p class="lead">Easy Notes is a note-taking service. You can write notes and export them as a .zip or .tar! </p>
+        <p class="lead">Since this is an experimental service, there might be a lot of bugs… If you find bugs, please do not abuse them!</p>
+                <a href="?page=login" class="btn btn-primary">Log in</a>
+              </section>
+    </main>
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js" integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy" crossorigin="anonymous"></script>
+  </body>
+</html>

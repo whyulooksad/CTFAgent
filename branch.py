@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Optional
 
 CODEX_CMD = os.environ.get("CODEX_CMD", "codex")
-DEFAULT_TIMEOUT = 300  # 单个 subagent 默认 5 分钟
+DEFAULT_TIMEOUT = 900  # 单个 subagent 默认 15 分钟，xhigh 推理与大型源码审计需要更多时间
 SOCKET_BACKLOG = 8
 SELECT_TIMEOUT = 1.0  # select 轮询间隔 (秒)
 RECV_BUF = 1 << 20  # 1MB
@@ -191,9 +191,9 @@ class BranchDaemon:
                 self._terminate(sa, status="timeout")
 
     def _terminate(self, sa: Subagent, status: str) -> None:
-        """终止 subagent 并更新状态。"""
+        """终止 subagent 进程组并更新状态。"""
         try:
-            os.kill(sa.pid, signal.SIGTERM)
+            os.killpg(os.getpgid(sa.pid), signal.SIGTERM)
         except ProcessLookupError:
             pass
         sa.status = status
@@ -259,10 +259,12 @@ class BranchDaemon:
 
         try:
             proc = subprocess.Popen(
-                [CODEX_CMD, "exec", "--dangerously-bypass-approvals-and-sandbox", "--dangerously-bypass-hook-trust", "--ignore-rules", "--disable", "guardian_approval", "-c", "model_reasoning_effort=medium", full_prompt],
+                [CODEX_CMD, "exec", "--dangerously-bypass-approvals-and-sandbox", "--dangerously-bypass-hook-trust", "--ignore-rules", "--disable", "guardian_approval", "-c", "model_reasoning_effort=xhigh", full_prompt],
                 stdout=open(log_file, "w"),
                 stderr=subprocess.STDOUT,
                 cwd=str(self.work_dir),
+                stdin=subprocess.DEVNULL,
+                start_new_session=True,
             )
         except FileNotFoundError:
             return {"error": f"codex command not found: {CODEX_CMD}"}
@@ -284,6 +286,8 @@ class BranchDaemon:
     ) -> str:
         return (
             f"{prompt}\n\n"
+            f"协作隔离规则：你是只读试探分支。不要修改 board.md、progress.md、guidance.md、dead_ends.md，"
+            f"也不要创建或修改主线文件；只允许在完成时写入指定的结果文件。\n\n"
             f"---\n"
             f"完成后将结果写入 {self.work_dir}/{result_file}，格式:\n"
             f"## Branch Result\n"

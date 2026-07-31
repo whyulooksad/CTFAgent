@@ -288,7 +288,7 @@ while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
 
     cd "$WORK_DIR"
     codex exec --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust \
-      --ignore-rules --disable guardian_approval -c model_reasoning_effort="medium" \
+      --ignore-rules --disable guardian_approval -c model_reasoning_effort="xhigh" \
       "$CODEX_PROMPT" \
         < /dev/null > codex.log 2>&1 || true
 

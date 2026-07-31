@@ -1,0 +1,173 @@
+
+== artifacts/pages_direct/config.php.http ==
+HTTP/1.1 200 OK
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:41:11 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+X-Powered-By: PHP/7.3.9
+Content-Length: 0
+
+
+== artifacts/pages_direct/pages_add.php.http ==
+HTTP/1.1 200 OK
+Transfer-Encoding: chunked
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:41:11 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Vary: Accept-Encoding
+Vary: Accept-Encoding
+X-Powered-By: PHP/7.3.9
+
+      <section>
+        <h2>Add note</h2>
+        <form action="add.php" method="POST">
+          <div class="form-group">
+            <label for="title">Title</label>
+            <input type="text" class="form-control" id="title" name="title" placeholder="e.g. What is Haifuri?">
+          </div>
+          <div class="form-group">
+            <label for="body">Body</label>
+            <textarea class="form-control" id="body" name="body" placeholder="e.g. Haifuri (High School Fleet) is an anime."></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary">Submit</button>
+        </form>
+      </section>
+== artifacts/pages_direct/pages_delete.php.http ==
+HTTP/1.1 200 OK
+Transfer-Encoding: chunked
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:41:11 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Vary: Accept-Encoding
+Vary: Accept-Encoding
+X-Powered-By: PHP/7.3.9
+
+<br />
+<b>Fatal error</b>:  Uncaught Error: Call to undefined function get_notes() in /var/www/html/pages/delete.php:2
+Stack trace:
+#0 {main}
+  thrown in <b>/var/www/html/pages/delete.php</b> on line <b>2</b><br />
+
+== artifacts/pages_direct/pages_flag.php.http ==
+HTTP/1.1 200 OK
+Transfer-Encoding: chunked
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:41:09 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Vary: Accept-Encoding
+Vary: Accept-Encoding
+X-Powered-By: PHP/7.3.9
+
+      <section>
+        <h2>Get flag</h2>
+        <p>
+          <br />
+<b>Fatal error</b>:  Uncaught Error: Call to undefined function is_admin() in /var/www/html/pages/flag.php:5
+Stack trace:
+#0 {main}
+  thrown in <b>/var/www/html/pages/flag.php</b> on line <b>5</b><br />
+
+== artifacts/pages_direct/pages_home.php.http ==
+HTTP/1.1 200 OK
+Transfer-Encoding: chunked
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:41:11 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Vary: Accept-Encoding
+Vary: Accept-Encoding
+X-Powered-By: PHP/7.3.9
+
+      <section class="jumbotron">
+        <h1>Easy Notes</h1>
+        <p class="lead">Easy Notes is a note-taking service. You can write notes and export them as a .zip or .tar! </p>
+        <p class="lead">Since this is an experimental service, there might be a lot of bugs… If you find bugs, please do not abuse them!</p>
+        <br />
+<b>Fatal error</b>:  Uncaught Error: Call to undefined function is_logged_in() in /var/www/html/pages/home.php:5
+Stack trace:
+#0 {main}
+  thrown in <b>/var/www/html/pages/home.php</b> on line <b>5</b><br />
+
+== artifacts/pages_direct/pages_login.php.http ==
+HTTP/1.1 200 OK
+Transfer-Encoding: chunked
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:41:11 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Vary: Accept-Encoding
+Vary: Accept-Encoding
+X-Powered-By: PHP/7.3.9
+
+      <section>
+        <h2>Log in</h2>
+        <form action="login.php" method="POST">
+          <div class="form-group">
+            <label for="title">Username</label>
+            <input type="text" class="form-control" id="user" name="user" placeholder="e.g. irizaki_mei" pattern="^[0-9A-Za-z_-]{4,64}$">
+            <small class="form-text text-muted">format: <code>/^[0-9A-Za-z_-]{4,64}$/</code></small>
+          </div>
+          <button type="submit" class="btn btn-primary">Log in</button>
+        </form>
+      </section>
+== artifacts/pages_direct/pages_note.php.http ==
+HTTP/1.1 200 OK
+Transfer-Encoding: chunked
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:41:10 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Vary: Accept-Encoding
+Vary: Accept-Encoding
+X-Powered-By: PHP/7.3.9
+
+<br />
+<b>Fatal error</b>:  Uncaught Error: Call to undefined function get_notes() in /var/www/html/pages/note.php:2
+Stack trace:
+#0 {main}
+  thrown in <b>/var/www/html/pages/note.php</b> on line <b>2</b><br />
+
+== artifacts/pages_direct/pages_notes.php.http ==
+HTTP/1.1 200 OK
+Transfer-Encoding: chunked
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=UTF-8
+Date: Fri, 31 Jul 2026 10:41:10 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Vary: Accept-Encoding
+Vary: Accept-Encoding
+X-Powered-By: PHP/7.3.9
+
+<br />
+<b>Fatal error</b>:  Uncaught Error: Call to undefined function get_notes() in /var/www/html/pages/notes.php:2
+Stack trace:
+#0 {main}
+  thrown in <b>/var/www/html/pages/notes.php</b> on line <b>2</b><br />
