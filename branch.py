@@ -76,6 +76,7 @@ class BranchDaemon:
         self.work_dir = work_dir
         self.sock_path = work_dir / "branch.sock"
         self.state_path = work_dir / "branch_state.json"
+        self.pid_path = work_dir / "branch.pid"
         self.subagents: dict[str, Subagent] = {}
         self._counter = 0
         self._running = True
@@ -87,6 +88,7 @@ class BranchDaemon:
         self._setup_signals()
         self._restore_state()
         self._bind_socket()
+        self._write_pid_file()
         print(f"[branch-daemon] listening on {self.sock_path}", flush=True)
 
         while self._running:
@@ -101,8 +103,7 @@ class BranchDaemon:
 
         self._shutdown_all()
         self._srv.close()
-        if self.sock_path.exists():
-            self.sock_path.unlink()
+        self._cleanup_files()
         print("[branch-daemon] exited cleanly", flush=True)
 
     # ─── internal: setup ───
@@ -122,6 +123,16 @@ class BranchDaemon:
         self._srv.bind(str(self.sock_path))
         self._srv.listen(SOCKET_BACKLOG)
         self._srv.setblocking(False)
+
+    def _write_pid_file(self) -> None:
+        """启动时写 PID 文件，供 CLI 检测 daemon 是否存活。"""
+        self.pid_path.write_text(str(os.getpid()), encoding="utf-8")
+
+    def _cleanup_files(self) -> None:
+        """干净退出时清理 socket 和 PID 文件。"""
+        for p in (self.sock_path, self.pid_path):
+            if p.exists():
+                p.unlink()
 
     # ─── internal: state persistence ───
 
@@ -437,11 +448,49 @@ class BranchClient:
     """Thin client，连接 daemon socket 发请求。"""
 
     def __init__(self, work_dir: Path):
+        self.work_dir = work_dir
         self.sock_path = work_dir / "branch.sock"
+        self.pid_path = work_dir / "branch.pid"
+
+    def _daemon_alive(self) -> Optional[bool]:
+        """通过 PID 文件检查 daemon 是否存活。
+
+        Returns:
+            True  -- PID 存活
+            False -- PID 已死
+            None  -- PID 文件不存在（旧版 daemon 或未启动）
+        """
+        if not self.pid_path.exists():
+            return None
+        try:
+            pid = int(self.pid_path.read_text(encoding="utf-8").strip())
+            os.kill(pid, 0)
+            return True
+        except (ProcessLookupError, PermissionError):
+            return False
+        except (ValueError, OSError):
+            return False
+
+    def _cleanup_stale_files(self) -> None:
+        """清理 daemon 崩溃后残留的 socket 和 PID 文件。"""
+        for p in (self.sock_path, self.pid_path):
+            try:
+                p.unlink()
+            except FileNotFoundError:
+                pass
 
     def call(self, req: dict) -> dict:
         if not self.sock_path.exists():
             return {"error": "daemon not running (socket not found)"}
+
+        # 通过 PID 文件检查 daemon 是否存活
+        alive = self._daemon_alive()
+        if alive is False:
+            # PID 文件存在但进程已死 -> daemon 崩溃了，清理残留
+            self._cleanup_stale_files()
+            return {"error": "daemon is dead (stale socket and pid file cleaned up)"}
+
+        # alive is True 或 None（PID 文件不存在，可能是旧版 daemon）-> 尝试连接
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         try:
             sock.settimeout(120)  # wait 命令可能阻塞较久
@@ -449,7 +498,11 @@ class BranchClient:
             sock.sendall(json.dumps(req, ensure_ascii=False).encode())
             raw = sock.recv(RECV_BUF)
             return json.loads(raw)
-        except (ConnectionRefusedError, socket.timeout) as e:
+        except ConnectionRefusedError as e:
+            # 连接被拒绝 -> daemon 确实死了，清理残留
+            self._cleanup_stale_files()
+            return {"error": f"daemon not responding (cleaned up stale files): {e}"}
+        except socket.timeout as e:
             return {"error": str(e)}
         finally:
             sock.close()

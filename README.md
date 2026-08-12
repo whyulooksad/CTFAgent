@@ -242,4 +242,4 @@ rm challenges/manual_<name>/branch.sock
 
 - [ ] 会先按指定顺序读取 Web 攻击流程、看板和当前进度；之后严格维护 `progress.md`，并根据现有线索继续利用直到拿到 flag。。。但现在的这个攻击流程的指导很弱
 
-- [ ] 但目前仍有一个架构缺口：结果文件完全依赖模型听话写。 如果模型卡住、提前被杀、API 断开，文件仍可能不存在。更稳妥的做法是 daemon 在 spawn 时先原子创建一个“进行中”的 branch_result_branch_001.md，并在 timeout/killed/crashed 时自动写入终态模板和日志路径。这样无论如何文件都存在，主 Agent 永远可以读到分支状态和 branch_001.log 的位置。这才是应该补上的可靠性机制。
+- [x] 但目前仍有一个架构缺口：结果文件完全依赖模型听话写。 如果模型卡住、提前被杀、API 断开，文件仍可能不存在。更稳妥的做法是 daemon 在 spawn 时先原子创建一个“进行中”的 branch_result_branch_001.md，并在 timeout/killed/crashed 时自动写入终态模板和日志路径。这样无论如何文件都存在，主 Agent 永远可以读到分支状态和 branch_001.log 的位置。这才是应该补上的可靠性机制。
