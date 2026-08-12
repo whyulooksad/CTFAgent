@@ -170,6 +170,7 @@ class BranchDaemon:
             except ChildProcessError:
                 sa.status = "killed"
                 sa.finished_at = time.time()
+                self._ensure_result_file(sa)
                 continue
             if waited_pid == 0:
                 continue  # still running
@@ -180,6 +181,7 @@ class BranchDaemon:
                 sa.status = "killed"
                 sa.exit_code = -os.WTERMSIG(status)
             sa.finished_at = time.time()
+            self._ensure_result_file(sa)
 
     def _check_timeouts(self) -> None:
         """检查超时，主动 SIGTERM。"""
@@ -198,6 +200,64 @@ class BranchDaemon:
             pass
         sa.status = status
         sa.finished_at = time.time()
+        self._ensure_result_file(sa)
+
+    # ─── internal: result file guarantee ───
+
+    def _write_in_progress(self, sa: Subagent) -> None:
+        """spawn 时立即创建 IN_PROGRESS 结果文件，保证文件始终存在。"""
+        path = self.work_dir / sa.result_file
+        started_str = time.strftime(
+            "%Y-%m-%dT%H:%M:%S", time.localtime(sa.started_at)
+        )
+        content = (
+            f"## Branch Result\n"
+            f"direction: {sa.name}\n"
+            f"subagent_id: {sa.id}\n"
+            f"status: IN_PROGRESS\n"
+            f"started_at: {started_str}\n"
+            f"log_file: {sa.id}.log\n\n"
+            f"(子进程正在运行，结果尚未返回)\n"
+        )
+        path.write_text(content, encoding="utf-8")
+
+    def _ensure_result_file(self, sa: Subagent) -> None:
+        """子进程结束后检查结果文件，模型没写则 daemon 补写终态。"""
+        path = self.work_dir / sa.result_file
+        if path.exists():
+            text = path.read_text(encoding="utf-8")
+            # 模型已覆写（不再是 IN_PROGRESS 模板）-> 保留模型输出
+            if "IN_PROGRESS" not in text:
+                return
+        # 文件不存在或仍是 IN_PROGRESS 模板 -> daemon 补写终态
+        status_map = {
+            "done": "DONE_NO_RESULT",
+            "crashed": "CRASHED",
+            "timeout": "TIMEOUT",
+            "killed": "KILLED",
+        }
+        terminal = status_map.get(sa.status, sa.status.upper())
+        started_str = time.strftime(
+            "%Y-%m-%dT%H:%M:%S", time.localtime(sa.started_at)
+        )
+        finished_str = time.strftime(
+            "%Y-%m-%dT%H:%M:%S", time.localtime(sa.finished_at)
+        )
+        elapsed = int(sa.elapsed())
+        exit_info = f"exit_code: {sa.exit_code}\n" if sa.exit_code is not None else ""
+        content = (
+            f"## Branch Result\n"
+            f"direction: {sa.name}\n"
+            f"subagent_id: {sa.id}\n"
+            f"status: {terminal}\n"
+            f"started_at: {started_str}\n"
+            f"finished_at: {finished_str}\n"
+            f"elapsed: {elapsed}s\n"
+            f"{exit_info}"
+            f"log_file: {sa.id}.log\n\n"
+            f"(子进程 {terminal}，未自行写入结果。查看日志: {sa.id}.log)\n"
+        )
+        path.write_text(content, encoding="utf-8")
 
     def _shutdown_all(self) -> None:
         for sa in self.subagents.values():
@@ -278,6 +338,7 @@ class BranchDaemon:
             result_file=result_file,
         )
         self.subagents[sid] = sa
+        self._write_in_progress(sa)
         print(f"[branch-daemon] spawned {sid} (pid={proc.pid}): {name}", flush=True)
         return {"id": sid, "pid": proc.pid}
 
