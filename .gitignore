@@ -24,3 +24,19 @@ env/
 
 # OS
 Thumbs.db
+
+# Master 调度器运行产物
+master_state*.json
+master_*.log
+master.log
+master_logs/
+challenges/manual_*/
+challenges/attachments/
+challenges/fake/
+tests/master_state_test.json
+tests/master_test.log
+tests/mock_challenges/*.zip
+
+# Phase 2: Docker 构建产物
+cred_snapshots/
+docker/solver/hermes-src/
