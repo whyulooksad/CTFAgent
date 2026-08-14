@@ -27,8 +27,9 @@ from typing import Callable, Optional
 
 from adapters.base import Challenge
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-CHALLENGES_DIR = SCRIPT_DIR / "challenges"
+SCRIPT_DIR = Path(__file__).resolve().parent          # master/
+REPO_DIR = SCRIPT_DIR.parent                          # 仓库根
+CHALLENGES_DIR = REPO_DIR / "challenges"
 
 
 def _safe_name(cid: str) -> str:
@@ -83,7 +84,7 @@ class ProcessBackend(SolverBackend):
     def start(self, ch: Challenge) -> SolverHandle:
         work_dir = self._predict_work_dir(ch)
 
-        cmd = ["bash", str(SCRIPT_DIR / "run.sh"), "--type", ch.type]
+        cmd = ["bash", str(REPO_DIR / "solver" / "run.sh"), "--type", ch.type]
         if ch.type == "web":
             cmd += ["--url", ch.url or ""]
         else:
@@ -92,7 +93,7 @@ class ProcessBackend(SolverBackend):
         cmd += ["--hint", hint]
 
         # run.sh 的 stdout 横幅收集到 master_logs (codex/hermes 日志在 work_dir 内)
-        log_path = SCRIPT_DIR / "master_logs" / f"{_safe_name(ch.id)}.log"
+        log_path = REPO_DIR / "master_logs" / f"{_safe_name(ch.id)}.log"
         log_path.parent.mkdir(parents=True, exist_ok=True)
 
         log_f = open(log_path, "w", encoding="utf-8")
@@ -102,7 +103,7 @@ class ProcessBackend(SolverBackend):
                 stdin=subprocess.DEVNULL,
                 stdout=log_f,
                 stderr=subprocess.STDOUT,
-                cwd=str(SCRIPT_DIR),
+                cwd=str(REPO_DIR),
                 start_new_session=True,  # 独立进程组，方便整组终止
             )
         finally:
@@ -202,7 +203,7 @@ class DockerBackend(SolverBackend):
         if snapshot_dir is not None:
             self.snapshot_dir = Path(snapshot_dir)
         else:
-            self.snapshot_dir = SCRIPT_DIR / "cred_snapshots" / "current"
+            self.snapshot_dir = REPO_DIR / "cred_snapshots" / "current"
         if not self.snapshot_dir.exists():
             raise FileNotFoundError(
                 f"凭据快照不存在: {self.snapshot_dir} (先运行 python3 cred_snapshot.py)"

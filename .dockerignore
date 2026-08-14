@@ -11,9 +11,9 @@ __pycache__/
 challenges/
 cred_snapshots/
 master_state*.json
-master*.log
+master_*.log
+master.log
 master_logs/
 att/
-tests/mock_challenges/*.zip
-tests/master_state_test.json
-tests/master_test.log
+docs/
+tests/

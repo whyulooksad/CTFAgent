@@ -24,7 +24,7 @@ import subprocess
 from pathlib import Path
 from typing import Optional, Sequence
 
-SCRIPT_DIR = Path(__file__).resolve().parent
+SCRIPT_DIR = Path(__file__).resolve().parent          # master/ (codex exec 的工作目录)
 
 # 排序输入 duck-typing: 只要有 .score / .solve_count 属性
 # (Challenge 和 ChallengeRecord 都满足)

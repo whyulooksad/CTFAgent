@@ -34,9 +34,9 @@ from typing import Optional
 
 # ───────────────────────── Config ─────────────────────────
 
-SCRIPT_DIR = Path(__file__).resolve().parent
+SCRIPT_DIR = Path(__file__).resolve().parent          # solver/
 FRONTEND_FILE = SCRIPT_DIR / "dashboard.html"
-CHALLENGES_DIR = SCRIPT_DIR / "challenges"
+CHALLENGES_DIR = SCRIPT_DIR.parent / "challenges"     # 仓库根/challenges
 DEFAULT_PORT = 8080
 
 # ───────────────────────── State ─────────────────────────
@@ -120,9 +120,6 @@ def parse_progress(path: Path) -> dict:
 
 def get_branch_status(work_dir: Path) -> list:
     """查 branch.py subagent 状态。"""
-    sock = work_dir / "branch.sock"
-    if not sock.exists():
-        return []
     try:
         result = subprocess.run(
             ["python3", str(SCRIPT_DIR / "branch.py"), "status", "--work-dir", str(work_dir)],

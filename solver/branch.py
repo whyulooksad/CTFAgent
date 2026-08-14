@@ -17,16 +17,19 @@ Usage:
   python3 branch.py results --work-dir <dir> [id]
   python3 branch.py wait    --work-dir <dir> [id] [--timeout 60]
   python3 branch.py shutdown --work-dir <dir>
+  python3 branch.py socket-path --work-dir <dir>
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import select
 import signal
 import socket
+import stat
 import subprocess
 import sys
 import time
@@ -39,6 +42,34 @@ DEFAULT_TIMEOUT = 900  # 单个 subagent 默认 15 分钟，xhigh 推理与大�
 SOCKET_BACKLOG = 8
 SELECT_TIMEOUT = 1.0  # select 轮询间隔 (秒)
 RECV_BUF = 1 << 20  # 1MB
+SOCKET_DIR_ENV = "CTF_AGENT_SOCKET_DIR"
+
+
+def branch_socket_path(work_dir: Path) -> Path:
+    """为工作目录生成稳定、短小的 Unix socket 路径。"""
+    digest = hashlib.sha256(os.fsencode(work_dir.resolve())).hexdigest()[:20]
+    configured_dir = os.environ.get(SOCKET_DIR_ENV)
+    if configured_dir:
+        socket_dir = Path(configured_dir).expanduser()
+        if not socket_dir.is_absolute():
+            raise ValueError(f"{SOCKET_DIR_ENV} must be an absolute path")
+    else:
+        socket_dir = Path("/tmp") / f"ctf-agent-{os.getuid()}"
+    return socket_dir / f"branch-{digest}.sock"
+
+
+def ensure_socket_dir(sock_path: Path) -> None:
+    """创建当前用户专属的 socket 目录，并拒绝不安全的已有路径。"""
+    socket_dir = sock_path.parent
+    socket_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if socket_dir.is_symlink():
+        raise RuntimeError(f"socket directory must not be a symlink: {socket_dir}")
+    info = socket_dir.stat()
+    if not stat.S_ISDIR(info.st_mode):
+        raise RuntimeError(f"socket path parent is not a directory: {socket_dir}")
+    if info.st_uid != os.getuid():
+        raise PermissionError(f"socket directory is not owned by current user: {socket_dir}")
+    socket_dir.chmod(0o700)
 
 
 # ───────────────────────── Data Models ─────────────────────────
@@ -74,7 +105,7 @@ class BranchDaemon:
 
     def __init__(self, work_dir: Path):
         self.work_dir = work_dir
-        self.sock_path = work_dir / "branch.sock"
+        self.sock_path = branch_socket_path(work_dir)
         self.state_path = work_dir / "branch_state.json"
         self.subagents: dict[str, Subagent] = {}
         self._counter = 0
@@ -116,6 +147,7 @@ class BranchDaemon:
         self._running = False
 
     def _bind_socket(self) -> None:
+        ensure_socket_dir(self.sock_path)
         if self.sock_path.exists():
             self.sock_path.unlink()
         self._srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -259,7 +291,20 @@ class BranchDaemon:
 
         try:
             proc = subprocess.Popen(
-                [CODEX_CMD, "exec", "--dangerously-bypass-approvals-and-sandbox", "--dangerously-bypass-hook-trust", "--ignore-rules", "--disable", "guardian_approval", "-c", "model_reasoning_effort=xhigh", full_prompt],
+                [
+                    CODEX_CMD,
+                    "exec",
+                    "--profile",
+                    "ctf",
+                    "--dangerously-bypass-approvals-and-sandbox",
+                    "--dangerously-bypass-hook-trust",
+                    "--ignore-rules",
+                    "--disable",
+                    "guardian_approval",
+                    "-c",
+                    "model_reasoning_effort=xhigh",
+                    full_prompt,
+                ],
                 stdout=open(log_file, "w"),
                 stderr=subprocess.STDOUT,
                 cwd=str(self.work_dir),
@@ -376,7 +421,7 @@ class BranchClient:
     """Thin client，连接 daemon socket 发请求。"""
 
     def __init__(self, work_dir: Path):
-        self.sock_path = work_dir / "branch.sock"
+        self.sock_path = branch_socket_path(work_dir)
 
     def call(self, req: dict) -> dict:
         if not self.sock_path.exists():
@@ -452,6 +497,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_daemon = sub.add_parser("daemon", help="start the daemon")
     p_daemon.add_argument("--work-dir", required=True)
 
+    # socket-path
+    p_socket_path = sub.add_parser("socket-path", help="print daemon socket path")
+    p_socket_path.add_argument("--work-dir", required=True)
+
     # spawn
     p_spawn = sub.add_parser("spawn", help="spawn a subagent")
     p_spawn.add_argument("--work-dir", required=True)
@@ -489,6 +538,9 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
+    if args.command == "socket-path":
+        print(branch_socket_path(Path(args.work_dir)))
+        return 0
     if args.command == "daemon":
         return daemon_main(args)
     return cli_main(args)

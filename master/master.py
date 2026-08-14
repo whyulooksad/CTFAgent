@@ -47,7 +47,9 @@ from challenge_state import (
 from solver_pool import DockerBackend, FakeBackend, ProcessBackend, SolverBackend, SolverHandle
 from submitter import Submitter
 
-SCRIPT_DIR = Path(__file__).resolve().parent
+SCRIPT_DIR = Path(__file__).resolve().parent          # master/
+REPO_DIR = SCRIPT_DIR.parent                          # 仓库根
+CHALLENGES_DIR = REPO_DIR / "challenges"
 
 # dispatch 基础设施失败 (开靶机/下载附件) 的冷却时间
 DISPATCH_COOLDOWN = 30.0
@@ -122,7 +124,7 @@ class Master:
         self.cfg = cfg
         state_path = Path(cfg.state_file)
         if not state_path.is_absolute():
-            state_path = SCRIPT_DIR / state_path
+            state_path = REPO_DIR / state_path
         self.state = MasterState(state_path, max_submit_per_challenge=cfg.max_submit_per_challenge)
         self.adapter = adapter if adapter is not None else make_adapter(cfg.adapter)
         self.backend = backend if backend is not None else make_backend(cfg.backend, cfg)
@@ -255,7 +257,7 @@ class Master:
         # 2. 下载附件 (已有本地文件则跳过，重试复用)
         if rec.attachment_url and not rec.attachment_path:
             try:
-                dest = SCRIPT_DIR / "challenges" / "attachments" / rec.id
+                dest = CHALLENGES_DIR / "attachments" / rec.id
                 rec.attachment_path = str(self.adapter.download_attachment(rec.attachment_url, dest))
             except Exception as e:
                 self._dispatch_cooldown(rec, f"下载附件失败: {e}")
@@ -567,7 +569,7 @@ def main() -> int:
     cfg = Config.load(Path(args.config))
     log_file = Path(cfg.log_file)
     if not log_file.is_absolute():
-        log_file = SCRIPT_DIR / log_file
+        log_file = REPO_DIR / log_file
     setup_logging(log_file)
 
     logging.getLogger("master").info(

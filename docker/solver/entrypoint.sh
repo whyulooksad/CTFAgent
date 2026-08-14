@@ -6,4 +6,4 @@
 #   /root/.hermes                精制快照: auth.json / config.yaml / .env
 #   /opt/ctf-agent/challenges    题目现场 (宿主机 challenges/ 的 bind mount，删容器不删数据)
 set -e
-exec bash /opt/ctf-agent/run.sh "$@"
+exec bash /opt/ctf-agent/solver/run.sh "$@"

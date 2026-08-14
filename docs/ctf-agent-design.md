@@ -7,7 +7,7 @@
 ## 1. 架构总览
 
 ```
-┌─────────────────────────────────────────────────────┐
+┌─────────────────────────────────────────────────────┐
 │                    Hermes (监督者)                     │
 │  持续监控: tail 日志 + 读 progress.md                  │
 │  主动介入: 写 guidance.md (软建议) / dead_ends.md (硬约束) │
@@ -84,7 +84,6 @@ Codex 不在 Docker 容器里，直接在宿主机上跑，有完整网络访问
 │       ├── dead_ends.md         # Hermes 写: 硬约束 (hook 自动注入，读后清空)
 │       ├── codex.log            # Codex 运行日志
 │       ├── hermes.log           # Hermes 监控日志 (hermes chat -q 输出)
-│       ├── branch.sock          # branch daemon 的 unix socket (运行时生成)
 │       ├── branch_state.json    # branch daemon 持久化状态 (subagent 列表, PID, 状态)
 │       ├── branch_result_{id}.md # Subagent 写: 试探结果
 │       └── poc_scripts/         # PoC 脚本存档
@@ -154,7 +153,8 @@ Hermes 写，Codex 必须遵守。PostToolUse hook 自动注入，读后清空�
 ### 4.4 branch.py 通信协议 (Codex -> daemon)
 
 Codex 不再写 branch_request.md，而是直接调 branch.py 子命令与 daemon 交互。
-daemon 是长驻进程，绑定 `{work_dir}/branch.sock` (unix socket)，所有状态在内存维护。
+daemon 是长驻进程，根据 `work_dir` 哈希绑定短路径
+`/tmp/ctf-agent-<uid>/branch-<hash>.sock`，所有状态在内存维护。
 子命令是 thin client，连接 socket 发 JSON 请求，收 JSON 响应。
 
 ```
@@ -186,7 +186,7 @@ python3 branch.py shutdown --work-dir <dir>
 daemon 内部循环:
 ```
 while running:
-    1. select 监听 branch.sock (等子命令请求)
+    1. select 监听短路径 branch socket (等子命令请求)
     2. os.waitpid(WNOHANG) 回收已结束的 subagent，获取退出码
     3. 检查超时 -> SIGTERM kill + 更新状态
     4. subagent 完成 -> 更新状态 + 持久化 branch_state.json
@@ -433,7 +433,7 @@ DEFAULT_TIMEOUT = 300  # 单个 subagent 默认 5 分钟
 class BranchDaemon:
     def __init__(self, work_dir: Path):
         self.work_dir = work_dir
-        self.sock_path = work_dir / "branch.sock"
+        self.sock_path = branch_socket_path(work_dir)
         self.state_path = work_dir / "branch_state.json"
         self.subagents = {}  # id -> subagent record
         self.counter = 0
@@ -650,7 +650,7 @@ class BranchDaemon:
 # ─── CLI thin client ───
 def cli_client(work_dir, cmd, **kwargs):
     """连接 daemon socket，发送命令，返回响应"""
-    sock_path = Path(work_dir) / "branch.sock"
+    sock_path = branch_socket_path(Path(work_dir))
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.connect(str(sock_path))
     sock.sendall(json.dumps({"cmd": cmd, **kwargs}).encode())

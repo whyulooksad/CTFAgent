@@ -17,8 +17,8 @@ import sys
 import time
 from pathlib import Path
 
-SCRIPT_DIR = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(SCRIPT_DIR))
+SCRIPT_DIR = Path(__file__).resolve().parent.parent   # 仓库根
+sys.path.insert(0, str(SCRIPT_DIR / "master"))
 
 from adapters.base import Challenge, SubmitResult
 from adapters.mock import MOCK_FLAGS, MockAdapter
@@ -83,6 +83,7 @@ class TestAdapter(MockAdapter):
 
 
 def test_rule_order() -> None:
+    """规则层排序 (spec §9 预期序)。"""
     order = [c.id for c in rule_order(MockAdapter().list_challenges())]
     expected = ["mock-easy-misc", "mock-mid-web", "mock-mid-crypto"]
     assert order == expected, f"优先级排序错误: {order} != {expected}"

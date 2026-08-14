@@ -31,8 +31,8 @@ from .base import Challenge, PlatformAdapter, SubmitResult
 _BIND_HOST = "0.0.0.0"
 _PUBLIC_HOST = os.environ.get("CTF_MOCK_PUBLIC_HOST", "127.0.0.1")
 
-SCRIPT_DIR = Path(__file__).resolve().parent.parent
-ATTACH_DIR = SCRIPT_DIR / "tests" / "mock_challenges"
+REPO_DIR = Path(__file__).resolve().parent.parent.parent   # 仓库根
+ATTACH_DIR = REPO_DIR / "tests" / "mock_challenges"
 
 MOCK_FLAGS = {
     "mock-easy-misc": "flag{mock_easy_misc_welcome}",

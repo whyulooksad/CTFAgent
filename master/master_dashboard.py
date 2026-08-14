@@ -27,7 +27,7 @@ from urllib.parse import unquote, urlparse
 
 from challenge_state import SUBMITTED_CORRECT
 
-SCRIPT_DIR = Path(__file__).resolve().parent
+SCRIPT_DIR = Path(__file__).resolve().parent          # master/
 FRONTEND_FILE = SCRIPT_DIR / "master_dashboard.html"
 
 

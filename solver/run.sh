@@ -17,6 +17,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # ─── 参数解析 ───
 
@@ -65,7 +66,8 @@ case "$CHALLENGE_TYPE" in
 esac
 
 MAX_RETRIES=10
-WORK_DIR="$SCRIPT_DIR/challenges/$WORK_DIR_NAME"
+WORK_DIR="$REPO_ROOT/challenges/$WORK_DIR_NAME"
+BRANCH_SOCKET=$(python3 "$SCRIPT_DIR/branch.py" socket-path --work-dir "$WORK_DIR")
 
 echo "=== CTF Agent 启动 ==="
 echo "Type: $CHALLENGE_TYPE"
@@ -74,12 +76,13 @@ case "$CHALLENGE_TYPE" in
     crypto|misc) echo "Attachment: $ATTACHMENT" ;;
 esac
 echo "Work dir: $WORK_DIR"
+echo "Branch socket: $BRANCH_SOCKET"
 echo ""
 
 # ─── 初始化工作目录 ───
 
 # 清理上一次运行的残留状态（同一 URL 会复用工作目录）
-rm -f "$WORK_DIR/branch_state.json" "$WORK_DIR/branch.sock"
+rm -f "$WORK_DIR/branch_state.json" "$WORK_DIR/branch.sock" "$BRANCH_SOCKET"
 rm -f "$WORK_DIR/branch_result_"*.md
 rm -f "$WORK_DIR/codex.log" "$WORK_DIR/hermes.log" "$WORK_DIR/monitor_state.json"
 
@@ -167,15 +170,15 @@ echo "[run.sh] Branch daemon started (PID: $BRANCH_DAEMON_PID)"
 
 # 等待 daemon 就绪 (socket 出现)
 for i in $(seq 1 10); do
-    if [ -S "$WORK_DIR/branch.sock" ]; then
+    if [ -S "$BRANCH_SOCKET" ]; then
         echo "[run.sh] Branch daemon ready"
         break
     fi
     sleep 0.3
 done
 
-if [ ! -S "$WORK_DIR/branch.sock" ]; then
-    echo "[run.sh] ERROR: Branch daemon failed to start"
+if [ ! -S "$BRANCH_SOCKET" ]; then
+    echo "[run.sh] ERROR: Branch daemon failed to start ($BRANCH_SOCKET)"
     kill $BRANCH_DAEMON_PID 2>/dev/null || true
     exit 1
 fi
@@ -262,7 +265,7 @@ case "$CHALLENGE_TYPE" in
         CODEX_PROMPT="目标: $TARGET_URL
 背景: $HINT
 
-先读 $SCRIPT_DIR/strategies/web.md 了解 Web 题攻击流程。
+先读 $REPO_ROOT/strategies/web.md 了解 Web 题攻击流程。
 再读 board.md 了解当前 ideas 和 memory 状态。
 再读 progress.md 了解当前进度。
 然后继续解题。
@@ -273,7 +276,7 @@ case "$CHALLENGE_TYPE" in
 背景: $HINT
 
 这是一个 $CHALLENGE_TYPE 题目。附件已复制到工作目录。
-先读 $SCRIPT_DIR/strategies/$CHALLENGE_TYPE.md 了解 $CHALLENGE_TYPE 题攻击流程。
+先读 $REPO_ROOT/strategies/$CHALLENGE_TYPE.md 了解 $CHALLENGE_TYPE 题攻击流程。
 再读 board.md 了解当前 ideas 和 memory 状态。
 再读 progress.md 了解当前进度。
 然后开始解题: 先解压/识别附件，分析文件内容，寻找 flag。
@@ -287,7 +290,7 @@ while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
     echo "=== Codex round $((RETRY+1))/$MAX_RETRIES ==="
 
     cd "$WORK_DIR"
-    codex exec --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust \
+    codex exec --profile ctf --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust \
       --ignore-rules --disable guardian_approval -c model_reasoning_effort="xhigh" \
       "$CODEX_PROMPT" \
         < /dev/null > codex.log 2>&1 || true

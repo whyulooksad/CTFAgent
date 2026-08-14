@@ -33,12 +33,13 @@ import time
 from pathlib import Path
 from typing import Optional
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-SNAPSHOT_ROOT = SCRIPT_DIR / "cred_snapshots"
+SCRIPT_DIR = Path(__file__).resolve().parent          # master/
+REPO_DIR = SCRIPT_DIR.parent                          # 仓库根
+SNAPSHOT_ROOT = REPO_DIR / "cred_snapshots"
 HOME = Path.home()
 
 HOOK_CMD_OLD = 'python3 "$(git rev-parse --show-toplevel)/hooks/check_guidance.py"'
-HOOK_CMD_NEW = "python3 /opt/ctf-agent/hooks/check_guidance.py"
+HOOK_CMD_NEW = "python3 /opt/ctf-agent/solver/hooks/check_guidance.py"
 
 DEFAULT_MODEL = "gpt-5.6-sol"
 
