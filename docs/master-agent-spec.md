@@ -430,8 +430,10 @@ Phase 2 实现时确认的细节 (与 spec 原稿的差异):
       面板 API 5 项 (overview/pause/resume/config/404) + 前端真机冒烟通过
 
 ### Phase 4 — 真实 API 对接（测试日）
-- [ ] adapters/live.py 按真实文档填充
-- [ ] 端到端联调
+- [x] adapters/live.py best-effort 实现 (端点/字段/认证做了常见命名兼容，面板「平台接入」热切换)
+- [x] 面板手动加题 (adapters/manual.py 手动题池: web 即靶机 / 本地附件拷贝 / 无判定平台恒 correct)
+- [x] 常驻模式 resident: 队列空/达上限不退出，面板永远在线 (默认配置 adapter=none)
+- [ ] 测试日按官方文档核对 live.py 的端点/字段/认证头，端到端联调
 - [ ] 验收: 真实平台拉题→解题→提交闭环
 
 ---

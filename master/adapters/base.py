@@ -34,6 +34,7 @@ class Challenge:
     url: Optional[str] = None     # web 题靶机 URL (start_challenge 之后才有)
     attachment_url: Optional[str] = None
     attachment_path: Optional[Path] = None   # Master 下载后的本地路径
+    source: str = "platform"      # platform (adapter 拉取) | manual (面板手动加入)
 
 
 @dataclass

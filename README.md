@@ -127,6 +127,20 @@ hook 机制：每次 Codex 执行完受支持的本地工具后，检查工作�
 
 ## 启动
 
+### 0. 日常使用（常驻模式，默认）
+
+```bash
+python3 master/master.py        # 默认配置: adapter=none + resident=true
+```
+
+- 进程**常驻**，面板 **http://localhost:8081** 永远在线（测试结束也不退出），`Ctrl+C` 停止
+- **手动加题**（测其他 CTF 平台的题）：选类型（web 填靶机 URL / crypto、misc 填本地附件绝对路径）+ 描述，
+  右侧「＋」加行、一次提交多题，统一进 master 调度。手动题不受题量上限约束；
+  无判定平台，solver 找到 flag 即闭环，flag 展示在面板上自行去目标平台提交（卡片带「手动」标）
+- **平台接入**（测试日）：填赛方 API 地址 + Token，热切换 `LiveAdapter` 并立即拉题，
+  顶栏徽章显示接入状态
+- 调度配置区可运行时改并发数/题量上限
+
 ### 1. 手动调试/演示（由廉价到昂贵）
 
 ```bash
@@ -181,7 +195,8 @@ docker/solver/build.sh --no-sync     # 跳过 hermes 同步
 
 | 键 | 默认 | 说明 |
 |------|------|------|
-| adapter | mock | 平台适配器: mock / live(测试日) |
+| adapter | none | 平台适配器: none(手动+面板接入) / mock / live(测试日) |
+| resident | true | 常驻模式: 不自动退出，面板永远在线 (0 = 跑完队列自动退出) |
 | backend | process | solver 后端: process / docker / fake(调试) |
 | max_solvers | 5 | 并行 solver 槽位数 (面板可改) |
 | max_challenges | 20 | 尝试题目数上限 (去重计，重试不占) |
@@ -212,7 +227,8 @@ docker/solver/build.sh --no-sync     # 跳过 hermes 同步
 
 ## 待办
 
-- [ ] **Phase 4**: 测试日拿到赛方 API 文档后填充 `master/adapters/live.py`，端到端联调
+- [ ] **Phase 4**: 测试日按官方文档核对 `master/adapters/live.py` 的端点/字段/认证头
+      （已有 best-effort 实现，可在面板「平台接入」直接填地址+Token 试连）
 - [ ] WSL 上重建 amd64 镜像并复跑 docker 冒烟
 - [ ] hermes 可能需要更多 CTF 做题技巧，且人应该可以和 Hermes 交互
 - [ ] hermes 监控输出偶尔超限（ARK API max_token），考虑更大 token 模型或压缩管理

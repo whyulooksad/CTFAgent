@@ -31,6 +31,7 @@ from typing import Optional
 import prioritizer
 from adapters.base import Challenge
 from adapters.mock import MockAdapter
+from adapters.manual import ManualAdapter, NoPlatformAdapter
 from challenge_state import (
     ACTIVE_STATES,
     FAILED,
@@ -40,6 +41,7 @@ from challenge_state import (
     QUEUED,
     RUNNING,
     SUBMITTED_CORRECT,
+    TERMINAL_STATES,
     TIMEOUT,
     extract_flags,
     retry_eligible,
@@ -79,6 +81,7 @@ class Config:
     docker_image: str = "ctf-solver:latest"  # Phase 2
     state_file: str = "master_state.json"
     log_file: str = "master.log"
+    resident: bool = False              # 常驻模式: 不退出，面板永远在线 (手动加题/平台接入)
 
     @classmethod
     def load(cls, path: Path) -> "Config":
@@ -92,10 +95,16 @@ class Config:
 def make_adapter(name: str):
     if name == "mock":
         return MockAdapter()
-    if name == "live":
-        from adapters.live import LiveAdapter  # 测试日填充 (Phase 4)
-        return LiveAdapter()
+    if name in ("none", "live"):
+        # none: 只用手动题 + 面板「平台接入」热切换 (手动测试其他平台的主模式)
+        # live: 同 none 启动，接入信息由面板输入后切换到 LiveAdapter
+        return NoPlatformAdapter()
     raise ValueError(f"unknown adapter: {name}")
+
+
+def make_manual_adapter():
+    """手动输入题目池 (面板「加题」)，独立于平台 adapter。"""
+    return ManualAdapter()
 
 
 def make_backend(name: str, cfg: Optional[Config] = None) -> SolverBackend:
@@ -114,6 +123,19 @@ def make_backend(name: str, cfg: Optional[Config] = None) -> SolverBackend:
     raise ValueError(f"unknown backend: {name}")
 
 
+class _SourceRouterAdapter:
+    """提交路由: 按题目 source 分发到平台/手动 adapter (Submitter 只用 submit)。"""
+
+    def __init__(self, master: "Master"):
+        self._master = master
+
+    def submit(self, cid: str, flag: str):
+        rec = self._master.state.get(cid)
+        if rec is not None and rec.source == "manual":
+            return self._master.manual_adapter.submit(cid, flag)
+        return self._master.adapter.submit(cid, flag)
+
+
 # ───────────────────────── Master ─────────────────────────
 
 
@@ -127,16 +149,21 @@ class Master:
             state_path = REPO_DIR / state_path
         self.state = MasterState(state_path, max_submit_per_challenge=cfg.max_submit_per_challenge)
         self.adapter = adapter if adapter is not None else make_adapter(cfg.adapter)
+        self.manual_adapter = ManualAdapter()
         self.backend = backend if backend is not None else make_backend(cfg.backend, cfg)
+
+        # 提交按题目来源路由: manual 题 -> manual_adapter (无判定平台，恒 correct)
         self.submitter = Submitter(
-            self.adapter, self.state, min_interval=cfg.submit_min_interval
+            _SourceRouterAdapter(self), self.state, min_interval=cfg.submit_min_interval
         )
         self.running: dict[str, SolverHandle] = {}
         self.dashboard_server = None
-        self._started_targets: set[str] = set()   # 已开靶机的 web 题
+        self._started_targets: set[str] = set()   # 已开靶机的 web 题 (仅平台题)
         self._stop = threading.Event()
         self._interrupted = False
         self.paused = False
+        self.platform_connected = isinstance(self.adapter, MockAdapter)
+        self.platform_info: dict = {"base_url": "", "token": ""}
         self.log = logging.getLogger("master")
 
     # ─── 生命周期 ───
@@ -199,24 +226,34 @@ class Master:
     # ─── 主循环各阶段 ───
 
     def _sync_challenges(self) -> None:
-        """拉取题目列表，同步元数据 (动态分数/解出人数)，新题入队。"""
-        try:
-            metas = self.adapter.list_challenges()
-        except Exception as e:
-            self.log.error("list_challenges 失败: %s", e)
-            return
-        for meta in metas:
+        """拉取题目列表 (平台 + 手动题池)，同步元数据 (动态分数/解出人数)，新题入队。"""
+        if self.platform_connected:
+            try:
+                metas = self.adapter.list_challenges()
+                for meta in metas:
+                    self.state.sync_challenge(meta)
+            except Exception as e:
+                self.log.error("list_challenges 失败: %s", e)
+        for meta in self.manual_adapter.list_challenges():
             self.state.sync_challenge(meta)
+
+    def _platform_attempted(self) -> int:
+        """平台题的已尝试数 (手动题不计入 max_challenges 上限)。"""
+        return sum(
+            1
+            for r in self.state.all_records()
+            if r.attempts >= 1 and r.source != "manual"
+        )
 
     def _fill_slots(self) -> None:
         """
         把队列中的题分发到空闲槽位。
 
-        max_challenges 上限只约束"新题"：已尝试过的题重试不受上限限制
-        (给高分难题的第二次机会不挤占新题名额，也不重复计数)。
+        max_challenges 上限只约束平台新题：已尝试题的重试、手动加入的题
+        均不受上限限制 (手动加题是明确意图，不挤占平台名额)。
         """
         while len(self.running) < self.cfg.max_solvers:
-            allow_new = self.state.distinct_attempted() < self.cfg.max_challenges
+            allow_new = self._platform_attempted() < self.cfg.max_challenges
             rec = self._next_candidate(allow_new=allow_new)
             if rec is None:
                 break
@@ -229,7 +266,7 @@ class Master:
             for r in self.state.all_records()
             if r.status == QUEUED
             and (r.next_eligible_at or 0) <= now
-            and (allow_new or r.attempts >= 1)
+            and (allow_new or r.attempts >= 1 or r.source == "manual")
         ]
         if not queued:
             return None
@@ -241,24 +278,26 @@ class Master:
     def _dispatch(self, rec) -> Optional[SolverHandle]:
         """分发一道题。基础设施失败 → 冷却重排；成功 → RUNNING。"""
         self.state.set_status(rec.id, "dispatched")
+        adapter = self.manual_adapter if rec.source == "manual" else self.adapter
 
-        # 1. web 题开靶机
+        # 1. web 题开靶机 (手动题: 用户输入的 URL 即靶机)
         if rec.type == "web":
             try:
-                url = self.adapter.start_challenge(rec.id)
+                url = adapter.start_challenge(rec.id)
                 if not url:
                     raise RuntimeError("start_challenge 未返回靶机 URL")
                 rec.url = url
-                self._started_targets.add(rec.id)
+                if rec.source != "manual":
+                    self._started_targets.add(rec.id)
             except Exception as e:
                 self._dispatch_cooldown(rec, f"开靶机失败: {e}")
                 return None
 
-        # 2. 下载附件 (已有本地文件则跳过，重试复用)
+        # 2. 下载附件 (已有本地文件则跳过，重试复用；手动题为本地路径拷贝)
         if rec.attachment_url and not rec.attachment_path:
             try:
                 dest = CHALLENGES_DIR / "attachments" / rec.id
-                rec.attachment_path = str(self.adapter.download_attachment(rec.attachment_url, dest))
+                rec.attachment_path = str(adapter.download_attachment(rec.attachment_url, dest))
             except Exception as e:
                 self._dispatch_cooldown(rec, f"下载附件失败: {e}")
                 return None
@@ -409,6 +448,8 @@ class Master:
     # ─── 停止判定 / 收尾 ───
 
     def _should_exit(self) -> bool:
+        if self.cfg.resident:
+            return False  # 常驻模式: 面板永远在线，等待手动加题/平台接入
         if self.paused:
             return False
         records = self.state.all_records()
@@ -421,12 +462,13 @@ class Master:
         if self.submitter.has_pending():
             return False
         queued = [r for r in records if r.status == QUEUED]
-        attempted = self.state.distinct_attempted()
-        # 上限只挡新题；已尝试题的重试仍可分发 (与 _fill_slots 语义一致)
+        attempted = self._platform_attempted()
+        # 上限只挡平台新题；重试与手动题不受限 (与 _fill_slots 语义一致)
         if queued:
             has_retry = any(r.attempts >= 1 for r in queued)
+            has_manual = any(r.source == "manual" for r in queued)
             allow_new = attempted < self.cfg.max_challenges
-            if has_retry or allow_new:
+            if has_retry or has_manual or allow_new:
                 return False
         if attempted >= self.cfg.max_challenges:
             self.log.info(
@@ -534,6 +576,81 @@ class Master:
             "配置已更新: max_solvers=%d max_challenges=%d",
             self.cfg.max_solvers, self.cfg.max_challenges,
         )
+
+    # ─── 手动加题 / 平台接入 (面板 API) ───
+
+    def add_manual_challenges(self, items: list[dict]) -> list[str]:
+        """
+        面板手动批量加题。items: [{type,title,url,attachment,description,score,solve_count}]。
+        校验失败的条目跳过并记录，不影响其他条目。返回入队成功题目 id。
+        """
+        added = []
+        for item in items:
+            try:
+                ch = self._build_manual_challenge(item)
+                # 同名题已终态 (解过/失败过) -> 换新 id 重新入队
+                base_id, n = ch.id, 2
+                while (r := self.state.get(ch.id)) is not None and r.status in TERMINAL_STATES:
+                    ch.id = f"{base_id}-{n}"
+                    n += 1
+                self.manual_adapter.add(ch)
+                self.state.sync_challenge(ch)
+                added.append(ch.id)
+            except (ValueError, FileNotFoundError) as e:
+                self.log.warning("手动加题失败 (%s): %s", item.get("title", "?"), e)
+        if added:
+            self.log.info("手动加题 %d 道: %s", len(added), added)
+        return added
+
+    def _build_manual_challenge(self, item: dict) -> Challenge:
+        ctype = str(item.get("type", "")).strip().lower()
+        if ctype not in ("web", "crypto", "misc"):
+            raise ValueError(f"题目类型必须是 web/crypto/misc，收到: {ctype!r}")
+        url = str(item.get("url", "")).strip()
+        attachment = str(item.get("attachment", "")).strip()
+        title = str(item.get("title", "")).strip()
+
+        if ctype == "web":
+            if not url:
+                raise ValueError("web 题必须填 URL")
+        else:
+            if not attachment:
+                raise ValueError(f"{ctype} 题必须填附件路径")
+            if not Path(attachment).is_file():
+                raise FileNotFoundError(f"附件不存在: {attachment}")
+            # 附件本地路径编码进 attachment_url，分发时经 download_attachment 拷入挑战目录
+            attachment = f"manual://{Path(attachment).resolve()}"
+
+        return Challenge(
+            id=f"manual-{ctype}-{title or Path(url or attachment).stem}"[:60],
+            title=title or url or Path(attachment or "").stem or ctype,
+            type=ctype,
+            score=int(item.get("score") or 0),
+            solve_count=int(item.get("solve_count") or 0),
+            description=str(item.get("description", "")).strip(),
+            url=url or None,
+            attachment_url=attachment or None,
+            source="manual",
+        )
+
+    def connect_platform(self, base_url: str, token: str = "") -> dict:
+        """
+        面板「平台接入」: 热切换到真实赛方 API (LiveAdapter) 并立即拉题。
+        base_url/token 由用户在面板手动输入 (参考赛方提供的接入信息)。
+        """
+        base_url = base_url.strip()
+        if not base_url.startswith(("http://", "https://")):
+            raise ValueError("API 地址必须以 http:// 或 https:// 开头")
+        from adapters.live import LiveAdapter
+        candidate = LiveAdapter(base_url, token)
+        metas = candidate.list_challenges()  # 连通性验证，失败抛异常
+        self.adapter = candidate
+        self.platform_connected = True
+        self.platform_info = {"base_url": base_url, "token": "***" if token else ""}
+        for meta in metas:
+            self.state.sync_challenge(meta)
+        self.log.info("平台已接入: %s，拉到 %d 道题", base_url, len(metas))
+        return {"base_url": base_url, "challenges": len(metas)}
 
     def stop_solver(self, cid: str) -> bool:
         handle = self.running.get(cid)

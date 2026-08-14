@@ -131,6 +131,7 @@ class ChallengeRecord:
     solve_count: int = 0
     description: str = ""
     attachment_url: Optional[str] = None
+    source: str = "platform"           # platform (adapter 拉取) | manual (面板手动加入)
 
     # 调度状态
     status: str = QUEUED
@@ -162,7 +163,10 @@ class ChallengeRecord:
     @classmethod
     def from_dict(cls, d: dict) -> "ChallengeRecord":
         known = {k: v for k, v in d.items() if k in cls.__dataclass_fields__}
-        return cls(**known)
+        rec = cls(**known)
+        # 旧状态文件兼容
+        rec.source = d.get("source", "platform")
+        return rec
 
 
 # ─── Master 全局状态 (线程安全 + 持久化) ───
@@ -200,6 +204,7 @@ class MasterState:
                     solve_count=meta.solve_count,
                     description=meta.description,
                     attachment_url=meta.attachment_url,
+                    source=getattr(meta, "source", "platform"),
                     status=QUEUED,
                 )
                 self.records[meta.id] = rec
@@ -211,6 +216,8 @@ class MasterState:
                     rec.description = meta.description
                 if meta.attachment_url:
                     rec.attachment_url = meta.attachment_url
+                if getattr(meta, "source", "platform") == "manual":
+                    rec.source = "manual"
             rec.updated_at = _now()
             return rec
 

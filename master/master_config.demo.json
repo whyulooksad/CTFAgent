@@ -11,5 +11,6 @@
   "max_submit_per_challenge": 3,
   "dashboard_port": 8081,
   "state_file": "master_state_demo.json",
-  "log_file": "master_demo.log"
+  "log_file": "master_demo.log",
+  "resident": false
 }

@@ -61,6 +61,7 @@ def build_overview(master) -> dict:
             "type": r.type,
             "score": r.score,
             "solve_count": r.solve_count,
+            "source": r.source,
             "status": r.status,
             "attempts": r.attempts,
             "flag": r.flag,
@@ -86,6 +87,8 @@ def build_overview(master) -> dict:
         "max_challenges": master.cfg.max_challenges,
         "solved": len(solved),
         "score_earned": sum(r.score for r in solved),
+        "platform_connected": master.platform_connected,
+        "platform_base_url": getattr(master, "platform_info", {}).get("base_url", ""),
         "challenges": challenges,
     }
 
@@ -147,6 +150,36 @@ def _make_handler(master):
                     "max_solvers": master.cfg.max_solvers,
                     "max_challenges": master.cfg.max_challenges,
                 })
+            elif path == "/api/add-challenges":
+                """手动批量加题 (items 数组，见 Master.add_manual_challenges)。"""
+                items = data.get("items", [])
+                if not isinstance(items, list) or not items:
+                    self._json(HTTPStatus.BAD_REQUEST, {"error": "items 不能为空"})
+                    return
+                added = master.add_manual_challenges(items)
+                self._json(
+                    HTTPStatus.OK if added else HTTPStatus.BAD_REQUEST,
+                    {"added": added, "failed": len(items) - len(added)},
+                )
+            elif path == "/api/connect-platform":
+                """平台接入: 手动输入赛方 API 地址 + Token，热切换并拉题。"""
+                base_url = data.get("base_url", "")
+                token = data.get("token", "")
+                if not base_url:
+                    self._json(HTTPStatus.BAD_REQUEST, {"error": "base_url 不能为空"})
+                    return
+                try:
+                    info = master.connect_platform(base_url, token)
+                except ValueError as e:
+                    self._json(HTTPStatus.BAD_REQUEST, {"error": str(e)})
+                    return
+                except Exception as e:
+                    self._json(
+                        HTTPStatus.BAD_REQUEST,
+                        {"error": f"平台连通失败: {e}"},
+                    )
+                    return
+                self._json(HTTPStatus.OK, info)
             else:
                 self._json(HTTPStatus.NOT_FOUND, {"error": "not found"})
 

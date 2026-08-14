@@ -1,5 +1,5 @@
 {
-  "adapter": "mock",
+  "adapter": "none",
   "backend": "process",
   "max_solvers": 5,
   "max_challenges": 20,
@@ -14,6 +14,7 @@
   "max_submit_per_challenge": 3,
   "dashboard_port": 8081,
   "docker_image": "ctf-solver:latest",
+  "resident": true,
   "state_file": "master_state.json",
   "log_file": "master.log"
 }

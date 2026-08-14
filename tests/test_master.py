@@ -22,7 +22,7 @@ sys.path.insert(0, str(SCRIPT_DIR / "master"))
 
 from adapters.base import Challenge, SubmitResult
 from adapters.mock import MOCK_FLAGS, MockAdapter
-from challenge_state import FAILED, SUBMITTED_CORRECT, TIMEOUT, extract_flags
+from challenge_state import FAILED, QUEUED, SUBMITTED_CORRECT, TIMEOUT, extract_flags
 from master import Config, Master
 from prioritizer import llm_order, rule_order
 import prioritizer
@@ -246,10 +246,62 @@ def test_dashboard() -> None:
     print("[PASS] dashboard")
 
 
+def test_manual_and_resident() -> None:
+    """手动加题 + 题量上限豁免 + 常驻不退出 + 手动题提交恒 correct。"""
+    import threading
+    state_file = SCRIPT_DIR / "tests" / "master_state_manual.json"
+    for p in (state_file, SCRIPT_DIR / "tests" / "master_test.log"):
+        p.unlink(missing_ok=True)
+
+    cfg = Config(
+        adapter="none", backend="fake", llm_priority=False,
+        resident=True, dashboard_port=0,
+        max_solvers=2, max_challenges=1,   # 上限 1，但手动题不受限
+        poll_interval=0.3, solver_timeout=5,
+        submit_min_interval=0.2,
+        state_file=str(state_file),
+        log_file=str(SCRIPT_DIR / "tests" / "master_test.log"),
+    )
+    m = Master(cfg, backend=FakeBackend(flag_lookup=lambda cid: f"flag{{manual_{cid}}}",
+                                        solve_delay=0.3))
+    assert m.platform_connected is False  # adapter=none
+
+    # 手动加题: 合法 web + 合法 crypto 附件 + 两个非法条目
+    added = m.add_manual_challenges([
+        {"type": "web", "url": "http://example.com:8080", "title": "手动web", "description": "手动测试"},
+        {"type": "crypto", "attachment": str(SCRIPT_DIR / "tests" / "mock_challenges" / "mid_crypto.zip"),
+         "title": "手动crypto"},
+        {"type": "crypto", "attachment": "/nonexistent.zip"},
+        {"type": "pwn"},
+    ])
+    assert len(added) == 2, f"应只入队 2 道: {added}"
+    assert all(r.source == "manual" and r.status == QUEUED
+               for r in m.state.all_records())
+
+    # 常驻运行: 手动题全部被分发 (上限 1 不拦)，Fake 后端秒解
+    t = threading.Thread(target=m.run, daemon=True)
+    t.start()
+    time.sleep(4)
+    m._stop.set()
+    t.join(timeout=6)
+    recs = {r.id: r for r in m.state.all_records()}
+    for r in recs.values():
+        assert r.attempts == 1, (r.id, r.attempts, r.status)
+    solved = [r for r in recs.values() if r.status == SUBMITTED_CORRECT]
+    assert len(solved) == 2, f"手动题应全部闭环: {[(r.id, r.status) for r in recs.values()]}"
+    # 手动 web 题的 URL 即靶机
+    web_rec = next(r for r in recs.values() if r.type == "web")
+    assert web_rec.url == "http://example.com:8080"
+    # 常驻模式永不满退
+    assert m._should_exit() is False
+    print("[PASS] manual+resident")
+
+
 if __name__ == "__main__":
     test_extract_flags()
     test_rule_order()
     test_llm_order()
     test_dashboard()
+    test_manual_and_resident()
     test_e2e()
     print("ALL PASS")

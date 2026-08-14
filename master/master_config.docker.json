@@ -15,5 +15,6 @@
   "docker_image": "ctf-solver:latest",
   "state_file": "master_state_docker.json",
   "log_file": "master_docker.log",
-  "dashboard_port": 8081
+  "dashboard_port": 8081,
+  "resident": false
 }
