@@ -420,10 +420,14 @@ Phase 2 实现时确认的细节 (与 spec 原稿的差异):
   build.sh 构建 (docker build 自动选 amd64)
 - 镜像 ENTRYPOINT 固定 exec run.sh，docker run 的 CMD 只传 run.sh 参数
 
-### Phase 3 — 面板 + LLM 优先级
-- [ ] master_dashboard.py/html 总览 + 日志 SSE + 控制
-- [ ] prioritizer.py LLM 层 (codex exec)
-- [ ] 验收: 面板实时反映全部 solver 状态；LLM 排序异常时回退规则层
+### Phase 3 — 面板 + LLM 优先级 (已完成，2026-08-14)
+- [x] master_dashboard.py/html 总览 (:8081，与 Master 同进程线程):
+      题目卡片表 + 槽位/尝试/得分汇总 + 双日志 SSE (跟随重试换 work_dir) +
+      控制 (暂停/恢复/手动终止/运行时改 max_solvers+max_challenges)
+- [x] prioritizer.py LLM 层: codex exec 单次低推理档 (30s 超时)，候选集签名缓存，
+      严格校验 (只许重排不许增删)，非法输出/失败一律回退规则层
+- [x] 验收: 单测 llm_order 三路径 (有效重排/非法回退/失败回退) + 缓存命中;
+      面板 API 5 项 (overview/pause/resume/config/404) + 前端真机冒烟通过
 
 ### Phase 4 — 真实 API 对接（测试日）
 - [ ] adapters/live.py 按真实文档填充

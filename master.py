@@ -125,6 +125,7 @@ class Master:
             self.adapter, self.state, min_interval=cfg.submit_min_interval
         )
         self.running: dict[str, SolverHandle] = {}
+        self.dashboard_server = None
         self._started_targets: set[str] = set()   # 已开靶机的 web 题
         self._stop = threading.Event()
         self._interrupted = False
@@ -134,14 +135,27 @@ class Master:
     # ─── 生命周期 ───
 
     def run(self) -> int:
-        signal.signal(signal.SIGINT, self._on_signal)
-        signal.signal(signal.SIGTERM, self._on_signal)
+        try:
+            signal.signal(signal.SIGINT, self._on_signal)
+            signal.signal(signal.SIGTERM, self._on_signal)
+        except ValueError:
+            pass  # 非主线程 (测试嵌入)，无信号处理
 
         restored = self.state.load()
         if restored:
             self.log.info("恢复状态: %d 条题目记录", len(self.state.all_records()))
             self._recover()
         self.submitter.start()
+
+        # Phase 3: 总览面板 (失败不影响调度)
+        self.dashboard_server = None
+        if getattr(self.cfg, "dashboard_port", 0):
+            try:
+                from master_dashboard import start_dashboard
+                self.dashboard_server, port = start_dashboard(self, self.cfg.dashboard_port)
+                self.log.info("总览面板: http://localhost:%d", port)
+            except Exception as e:
+                self.log.error("面板启动失败 (不影响调度): %s", e)
 
         try:
             while not self._stop.is_set():
@@ -436,6 +450,11 @@ class Master:
                 pass
             self._started_targets.discard(cid)
         self.submitter.stop()
+        if self.dashboard_server is not None:
+            try:
+                self.dashboard_server.shutdown()
+            except Exception:
+                pass
         self.state.save()
 
     def _log_summary(self) -> None:
@@ -491,6 +510,23 @@ class Master:
     def resume(self) -> None:
         self.paused = False
         self.log.info("恢复调度")
+
+    def update_config(self, max_solvers=None, max_challenges=None) -> None:
+        """运行时调整并发数/题目上限 (面板用)。"""
+        if max_solvers is not None:
+            max_solvers = int(max_solvers)
+            if max_solvers < 1:
+                raise ValueError("max_solvers 必须 >= 1")
+            self.cfg.max_solvers = max_solvers
+        if max_challenges is not None:
+            max_challenges = int(max_challenges)
+            if max_challenges < 1:
+                raise ValueError("max_challenges 必须 >= 1")
+            self.cfg.max_challenges = max_challenges
+        self.log.info(
+            "配置已更新: max_solvers=%d max_challenges=%d",
+            self.cfg.max_solvers, self.cfg.max_challenges,
+        )
 
     def stop_solver(self, cid: str) -> bool:
         handle = self.running.get(cid)

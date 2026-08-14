@@ -24,7 +24,8 @@ from adapters.base import Challenge, SubmitResult
 from adapters.mock import MOCK_FLAGS, MockAdapter
 from challenge_state import FAILED, SUBMITTED_CORRECT, TIMEOUT, extract_flags
 from master import Config, Master
-from prioritizer import rule_order
+from prioritizer import llm_order, rule_order
+import prioritizer
 from solver_pool import FakeBackend
 
 
@@ -102,6 +103,7 @@ def test_e2e() -> None:
         solver_timeout=6,
         poll_interval=0.5,
         submit_min_interval=0.2,
+        llm_priority=False,   # e2e 不真调 codex
         state_file=str(state_file),
         log_file=str(log_file),
     )
@@ -146,8 +148,107 @@ def test_e2e() -> None:
     print(f"[PASS] e2e ({elapsed:.1f}s)")
 
 
+def test_llm_order() -> None:
+    """LLM 软修正三条路径: 有效重排 / 非法输出回退 / 调用失败回退。"""
+    import os
+    recs = [
+        Challenge(id=f"t{i}", title=f"题{i}", type="misc", score=100 * i, solve_count=10 * i)
+        for i in (1, 2, 3)
+    ]
+    rule = rule_order(recs)
+    rule_ids = [r.id for r in rule]
+    os.environ["CODEX_CMD"] = str(SCRIPT_DIR / "tests" / "fake_codex_llm.sh")
+
+    # 1. fake codex 倒序输出合法 JSON -> 采用
+    os.environ["FAKE_MODE"] = "ok"
+    prioritizer._llm_cache.clear()
+    got = [r.id for r in llm_order(rule)]
+    assert got == ["t3", "t2", "t1"], f"有效重排未被采用: {got}"
+
+    # 2. 输出非 JSON -> 回退规则序
+    os.environ["FAKE_MODE"] = "garbage"
+    prioritizer._llm_cache.clear()
+    got = [r.id for r in llm_order(rule)]
+    assert got == rule_ids, f"非法输出未回退: {got}"
+
+    # 3. 调用失败 -> 回退规则序
+    os.environ["FAKE_MODE"] = "fail"
+    prioritizer._llm_cache.clear()
+    got = [r.id for r in llm_order(rule)]
+    assert got == rule_ids, f"调用失败未回退: {got}"
+
+    # 4. 同候选集命中缓存 (不再调用 codex，garbage 模式下仍返回倒序)
+    os.environ["FAKE_MODE"] = "ok"
+    prioritizer._llm_cache.clear()
+    assert [r.id for r in llm_order(rule)] == ["t3", "t2", "t1"]
+    os.environ["FAKE_MODE"] = "garbage"   # 缓存应生效，不受影响
+    assert [r.id for r in llm_order(rule)] == ["t3", "t2", "t1"]
+
+    del os.environ["CODEX_CMD"], os.environ["FAKE_MODE"]
+    print("[PASS] llm_order")
+
+
+def test_dashboard() -> None:
+    """面板 API 冒烟: overview / pause / config / 404。"""
+    import json as jsonlib
+    import urllib.error
+    import urllib.request
+    from master_dashboard import start_dashboard
+
+    # 绕过系统代理 (http_proxy 会把 127.0.0.1 也代理掉)
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+    cfg = Config(
+        adapter="mock", backend="fake", llm_priority=False,
+        state_file=str(SCRIPT_DIR / "tests" / "master_state_test.json"),
+        log_file=str(SCRIPT_DIR / "tests" / "master_test.log"),
+    )
+    m = Master(cfg, adapter=MockAdapter(),
+               backend=FakeBackend(flag_lookup=MOCK_FLAGS.get, solve_delay=999))
+    server, port = start_dashboard(m, 0)
+    base = f"http://127.0.0.1:{port}"
+    try:
+        # overview (空状态)
+        with opener.open(f"{base}/api/overview") as r:
+            d = jsonlib.loads(r.read())
+        assert d["running"] == 0 and d["challenges"] == []
+
+        # 手工塞一条记录再查
+        m.state.sync_challenge(m.adapter.list_challenges()[0])
+        with opener.open(f"{base}/api/overview") as r:
+            d = jsonlib.loads(r.read())
+        assert len(d["challenges"]) == 1 and d["challenges"][0]["id"] == "mock-easy-misc"
+
+        # pause / resume
+        req = urllib.request.Request(f"{base}/api/pause", data=b"{}", method="POST")
+        assert jsonlib.loads(opener.open(req).read())["paused"] is True
+        assert m.paused
+        req = urllib.request.Request(f"{base}/api/resume", data=b"{}", method="POST")
+        assert jsonlib.loads(opener.open(req).read())["paused"] is False
+
+        # config
+        body = jsonlib.dumps({"max_solvers": 3, "max_challenges": 7}).encode()
+        req = urllib.request.Request(f"{base}/api/config", data=body, method="POST",
+                                     headers={"Content-Type": "application/json"})
+        d = jsonlib.loads(opener.open(req).read())
+        assert d["max_solvers"] == 3 and d["max_challenges"] == 7
+        assert m.cfg.max_solvers == 3
+
+        # 404
+        try:
+            opener.open(f"{base}/api/nope")
+            raise AssertionError("应返回 404")
+        except urllib.error.HTTPError as e:
+            assert e.code == 404
+    finally:
+        server.shutdown()
+    print("[PASS] dashboard")
+
+
 if __name__ == "__main__":
     test_extract_flags()
     test_rule_order()
+    test_llm_order()
+    test_dashboard()
     test_e2e()
     print("ALL PASS")
