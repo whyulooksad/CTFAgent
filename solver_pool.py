@@ -336,15 +336,22 @@ class FakeBackend(SolverBackend):
         if "[fail]" in ch.title:
             ev.wait()  # 一直"解题"直到被停止
             return
-        if ev.wait(self.solve_delay):
-            return  # 被停止
+        # 分几步写假日志，供面板 SSE 调试 (真实后端日志由 run.sh 生成)
+        handle.work_dir.mkdir(parents=True, exist_ok=True)
+        steps = max(1, int(self.solve_delay / 0.25))
+        for i in range(steps):
+            if ev.wait(0.25):
+                return
+            with open(handle.work_dir / "codex.log", "a", encoding="utf-8") as f:
+                f.write(f"[fake-codex] {ch.id} 分析步骤 {i + 1}/{steps}...\n")
+            with open(handle.work_dir / "hermes.log", "a", encoding="utf-8") as f:
+                f.write(f"[fake-hermes] 第 {i + 1} 次监控: 正常推进，无需介入\n")
         if "[wrong]" in ch.title:
             flag = f"flag{{wrong_{_safe_name(ch.id)}}}"
         elif self.flag_lookup:
             flag = self.flag_lookup(ch.id)
         else:
             flag = f"flag{{fake_{_safe_name(ch.id)}}}"
-        handle.work_dir.mkdir(parents=True, exist_ok=True)
         (handle.work_dir / "progress.md").write_text(
             f"## Flags Found\n{flag}\n", encoding="utf-8"
         )

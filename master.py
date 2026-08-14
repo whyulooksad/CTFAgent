@@ -104,7 +104,12 @@ def make_backend(name: str, cfg: Optional[Config] = None) -> SolverBackend:
         snap = ensure_snapshot()  # 精制快照 (spec §7)，每次 Master 启动生成一份
         return DockerBackend(image=cfg.docker_image if cfg else "ctf-solver:latest",
                              snapshot_dir=snap)
-    raise ValueError(f"unknown backend: {name} (fake 仅测试内注入)")
+    if name == "fake":
+        # 零成本手动调试用: 不起 codex，秒级"解出"题目 (mock 平台下直接判对)
+        from adapters.mock import MOCK_FLAGS
+        lookup = MOCK_FLAGS.get if (cfg and cfg.adapter == "mock") else None
+        return FakeBackend(flag_lookup=lookup)
+    raise ValueError(f"unknown backend: {name}")
 
 
 # ───────────────────────── Master ─────────────────────────

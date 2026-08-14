@@ -13,5 +13,6 @@
   "submit_min_interval": 10,
   "max_submit_per_challenge": 3,
   "state_file": "master_state_smoke.json",
-  "log_file": "master_smoke.log"
+  "log_file": "master_smoke.log",
+  "dashboard_port": 8081
 }
