@@ -180,6 +180,50 @@ class ProcessBackend(SolverBackend):
             pass
 
 
+def _detect_host_proxy() -> Optional[str]:
+    """
+    探测宿主机代理，返回容器可用的代理 URL (如 http://host.docker.internal:7892)。
+
+    优先级: 环境变量 PROXY_FOR_CONTAINERS > 常见代理端口探测。
+    codex 在容器里访问 OpenAI 需要走宿主机代理 (账号登录 + 本地网络环境)。
+    """
+    explicit = os.environ.get("PROXY_FOR_CONTAINERS", "").strip()
+    if explicit:
+        return explicit
+
+    # macOS: 读系统代理设置
+    ports = []
+    try:
+        import subprocess as _sp
+
+        out = _sp.run(
+            ["scutil", "--proxy"], capture_output=True, text=True, timeout=5
+        ).stdout
+        for line in out.splitlines():
+            if "HTTPPort" in line:
+                ports.append(line.split(":")[1].strip())
+    except Exception:
+        pass
+    # 常见代理端口 (Clash/v2ray 系)
+    ports += ["7890", "7892", "1087"]
+
+    # 端口在宿主机 127.0.0.1 上监听才算有效；返回给容器用的地址则是
+    # host.docker.internal (Docker Desktop 将其映射到宿主机)
+    import socket as _socket
+
+    seen = []
+    for port in dict.fromkeys(ports):  # 去重保序
+        try:
+            with _socket.create_connection(("127.0.0.1", int(port)), timeout=1):
+                seen.append(port)
+        except OSError:
+            continue
+    if not seen:
+        return None
+    host = os.environ.get("CONTAINER_HOST_GATEWAY", "host.docker.internal")
+    return f"http://{host}:{seen[0]}"
+
+
 # ───────────────────────── DockerBackend (Phase 2) ─────────────────────────
 
 
@@ -203,6 +247,7 @@ class DockerBackend(SolverBackend):
 
     def __init__(self, image: str = "ctf-solver:latest", snapshot_dir: Optional[Path] = None):
         self.image = image
+        self.proxy_url: Optional[str] = None   # 宿主代理 (惰性探测)
         if snapshot_dir is not None:
             self.snapshot_dir = Path(snapshot_dir)
         else:
@@ -244,6 +289,15 @@ class DockerBackend(SolverBackend):
             "-v", f"{self.snapshot_dir}/codex:/root/.codex",
             "-v", f"{self.snapshot_dir}/hermes:/root/.hermes",
             "--memory", "4g",
+        ]
+        # codex 访问 OpenAI 走宿主机代理 (探测一次并缓存)
+        if self.proxy_url is None:
+            self.proxy_url = _detect_host_proxy()
+        if self.proxy_url:
+            for var in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"):
+                cmd += ["-e", f"{var}={self.proxy_url}"]
+            cmd += ["-e", "NO_PROXY=localhost,127.0.0.1"]
+        cmd += [
             self.image,
             # 镜像 ENTRYPOINT 已 exec run.sh，这里只传 run.sh 参数
             "--type", ch.type,

@@ -38,7 +38,13 @@ REPO_DIR = SCRIPT_DIR.parent                          # 仓库根
 SNAPSHOT_ROOT = REPO_DIR / "cred_snapshots"
 HOME = Path.home()
 
-HOOK_CMD_OLD = 'python3 "$(git rev-parse --show-toplevel)/hooks/check_guidance.py"'
+# hook 命令的两种历史形态都重写 (重组前 hooks/ 在根目录，重组后在 solver/hooks/)
+_HOOK_CMD_VARIANTS = [
+    'python3 "$(git rev-parse --show-toplevel)/hooks/check_guidance.py"',
+    'python3 "$(git rev-parse --show-toplevel)/solver/hooks/check_guidance.py"',
+    'python3 /opt/ctf-agent/hooks/check_guidance.py',
+    'python3 /opt/ctf-agent/solver/hooks/check_guidance.py',
+]
 HOOK_CMD_NEW = "python3 /opt/ctf-agent/solver/hooks/check_guidance.py"
 
 DEFAULT_MODEL = "gpt-5.6-sol"
@@ -85,7 +91,7 @@ def build_codex(src: Path, dst: Path) -> None:
         else:
             _warn(f"{f} 不存在")
 
-    # 2. ctf.config.toml 重写两处路径
+    # 2. ctf.config.toml 重写路径
     ctf = src / "ctf.config.toml"
     if ctf.exists():
         text = ctf.read_text(encoding="utf-8")
@@ -96,9 +102,13 @@ def build_codex(src: Path, dst: Path) -> None:
         )
         if n1 == 0:
             _warn("ctf.config.toml 未找到 model_catalog_json 行")
-        if HOOK_CMD_OLD not in text:
-            _warn("ctf.config.toml 未找到原 hook 命令 (格式可能已变，请人工核对)")
-        text = text.replace(HOOK_CMD_OLD, HOOK_CMD_NEW)
+        replaced = False
+        for old in _HOOK_CMD_VARIANTS:
+            if old in text:
+                text = text.replace(old, HOOK_CMD_NEW)
+                replaced = True
+        if not replaced:
+            _warn("ctf.config.toml 未找到已知形态的 hook 命令 (格式可能已变，请人工核对)")
         (dst / "ctf.config.toml").write_text(text, encoding="utf-8")
     else:
         _warn(f"{ctf} 不存在")

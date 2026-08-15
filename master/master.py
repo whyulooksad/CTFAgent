@@ -352,18 +352,28 @@ class Master:
 
     @staticmethod
     def _target_alive(url: str) -> bool:
-        """web 靶机存活探测: 直连 (不走代理)，5s 超时。有 HTTP 响应即算存活。"""
+        """
+        web 靶机存活探测: 直连 (不走代理)，5s 超时。有 HTTP 响应即算存活。
+
+        URL 可能是容器视角 (host.docker.internal，宿主机解析不了)，
+        探测失败时等价换 127.0.0.1 再试一次。
+        """
         import urllib.error
         import urllib.request
 
+        candidates = [url]
+        if "host.docker.internal" in url:
+            candidates.append(url.replace("host.docker.internal", "127.0.0.1"))
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-        try:
-            opener.open(urllib.request.Request(url), timeout=5)
-            return True
-        except urllib.error.HTTPError:
-            return True  # 403/404/500 也是活的 (服务端有响应)
-        except Exception:
-            return False  # 连接层失败: 靶机已关/DNS 不通
+        for u in candidates:
+            try:
+                opener.open(urllib.request.Request(u), timeout=5)
+                return True
+            except urllib.error.HTTPError:
+                return True  # 403/404/500 也是活的 (服务端有响应)
+            except Exception:
+                continue
+        return False  # 连接层失败: 靶机已关/DNS 不通
 
     def _dispatch_cooldown(self, rec, error: str) -> None:
         rec.next_eligible_at = time.time() + DISPATCH_COOLDOWN
