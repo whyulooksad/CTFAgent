@@ -24,6 +24,15 @@
 
 **其他情况**：先读最新文件，再阅读理解 Codex 在干什么，然后主动判断该不该介入。
 
+## 知识获取
+
+判断 Codex 方向、写 guidance/dead_ends 时，如果对某个攻击面/漏洞类型不熟、需要具体 payload 思路、或想确认某条路是不是死路：
+- 会话已预加载 `ctf-supervisor-knowledge` skill（SKILL.md 含 14 类漏洞的核心速查 + 路由表）
+- 需要完整 payload / 绕过技巧时加载对应 reference：
+  `skill_view(name="ctf-supervisor-knowledge", file_path="references/web-sqli.md")` 等
+- 路由规则：Codex 在干什么 -> 加载哪个 reference（见 SKILL.md 路由表）
+- 每轮只加载需要的 reference，不要全部加载（省 token）
+
 ## 你的判断逻辑
 
 读日志增量时，问自己这几个问题：
