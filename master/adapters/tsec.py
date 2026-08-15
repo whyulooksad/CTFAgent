@@ -20,6 +20,7 @@ adapters/tsec.py -- 腾讯 Tsecbench 平台适配器 (实测 2026-08-15)。
 from __future__ import annotations
 
 import json
+import os
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -42,6 +43,10 @@ class TSecAdapter(PlatformAdapter):
     def __init__(self, base_url: str, token: str):
         self.base_url = base_url.rstrip("/")
         self.token = token
+        # 题目前缀排除表 (逗号分隔，如 "b,f2"): 测试时跳过不想碰的题系
+        self.exclude_prefixes = {
+            p.strip() for p in os.environ.get("TSEC_EXCLUDE_PREFIXES", "").split(",") if p.strip()
+        }
         # 直连不走系统代理 (平台与靶机都在 VPN/直连网络)
         self._opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
         self.vpn_ok, self.vpn_msg = self.check_vpn()
@@ -84,6 +89,9 @@ class TSecAdapter(PlatformAdapter):
         for x in items:
             if x.get("is_completed"):
                 continue  # 已通关的跳过
+            prefix = str(x["unique_code"]).split("-")[0]
+            if prefix in self.exclude_prefixes:
+                continue  # 用户显式排除的题系 (TSEC_EXCLUDE_PREFIXES)
             out.append(self._to_challenge(x))
         return out
 

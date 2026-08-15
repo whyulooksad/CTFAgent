@@ -143,7 +143,32 @@ python3 master/master.py        # 默认配置: adapter=none + resident=true
   顶栏徽章显示接入状态
 - 调度配置区可运行时改并发数/题量上限
 
-### 1. 手动调试/演示（由廉价到昂贵）
+### 1. TSec 平台真机跑分（腾讯 tsecbench）
+
+```bash
+# 前置: 平台 VPN 已连 (预检点 http://10.0.100.58 返回 status:ok)
+TSEC_TOKEN="<平台任务token>" \
+TSEC_EXCLUDE_PREFIXES="b" \
+  python3 master/master.py --config master/master_config.tsec.json
+```
+
+- `TSEC_TOKEN`：平台创建跑分任务时返回的 UUID（请求头 `BENCHMARK_TOKEN`，非网站登录 token；有效期短，跑前现取）
+- `TSEC_EXCLUDE_PREFIXES`：排除不做的题系（逗号分隔题号前缀，如 `"b,f2"`；默认空）
+- 平台 63 题 6 大维度：`a`=web 挖掘、`b`=多阶段渗透(多flag)、`c`=面板渗透、`d`=云、
+  `e1/e2/e3`=对抗规避——均按 **web** 流程调度；`f1/f2`=二进制——按 **binary** 流程
+  （`strategies/binary.md` + 镜像内 pwntools/gdb/binutils 工具链）
+- 活跃靶机上限 3（与 `max_solvers=3` 对齐），解出自动提交，通关自动 close 释放名额
+- 多 flag 题（b 系 4-6 个）：**同一 solver 持续攻坚**——容器内声明 `--flag-count N`，
+  codex 拿满全部 flag 才退出；未通关期间不关容器；面板显示 `⚑×N 已得M`；
+  平台 duplicate 响应不计分不重试（防死循环）
+- 停止收尾（释放平台靶机）：
+  ```bash
+  pkill -f master_config.tsec; sleep 5
+  docker ps --format '{{.Names}}' | grep solver | xargs -I{} docker rm -f {}
+  # 再对仍 available 的题逐个 POST /openapi/v1/challenges/close?unique_code=<code>
+  ```
+
+### 2. 手动调试/演示（由廉价到昂贵）
 
 ```bash
 cd ~/workstation/cybersecurity/dsg/CTFAgent
@@ -162,21 +187,25 @@ CTF_MOCK_PUBLIC_HOST=host.docker.internal \
 面板统一开 **http://localhost:8081**：题目卡片（状态/分数/尝试/时长/flag）、codex+hermes
 双日志实时流、暂停/恢复调度、手动终止 solver、运行时改并发数与题量上限。
 
-### 2. 单题直跑（不走 Master）
+### 3. 单题直跑（不走 Master）
 
 ```bash
 # Web 题命令行
 bash solver/run.sh --type web --url "http://target:8080" --hint "背景信息"
 # Crypto/Misc
 bash solver/run.sh --type crypto --attachment "/path/to/file.zip" --hint "RSA"
+# Binary (远程服务 + 可选制品附件)
+bash solver/run.sh --type binary --url "http://target:9999" [--attachment ./pwn.bin] --hint "栈溢出"
+# 多 flag 题声明总数 (拿满才退出)
+bash solver/run.sh --type web --url ... --flag-count 4
 # 或单题面板
 python3 solver/dashboard.py    # :8080
 ```
 
-### 3. 测试
+### 4. 测试
 
 ```bash
-python3 tests/test_master.py   # 5 项: flag提取/排序/LLM回退/面板API/端到端
+python3 tests/test_master.py   # 7 项: flag提取/排序/LLM回退/面板API/手动+常驻/多flag防死循环/端到端
 ```
 
 ## Docker 构建
@@ -188,16 +217,30 @@ docker/solver/build.sh --no-sync     # 跳过 hermes 同步
 
 - 镜像内 codex 锁定 0.147.0、hermes 以 editable 方式装进 Linux venv（macOS 的 venv
   二进制不能拷贝）、项目以 git 仓库形态烘焙进 `/opt/ctf-agent`
+- 工具链含二进制题所需：binutils / gdb / ltrace / strace / socat / pwntools
 - **架构跟随构建机**：Apple Silicon 构建 = arm64；**WSL x86 机器上需重新跑 build.sh** 得到
   amd64 镜像
 - 凭据快照：`python3 master/cred_snapshot.py`（Master 用 docker 后端时也会自动生成），
   做的是精制拷贝——auth 原样、`ctf.config.toml` 重写路径、主 `config.toml` 生成最小版
+- TUNA pypi 偶发个别 wheel 403 时换阿里云源：
+  `PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/ bash docker/solver/build.sh`
+
+## 网络环境注意事项（重要，踩过的坑）
+
+- **codex 出网走宿主代理**：DockerBackend 自动探测宿主代理端口（macOS scutil + 常见
+  端口），容器注入 `HTTP(S)_PROXY=http://host.docker.internal:<port>`；可用环境变量
+  `PROXY_FOR_CONTAINERS` 显式指定
+- **Docker Desktop「系统代理」是大坑**：它会在虚拟机网络层透明劫持容器 80 端口流量
+  送进 Clash；Clash 若把内网段（如 `10.0.160.x`）送去公网节点 → 靶机全变 502 假响应
+  （题本身是好的）。两种解法任选：① Docker Desktop 设置代理为 manual 且清空；
+  ② Clash 加规则 `IP-CIDR,10.0.0.0/8,DIRECT`
+- **VPN 靶机直连**：容器注入的 `NO_PROXY` 已含私网段；靶机访问不走代理
 
 ## Master 配置项（master_config.json）
 
 | 键 | 默认 | 说明 |
 |------|------|------|
-| adapter | none | 平台适配器: none(手动+面板接入) / mock / live(测试日) |
+| adapter | none | 平台适配器: none(手动+面板接入) / mock / tsec(腾讯跑分) / live(通用) |
 | resident | true | 常驻模式: 不自动退出，面板永远在线 (0 = 跑完队列自动退出) |
 | backend | process | solver 后端: process / docker / fake(调试) |
 | max_solvers | 5 | 并行 solver 槽位数 (面板可改) |
@@ -230,11 +273,22 @@ docker/solver/build.sh --no-sync     # 跳过 hermes 同步
 
 ## 待办
 
-- [ ] **Phase 4**: 测试日按官方文档核对 `master/adapters/live.py` 的端点/字段/认证头
-      （已有 best-effort 实现，可在面板「平台接入」直接填地址+Token 试连）
-- [ ] WSL 上重建 amd64 镜像并复跑 docker 冒烟
+- [x] ~~Phase 4: 真实 API 对接~~ —— TSec 平台已接入并真机验证（2026-08-16，单轮 9 题
+      解出提交：a 系列 web + c 系列面板，b 系列多 flag 与 f 系列 binary 各验证 1 题）
+- [ ] WSL 上重建 amd64 镜像并复跑 docker 冒烟（比赛机迁移）
 - [ ] hermes 可能需要更多 CTF 做题技巧，且人应该可以和 Hermes 交互
 - [ ] hermes 监控输出偶尔超限（ARK API max_token），考虑更大 token 模型或压缩管理
 - [ ] board.md 容量管理（8 ideas + 12 memory 偏小，改大还是做压缩）
 - [ ] branch daemon 健壮性：崩溃后 socket 残留；结果文件完全依赖模型自觉写，
       应由 daemon 在超时/被杀时自动写终态模板
+- [ ] f 系（二进制）真机仅验证 1 题，f2 固件类未实战检验
+
+## 已解决的实战问题（防复发备忘）
+
+| 现象 | 根因 | 修复 |
+|---|---|---|
+| 靶机全 502、solver 空转 | Docker Desktop 系统代理劫持容器流量送 Clash，内网段被送公网节点 | Docker 代理改 manual 清空 / Clash 加 `10.0.0.0/8,DIRECT` |
+| b 系列多 flag 反复"解出"同一 flag | duplicate 被当 correct + flags_seen 被清空 → 死循环 | duplicate 不计分不回收；flags_seen 保留；同 solver 持续攻坚 |
+| recon 阶段 solver 被误杀 | Codex 把进度笔记写进 Flags Found 段被当 flag | 提取端"像 flag"过滤 + AGENTS.md 约束 + run.sh 同款过滤 |
+| 手动题失败被莫名重试 | 0分0解被 rarity 公式判"高价值" | 手动题不自动重试；web 重试前靶机探活 |
+| hermes 会话复用失效 | run.sh 用了 BSD grep 不支持的 `grep -P` | 改 POSIX sed 提取 session_id |
