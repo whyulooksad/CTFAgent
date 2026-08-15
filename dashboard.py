@@ -228,6 +228,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._handle_stop()
         elif self.path == "/api/killall":
             self._handle_killall()
+        elif self.path == "/api/human_guidance":
+            self._handle_human_guidance(data)
         else:
             self._json(HTTPStatus.NOT_FOUND, {"error": "not found"})
 
@@ -385,6 +387,37 @@ class DashboardHandler(BaseHTTPRequestHandler):
         """杀死所有 CTF 相关进程。"""
         killed = kill_all_ctf_processes()
         self._json(HTTPStatus.OK, {"killed": killed})
+
+    def _handle_human_guidance(self, data: dict) -> None:
+        """接收人在 dashboard 发的人工指导，写入 human_guidance.md。
+
+        流程：人发消息 -> 追加写 human_guidance.md -> monitor.py 检测到非空触发
+        Hermes -> Hermes 读全文、判断、转达给 Codex 或回复人 -> 清空。
+        同时把消息同步追加到 hermes.log，前端 SSE 能看到（对话历史）。
+        """
+        message = (data.get("message") or "").strip()
+        if not message:
+            self._json(HTTPStatus.BAD_REQUEST, {"error": "message 不能为空"})
+            return
+
+        work_dir = STATE.work_dir or find_latest_challenge()
+        if not work_dir or not work_dir.exists():
+            self._json(HTTPStatus.BAD_REQUEST, {"error": "没有正在运行的挑战"})
+            return
+
+        hg_path = work_dir / "human_guidance.md"
+        hermes_log = work_dir / "hermes.log"
+        timestamp = time.strftime("%Y-%m-%dT%H:%M:%S")
+
+        # 追加写入 human_guidance.md（带时间戳，Hermes 读后清空）
+        with hg_path.open("a", encoding="utf-8") as f:
+            f.write(f"--- [{timestamp}]\n{message}\n")
+
+        # 同步写入 hermes.log 供前端 SSE 显示
+        with hermes_log.open("a", encoding="utf-8") as f:
+            f.write(f"\n👨 人工指导 [{timestamp}]: {message}\n")
+
+        self._json(HTTPStatus.OK, {"ok": True, "timestamp": timestamp})
 
     # ── utils ──
 

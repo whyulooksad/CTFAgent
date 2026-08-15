@@ -212,13 +212,13 @@ rm challenges/manual_<name>/branch.sock
 
 # 待改
 
-- [ ] board.md — 全量更新，8 条 Ideas（6 failed + 1 verified + 2 testing）+ 12 条 Memory   有点小，但改大的话是单纯改大，还是做个压缩管理？
+- [x] board.md — 全量更新，8 条 Ideas（6 failed + 1 verified + 2 testing）+ 12 条 Memory   有点小，但改大的话是单纯改大，还是做个压缩管理？
 
 - [ ] 环境未安装 ffuf/feroxbuster/gobuster/dirsearch/wfuzz；目录字典扫描需用 curl 并发脚本实现。后续可能需要补充更多工具。
 
 - [ ] hermes可能需要更多的ctf 的做题技巧，而且人应该可以和Hermes交互
 
-- [ ] === [01:22:53] Hermes agent 被触发 ===
+- [x] === [01:22:53] Hermes agent 被触发 ===
   Error: Response remained truncated after 3 continuation attempts
 
   session_id: 20260731_012256_fb13a0    有时候会超限，考虑换更大的max_token的模型，或者作压缩管理
@@ -240,6 +240,6 @@ rm challenges/manual_<name>/branch.sock
 
 - [x] subagent超时问题，可以把时间拉大
 
-- [ ] 会先按指定顺序读取 Web 攻击流程、看板和当前进度；之后严格维护 `progress.md`，并根据现有线索继续利用直到拿到 flag。。。但现在的这个攻击流程的指导很弱
+- [x] 会先按指定顺序读取 Web 攻击流程、看板和当前进度；之后严格维护 `progress.md`，并根据现有线索继续利用直到拿到 flag。。。但现在的这个攻击流程的指导很弱
 
 - [x] 但目前仍有一个架构缺口：结果文件完全依赖模型听话写。 如果模型卡住、提前被杀、API 断开，文件仍可能不存在。更稳妥的做法是 daemon 在 spawn 时先原子创建一个“进行中”的 branch_result_branch_001.md，并在 timeout/killed/crashed 时自动写入终态模板和日志路径。这样无论如何文件都存在，主 Agent 永远可以读到分支状态和 branch_001.log 的位置。这才是应该补上的可靠性机制。

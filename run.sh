@@ -155,6 +155,7 @@ EOF
 # 空文件
 touch "$WORK_DIR/guidance.md"
 touch "$WORK_DIR/dead_ends.md"
+touch "$WORK_DIR/human_guidance.md"
 touch "$WORK_DIR/hermes.log"
 
 echo "[run.sh] 工作目录初始化完成"

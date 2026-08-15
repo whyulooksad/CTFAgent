@@ -86,6 +86,13 @@
   <button class="btn btn-kill" id="btnKillAll" onclick="killAll()" style="background:#6e2d0d;border-color:#6e2d0d;color:#fff">Kill All</button>
 </div>
 
+<!-- Human Guidance -->
+<div class="setup" id="humanPanel">
+  <label style="color:#bc8cff">👨 人工指导</label>
+  <input type="text" id="humanInput" placeholder="给 Hermes 发消息，商量后它会转达给 Codex（回车发送）" />
+  <button class="btn" id="btnHumanSend" onclick="sendHumanGuidance()" style="background:#6e40c9;border-color:#6e40c9;color:#fff" disabled>发送</button>
+</div>
+
 <!-- Status Bar -->
 <div class="statusbar" id="statusBar">
   <div class="item"><span class="label">Phase:</span><span class="value" id="phaseVal">-</span></div>
@@ -150,6 +157,7 @@ async function startChallenge() {
     document.getElementById('statusBadge').textContent = 'RUNNING';
     document.getElementById('statusBadge').className = 'status-badge status-running';
     document.getElementById('workDir').textContent = data.work_dir || '';
+    updateHumanPanel();
 
     connectSSE();
     startStatusPolling();
@@ -170,6 +178,23 @@ function onChallengeEnded() {
   if (codexES) { codexES.close(); codexES = null; }
   if (hermesES) { hermesES.close(); hermesES = null; }
   if (statusTimer) { clearInterval(statusTimer); statusTimer = null; }
+  updateHumanPanel();
+}
+
+// ─── Human Guidance ───
+async function sendHumanGuidance() {
+  const input = document.getElementById('humanInput');
+  const message = input.value.trim();
+  if (!message) return;
+  const resp = await fetch('/api/human_guidance', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ message }) });
+  const data = await resp.json();
+  if (!resp.ok) { alert(data.error || '发送失败'); return; }
+  input.value = '';
+}
+
+function updateHumanPanel() {
+  const running = !document.getElementById('btnStart').disabled;
+  document.getElementById('btnHumanSend').disabled = !running;
 }
 
 // ─── Kill All ───
@@ -251,6 +276,7 @@ async function pollStatus() {
       document.getElementById('statusBadge').textContent = 'RUNNING';
       document.getElementById('statusBadge').className = 'status-badge status-running';
       document.getElementById('workDir').textContent = data.work_dir || '';
+      updateHumanPanel();
     }
     if (!data.running && document.getElementById('btnStart').disabled) {
       onChallengeEnded();
@@ -260,6 +286,8 @@ async function pollStatus() {
 
 // ─── Init ───
 onTypeChange();
+document.getElementById('humanInput').addEventListener('keydown', e => { if (e.key === 'Enter') sendHumanGuidance(); });
+updateHumanPanel();
 // 页面加载时检查是否有运行中的挑战
 pollStatus();
 </script>

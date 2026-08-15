@@ -20,6 +20,7 @@
 | `board.md` | Hermes 写，你只读 | 供你 compact/续跑后恢复上下文 (ideas + memory)，启动/compact后/换路线时读 |
 | `guidance.md` | Hermes 写 | 主动帮你找新路的思路和情报（搜 CTF WP/CVE/绕过技巧等），软建议，可参考，选择性听从（如果你对你目前的思路有把握，就按自己的来；如果你一筹莫展，可以参考这里的建议） |
 | `dead_ends.md` | Hermes 写 | 硬约束，卡住了（方向停滞/命令重复/无输出）和走死路了（重复失败路径）都写这里，要绝对听从。 |
+| `human_guidance.md` | 人写，Hermes 处理 | 人工指导通道。人在 dashboard 发消息，Hermes 判断后转达给你（写进 guidance.md / dead_ends.md）。你不要读/改/清空这个文件，等 Hermes 转达即可。 |
 | `branch_result_{id}.md` | Subagent 写 | 试探结果，你通过 branch.py results 读取 |
 
 ### 实时注入机制

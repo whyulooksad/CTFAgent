@@ -143,6 +143,10 @@ def run_monitor(work_dir: Path) -> Optional[dict]:
     # 读日志增量
     log_increment = read_log_increment(log_path, state)
 
+    # 人工指导检测（human_guidance.md 非空 -> 触发 Hermes 处理）
+    hg_path = work_dir / "human_guidance.md"
+    has_human_guidance = hg_path.exists() and bool(hg_path.read_text(encoding="utf-8").strip())
+
     # 快速检测 flag
     flag = check_flag_found(progress, log_increment)
 
@@ -166,7 +170,7 @@ def run_monitor(work_dir: Path) -> Optional[dict]:
     has_new_log = bool(log_increment.strip())
     has_flag = flag is not None
 
-    if not has_new_log and not has_flag and not is_stale and not is_timeout:
+    if not has_new_log and not has_flag and not is_stale and not is_timeout and not has_human_guidance:
         # 一切正常，无新日志 -> 静默
         return None
 
@@ -185,6 +189,7 @@ def run_monitor(work_dir: Path) -> Optional[dict]:
         },
         "log_increment_lines": log_line_count,
         "log_increment_hint": "(有新日志，请自行 tail codex.log 读取)" if log_line_count > 0 else "(无新日志)",
+        "human_guidance": "有新的待处理人工指导，请读 human_guidance.md" if has_human_guidance else None,
         "flag_found": flag,
         "is_stale": is_stale,
         "stale_seconds": stale_seconds,
