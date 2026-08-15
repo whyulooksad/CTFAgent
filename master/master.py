@@ -81,6 +81,7 @@ class Config:
     docker_image: str = "ctf-solver:latest"  # Phase 2
     state_file: str = "master_state.json"
     log_file: str = "master.log"
+    flags_file: str = "flags.jsonl"           # 已解出 flag 的落盘文件 (面板数据源)
     resident: bool = False              # 常驻模式: 不退出，面板永远在线 (手动加题/平台接入)
 
     @classmethod
@@ -158,6 +159,10 @@ class Master:
         )
         self.running: dict[str, SolverHandle] = {}
         self.dashboard_server = None
+        flags_file = Path(cfg.flags_file)
+        self.flags_file = flags_file if flags_file.is_absolute() else REPO_DIR / flags_file
+        self._flags_lock = threading.Lock()
+        self.session_flags: list[dict] = []   # 本次启动解出的 flag (面板展示用)
         self._started_targets: set[str] = set()   # 已开靶机的 web 题 (仅平台题)
         self._stop = threading.Event()
         self._interrupted = False
@@ -345,15 +350,23 @@ class Master:
                 continue
 
             # 1. flag 检测 (读 progress.md 的 Flags Found 段)
+            manual_accepted = False
             for flag in self._read_flags(handle):
                 if self.state.mark_flag_seen(cid, flag):
                     self.log.info("检测到 flag: %s -> %s", cid, flag)
+                    if rec.source == "manual":
+                        # 手动调试模式: 只记录展示，不提交 (用户自行到目标平台提交)
+                        self._accept_manual_flag(rec, flag, handle)
+                        manual_accepted = True
+                        break
                     if self.state.can_submit(cid):
                         self.submitter.submit(cid, flag)
                     else:
                         self.log.warning("%s 达到提交上限，不再提交: %s", cid, flag)
                     if rec.status == RUNNING:
                         self.state.set_status(cid, FLAG_FOUND)
+            if manual_accepted:
+                continue
 
             # 2. 死亡检测
             if not self.backend.is_alive(handle):
@@ -382,6 +395,7 @@ class Master:
 
             if status == "correct":
                 self.state.mark_correct(cid, flag)
+                self._log_flag(rec, flag, auto_submitted=True)
                 self.log.info("=== FLAG ACCEPTED: %s %s ===", cid, flag)
                 handle = self.running.pop(cid, None)
                 if handle:
@@ -391,6 +405,39 @@ class Master:
                 self.log.warning("%s flag 提交错误: %s (solver 继续跑)", cid, flag)
             else:  # error / skipped
                 self.log.error("%s 提交未成功 (%s): %s", cid, status, res.get("message", ""))
+
+    def _accept_manual_flag(self, rec, flag: str, handle: SolverHandle) -> None:
+        """手动模式 flag 闭环: 不走提交器，记录 + 展示 + 回收 solver。"""
+        # record_submit_result 消掉 pending 计数 (不走 submitter 时也要闭环)
+        self.state.record_submit_result(rec.id, flag, "manual_display")
+        self.state.mark_correct(rec.id, flag)
+        self._log_flag(rec, flag, auto_submitted=False)
+        self.log.info("=== FLAG (手动模式，仅展示): %s %s ===", rec.id, flag)
+        self.running.pop(rec.id, None)
+        try:
+            self.backend.stop(handle)
+        except Exception as e:
+            self.log.error("停止 %s 失败: %s", rec.id, e)
+        self._release_target(rec)
+
+    def _log_flag(self, rec, flag: str, auto_submitted: bool) -> None:
+        """flag 落盘 flags.jsonl (历史归档) + 内存列表 (本次启动的面板展示)。"""
+        entry = {
+            "time": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "cid": rec.id,
+            "title": rec.title,
+            "type": rec.type,
+            "source": rec.source,
+            "flag": flag,
+            "auto_submitted": auto_submitted,
+        }
+        self.session_flags.append(entry)   # 本次启动的 flag (面板只展示这些)
+        try:
+            with self._flags_lock:
+                with open(self.flags_file, "a", encoding="utf-8") as f:
+                    f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        except OSError as e:
+            self.log.error("写 %s 失败: %s", self.flags_file, e)
 
     # ─── 终止/重试/释放 ───
 

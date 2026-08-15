@@ -49,6 +49,17 @@ def tail_file(path: Path, offset: int) -> tuple[str, int]:
     return content, size
 
 
+def read_flags(master) -> list[dict]:
+    """
+    本次启动解出的 flag (面板只展示本次会话)，最新的在前。
+    历史归档在 flags.jsonl，面板不展示。
+    """
+    with master._flags_lock:
+        out = list(master.session_flags)
+    out.reverse()  # 最新的在前
+    return out
+
+
 def build_overview(master) -> dict:
     """汇总全部题目状态 (线程安全: 只走 MasterState 的加锁接口)。"""
     now = time.time()
@@ -110,6 +121,8 @@ def _make_handler(master):
                 self._serve_frontend()
             elif path == "/api/overview":
                 self._json(HTTPStatus.OK, build_overview(master))
+            elif path == "/api/flags":
+                self._json(HTTPStatus.OK, {"flags": read_flags(master)})
             elif path.startswith("/api/logs/"):
                 self._handle_sse(path)
             else:

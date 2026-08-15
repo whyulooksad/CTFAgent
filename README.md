@@ -136,7 +136,9 @@ python3 master/master.py        # 默认配置: adapter=none + resident=true
 - 进程**常驻**，面板 **http://localhost:8081** 永远在线（测试结束也不退出），`Ctrl+C` 停止
 - **手动加题**（测其他 CTF 平台的题）：选类型（web 填靶机 URL / crypto、misc 填本地附件绝对路径）+ 描述，
   右侧「＋」加行、一次提交多题，统一进 master 调度。手动题不受题量上限约束；
-  无判定平台，solver 找到 flag 即闭环，flag 展示在面板上自行去目标平台提交（卡片带「手动」标）
+  手动模式**只展示不提交**——找到 flag 即闭环，在 Flags 面板复制后自行去目标平台提交（卡片带「手动」标）
+- **Flags 面板**：滚动列表展示**本次启动**解出的所有 flag（API 模式标「API 已提交」、
+  手动模式标「手动」），历史归档在仓库根 `flags.jsonl`
 - **平台接入**（测试日）：填赛方 API 地址 + Token，热切换 `LiveAdapter` 并立即拉题，
   顶栏徽章显示接入状态
 - 调度配置区可运行时改并发数/题量上限
@@ -213,6 +215,7 @@ docker/solver/build.sh --no-sync     # 跳过 hermes 同步
 | 想看什么 | 位置 |
 |---|---|
 | 调度决策日志 | `master*.log`（仓库根） |
+| 历次解出的 flag 归档 | `flags.jsonl`（面板 Flags 区只展示本次启动） |
 | 题目状态机 | `master_state*.json` |
 | 某题解题现场 | `challenges/manual_<hash>/`（progress/board/codex.log/hermes.log） |
 | run.sh 输出横幅 | `master_logs/<题目id>.log` |

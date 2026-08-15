@@ -13,6 +13,7 @@ tests/test_master.py -- Master 端到端测试 (mock 平台 + Fake 后端，不�
 
 from __future__ import annotations
 
+import json
 import sys
 import time
 from pathlib import Path
@@ -108,7 +109,8 @@ def test_rule_order() -> None:
 def test_e2e() -> None:
     state_file = SCRIPT_DIR / "tests" / "master_state_test.json"
     log_file = SCRIPT_DIR / "tests" / "master_test.log"
-    for p in (state_file, log_file):
+    flags_file = SCRIPT_DIR / "tests" / "master_flags_test.jsonl"
+    for p in (state_file, log_file, flags_file):
         p.unlink(missing_ok=True)
 
     cfg = Config(
@@ -122,6 +124,7 @@ def test_e2e() -> None:
         llm_priority=False,   # e2e 不真调 codex
         state_file=str(state_file),
         log_file=str(log_file),
+        flags_file=str(flags_file),
     )
     adapter = TestAdapter()
     backend = FakeBackend(flag_lookup=MOCK_FLAGS.get, solve_delay=0.5)
@@ -218,6 +221,7 @@ def test_dashboard() -> None:
         adapter="mock", backend="fake", llm_priority=False,
         state_file=str(SCRIPT_DIR / "tests" / "master_state_test.json"),
         log_file=str(SCRIPT_DIR / "tests" / "master_test.log"),
+        flags_file=str(SCRIPT_DIR / "tests" / "master_flags_test.jsonl"),
     )
     m = Master(cfg, adapter=MockAdapter(),
                backend=FakeBackend(flag_lookup=MOCK_FLAGS.get, solve_delay=999))
@@ -250,6 +254,11 @@ def test_dashboard() -> None:
         assert d["max_solvers"] == 3 and d["max_challenges"] == 7
         assert m.cfg.max_solvers == 3
 
+        # flags 接口 (空)
+        with opener.open(f"{base}/api/flags") as r:
+            d = jsonlib.loads(r.read())
+        assert d == {"flags": []}
+
         # 404
         try:
             opener.open(f"{base}/api/nope")
@@ -262,10 +271,11 @@ def test_dashboard() -> None:
 
 
 def test_manual_and_resident() -> None:
-    """手动加题 + 题量上限豁免 + 常驻不退出 + 手动题提交恒 correct。"""
+    """手动加题 + 上限豁免 + 常驻不退出 + 手动模式 flag 仅展示不提交 + flags.jsonl 落盘。"""
     import threading
     state_file = SCRIPT_DIR / "tests" / "master_state_manual.json"
-    for p in (state_file, SCRIPT_DIR / "tests" / "master_test.log"):
+    for p in (state_file, SCRIPT_DIR / "tests" / "master_test.log",
+              SCRIPT_DIR / "tests" / "master_flags_test.jsonl"):
         p.unlink(missing_ok=True)
 
     cfg = Config(
@@ -276,6 +286,7 @@ def test_manual_and_resident() -> None:
         submit_min_interval=0.2,
         state_file=str(state_file),
         log_file=str(SCRIPT_DIR / "tests" / "master_test.log"),
+        flags_file=str(SCRIPT_DIR / "tests" / "master_flags_test.jsonl"),
     )
     m = Master(cfg, backend=FakeBackend(flag_lookup=lambda cid: f"flag{{manual_{cid}}}",
                                         solve_delay=0.3))
@@ -304,9 +315,17 @@ def test_manual_and_resident() -> None:
         assert r.attempts == 1, (r.id, r.attempts, r.status)
     solved = [r for r in recs.values() if r.status == SUBMITTED_CORRECT]
     assert len(solved) == 2, f"手动题应全部闭环: {[(r.id, r.status) for r in recs.values()]}"
+    # 手动模式不提交，flag 直接展示闭环
+    assert all(r.last_submit_status == "manual_display" for r in solved), \
+        [r.last_submit_status for r in solved]
     # 手动 web 题的 URL 即靶机
     web_rec = next(r for r in recs.values() if r.type == "web")
     assert web_rec.url == "http://example.com:8080"
+    # flags.jsonl 落盘 (auto_submitted=False)
+    flags = [json.loads(l) for l in
+             Path(m.flags_file).read_text(encoding="utf-8").splitlines() if l.strip()]
+    mine = [f for f in flags if any(r.id == f["cid"] for r in recs.values())]
+    assert len(mine) == 2 and all(not f["auto_submitted"] for f in mine), mine
     # 常驻模式永不满退
     assert m._should_exit() is False
     print("[PASS] manual+resident")

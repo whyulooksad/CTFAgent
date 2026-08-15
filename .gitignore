@@ -30,6 +30,7 @@ master_state*.json
 master_*.log
 master.log
 master_logs/
+flags.jsonl
 challenges/manual_*/
 challenges/attachments/
 challenges/fake/

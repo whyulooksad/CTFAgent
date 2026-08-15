@@ -76,6 +76,23 @@
   .title-cell span { color: #8b949e; }
   .err { color: #f85149; font-size: 11px; }
 
+  /* ── Flags 面板 ── */
+  #flags-section { cursor: pointer; }
+  #flags-section .sec-title { padding-top: 4px; }
+  #flags-list { flex: 1; min-width: 300px; max-height: 110px; overflow-y: auto;
+                display: flex; flex-direction: column; gap: 3px;
+                font-size: 12px; padding-right: 4px; }
+  #flags-list::-webkit-scrollbar { width: 6px; }
+  #flags-list::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+  .flag-item { display: flex; gap: 8px; align-items: baseline; white-space: nowrap; }
+  .flag-item .f-time { color: #484f58; font-size: 11px; }
+  .flag-item .f-title { color: #8b949e; }
+  .flag-item .f-flag { color: #3fb950; word-break: break-all; }
+  .flag-item .f-tag { font-size: 10px; border-radius: 8px; padding: 0 5px; }
+  .f-tag.auto { color: #58a6ff; border: 1px solid #58a6ff; }
+  .f-tag.manual { color: #d29922; border: 1px dashed #d29922; }
+  .flags-empty { color: #484f58; font-size: 12px; padding-top: 3px; }
+
   /* ── Log Drawer ── */
   .drawer { border-top: 1px solid #30363d; background: #0d1117; height: 40%;
             display: none; flex-direction: column; }
@@ -143,6 +160,12 @@
     <button class="btn" onclick="applyConfig()">应用</button>
     <span class="msg" id="config-msg"></span>
   </div>
+</div>
+
+<!-- Flags 面板 -->
+<div class="section" id="flags-section">
+  <div class="sec-title">Flags<div style="font-size:10px;color:#484f58" id="flags-count"></div></div>
+  <div id="flags-list"><span class="flags-empty">暂无已解出的 flag</span></div>
 </div>
 
 <!-- Challenge Table -->
@@ -264,6 +287,28 @@ async function connectPlatform() {
   refresh();
 }
 
+/* ── Flags 面板 ── */
+async function refreshFlags() {
+  let d;
+  try { d = await (await fetch('/api/flags')).json(); }
+  catch (e) { return; }
+  const list = document.getElementById('flags-list');
+  const cnt = document.getElementById('flags-count');
+  cnt.textContent = d.flags.length ? `${d.flags.length} 条` : '';
+  if (!d.flags.length) {
+    list.innerHTML = '<span class="flags-empty">暂无已解出的 flag</span>';
+    return;
+  }
+  list.innerHTML = d.flags.map(f => `
+    <div class="flag-item">
+      <span class="f-time">${esc((f.time || '').slice(11, 19))}</span>
+      <span class="f-title">${esc(f.title || f.cid)}</span>
+      <span class="f-flag">${esc(f.flag)}</span>
+      <span class="f-tag ${f.auto_submitted ? 'auto' : 'manual'}">${f.auto_submitted ? 'API 已提交' : '手动'}</span>
+    </div>`).join('');
+  list.scrollTop = 0;  // 最新在最前，滚回顶部
+}
+
 /* ── 总览 ── */
 async function refresh() {
   let d;
@@ -368,7 +413,9 @@ function closeDrawer() {
 
 addRow();
 refresh();
+refreshFlags();
 setInterval(refresh, 2500);
+setInterval(refreshFlags, 5000);
 </script>
 </body>
 </html>
