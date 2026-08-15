@@ -307,6 +307,20 @@ class Master:
                 self._dispatch_cooldown(rec, f"下载附件失败: {e}")
                 return None
 
+        # 2.5 web 靶机存活预检
+        #   - 平台题重试前: 靶机可能已到期被平台回收 (实测 ezphp: 1h 超时触发重试时
+        #     靶机已自动关闭，对着死靶机重跑纯浪费)
+        #   - 手动题首次分发: URL 填错能立即反馈，不烧一整轮 solver
+        if rec.type == "web" and rec.url and (
+            rec.source == "manual" or rec.attempts >= 1
+        ):
+            if not self._target_alive(rec.url):
+                rec.finished_at = time.time()
+                self.state.set_status(rec.id, FAILED, f"靶机不可达: {rec.url}")
+                self._release_target(rec)
+                self.log.warning("%s 靶机不可达 (%s)，不启动 solver", rec.id, rec.url)
+                return None
+
         # 3. 启动 solver
         try:
             handle = self.backend.start(self._to_challenge(rec))
@@ -335,6 +349,21 @@ class Master:
             rec.id, rec.attempts, handle.work_dir.name, rec.type,
         )
         return handle
+
+    @staticmethod
+    def _target_alive(url: str) -> bool:
+        """web 靶机存活探测: 直连 (不走代理)，5s 超时。有 HTTP 响应即算存活。"""
+        import urllib.error
+        import urllib.request
+
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        try:
+            opener.open(urllib.request.Request(url), timeout=5)
+            return True
+        except urllib.error.HTTPError:
+            return True  # 403/404/500 也是活的 (服务端有响应)
+        except Exception:
+            return False  # 连接层失败: 靶机已关/DNS 不通
 
     def _dispatch_cooldown(self, rec, error: str) -> None:
         rec.next_eligible_at = time.time() + DISPATCH_COOLDOWN
@@ -454,6 +483,13 @@ class Master:
         if status == MANUAL_STOP:
             self.state.set_status(cid, MANUAL_STOP, error)
             self.log.info("%s 终态: manual_stop", cid)
+            return
+
+        # 手动题不自动重试: 手动测试失败由用户决定是否重跑 (score/solve_count
+        # 均为 0 会被 rarity 公式判成"高价值"，但那是平台题的语义)
+        if rec.source == "manual":
+            self.state.set_status(cid, status, error)
+            self.log.info("%s 手动题不重试，终态: %s", cid, status)
             return
 
         max_attempts = 1 + self.cfg.max_retries_per_challenge

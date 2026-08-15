@@ -292,15 +292,24 @@ def test_manual_and_resident() -> None:
                                         solve_delay=0.3))
     assert m.platform_connected is False  # adapter=none
 
-    # 手动加题: 合法 web + 合法 crypto 附件 + 两个非法条目
+    # 手动 web 题的靶机: 起一个真实本地 http server (分发前有存活预检)
+    import http.server
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0),
+                                          lambda *a, **kw: http.server.SimpleHTTPRequestHandler(*a, **kw))
+    import threading as _th
+    _th.Thread(target=srv.serve_forever, daemon=True).start()
+    target_url = f"http://127.0.0.1:{srv.server_address[1]}"
+
+    # 手动加题: 合法 web + 合法 crypto 附件 + 死靶机 web + 两个非法条目
     added = m.add_manual_challenges([
-        {"type": "web", "url": "http://example.com:8080", "title": "手动web", "description": "手动测试"},
+        {"type": "web", "url": target_url, "title": "手动web", "description": "手动测试"},
         {"type": "crypto", "attachment": str(SCRIPT_DIR / "tests" / "mock_challenges" / "mid_crypto.zip"),
          "title": "手动crypto"},
+        {"type": "web", "url": "http://127.0.0.1:9", "title": "死靶机"},  # 探活必失败
         {"type": "crypto", "attachment": "/nonexistent.zip"},
         {"type": "pwn"},
     ])
-    assert len(added) == 2, f"应只入队 2 道: {added}"
+    assert len(added) == 3, f"应只入队 3 道: {added}"
     assert all(r.source == "manual" and r.status == QUEUED
                for r in m.state.all_records())
 
@@ -311,16 +320,22 @@ def test_manual_and_resident() -> None:
     m._stop.set()
     t.join(timeout=6)
     recs = {r.id: r for r in m.state.all_records()}
-    for r in recs.values():
+    live = [r for r in recs.values() if "死靶机" not in r.id]
+    for r in live:
         assert r.attempts == 1, (r.id, r.attempts, r.status)
-    solved = [r for r in recs.values() if r.status == SUBMITTED_CORRECT]
+    solved = [r for r in live if r.status == SUBMITTED_CORRECT]
     assert len(solved) == 2, f"手动题应全部闭环: {[(r.id, r.status) for r in recs.values()]}"
     # 手动模式不提交，flag 直接展示闭环
     assert all(r.last_submit_status == "manual_display" for r in solved), \
         [r.last_submit_status for r in solved]
     # 手动 web 题的 URL 即靶机
-    web_rec = next(r for r in recs.values() if r.type == "web")
-    assert web_rec.url == "http://example.com:8080"
+    web_rec = next(r for r in recs.values() if r.type == "web" and "手动web" in r.id)
+    assert web_rec.url == target_url
+
+    # 死靶机: 分发前探活失败 -> 立即 FAILED，不启动 solver，不重试 (bug 修复验证)
+    dead_rec = next(r for r in recs.values() if "死靶机" in r.id)
+    assert dead_rec.status == FAILED and dead_rec.attempts == 0, \
+        (dead_rec.status, dead_rec.attempts)
     # flags.jsonl 落盘 (auto_submitted=False)
     flags = [json.loads(l) for l in
              Path(m.flags_file).read_text(encoding="utf-8").splitlines() if l.strip()]

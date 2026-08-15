@@ -93,10 +93,13 @@ class ProcessBackend(SolverBackend):
         cmd += ["--hint", hint]
 
         # run.sh 的 stdout 横幅收集到 master_logs (codex/hermes 日志在 work_dir 内)
+        # 每次尝试追加写入 (不覆盖)，带分隔头 -- "w" 模式曾把重试前一轮的日志抹掉
         log_path = REPO_DIR / "master_logs" / f"{_safe_name(ch.id)}.log"
         log_path.parent.mkdir(parents=True, exist_ok=True)
 
-        log_f = open(log_path, "w", encoding="utf-8")
+        log_f = open(log_path, "a", encoding="utf-8")
+        print(f"\n===== [master] dispatch {time.strftime('%Y-%m-%d %H:%M:%S')} "
+              f"work_dir={work_dir.name} =====", file=log_f, flush=True)
         try:
             proc = subprocess.Popen(
                 cmd,
