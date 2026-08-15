@@ -262,7 +262,6 @@ case "$CHALLENGE_TYPE" in
         CODEX_PROMPT="目标: $TARGET_URL
 背景: $HINT
 
-先读 $SCRIPT_DIR/strategies/web.md 了解 Web 题攻击流程。
 再读 board.md 了解当前 ideas 和 memory 状态。
 再读 progress.md 了解当前进度。
 然后继续解题。
@@ -273,7 +272,6 @@ case "$CHALLENGE_TYPE" in
 背景: $HINT
 
 这是一个 $CHALLENGE_TYPE 题目。附件已复制到工作目录。
-先读 $SCRIPT_DIR/strategies/$CHALLENGE_TYPE.md 了解 $CHALLENGE_TYPE 题攻击流程。
 再读 board.md 了解当前 ideas 和 memory 状态。
 再读 progress.md 了解当前进度。
 然后开始解题: 先解压/识别附件，分析文件内容，寻找 flag。

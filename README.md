@@ -234,7 +234,7 @@ rm challenges/manual_<name>/branch.sock
       
       前面几题没崩是因为 5 分钟就解完了，codex.log 短、progress.md 短、board.md 短，Hermes 读写量都小。这次 Codex 跑了 40 多分钟，SSTI 利用链又长又密，Hermes 要读的、要写的全都膨胀了，总输出超过 ARK API 的上限，续写 3 次都拼不完。
 
-- [ ] - `branch.py results branch_003` 因 daemon 连接拒绝失败；结果文件已存在，改为只读该文件恢复结论。ConnectionRefusedError 说明 socket 文件还在但 daemon 进程已经不在了。daemon 可能在 _reap_subagents() 或 _check_timeouts() 里崩了，或者被信号杀了。daemon 一死，socket 文件残留，CLI 连上去被拒绝。
+- [x] - `branch.py results branch_003` 因 daemon 连接拒绝失败；结果文件已存在，改为只读该文件恢复结论。ConnectionRefusedError 说明 socket 文件还在但 daemon 进程已经不在了。daemon 可能在 _reap_subagents() 或 _check_timeouts() 里崩了，或者被信号杀了。daemon 一死，socket 文件残留，CLI 连上去被拒绝。
 
   Codex 自己处理得挺好 -- 连不上就直接读 branch_result_branch_003.md 文件，不影响结果。不是致命 bug，只是 daemon 不够健壮。
 

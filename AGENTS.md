@@ -40,10 +40,9 @@
 
 1. 读 `board.md` 了解已有 ideas 和 memory
 2. 读 `progress.md` 了解当前进度（续跑时）
-3. **根据题目类型读 `strategies/<type>.md` 了解对应攻击流程**（web/crypto/misc）
-4. 发现 2+ 可行方向时，调 `branch.py spawn` 并行试探
-5. 单次失败不换方向；同一命令参数微调不超 3 次；同类操作连续 3 次无新发现 -> 换方向
-6. 发现 flag 立即输出到 progress.md 的 Flags Found 段
+3. 发现 2+ 可行方向时，调 `branch.py spawn` 并行试探
+4. 单次失败不换方向；同一命令参数微调不超 3 次；同类操作连续 3 次无新发现 -> 换方向
+5. 发现 flag 立即输出到 progress.md 的 Flags Found 段
 
 ### 3.2 停滞处理
 
