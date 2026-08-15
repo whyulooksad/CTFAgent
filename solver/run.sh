@@ -211,7 +211,7 @@ $OUTPUT
 执行完毕后回复简短摘要。" \
                         -t terminal,file,web,search \
                         --quiet 2>&1) || true
-                    HERMES_SESSION=$(echo "$RESP" | grep -oP "session_id:\s*\K[^\s]+" | head -1)
+                    HERMES_SESSION=$(echo "$RESP" | grep -o 'session_id:[[:space:]]*[^[:space:]]*' | sed -E 's/session_id:[[:space:]]*//' | head -1)
                     echo "$RESP" >> "$WORK_DIR/hermes.log"
                 else
                     # 后续触发：复用会话，简短 prompt 即可
@@ -303,8 +303,15 @@ while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
     # 检查 progress.md 的 Flags Found 段 (Codex 主动声明的，不碰 codex.log)
     # 注意: grep 无匹配时返回 1，不能用 set -e 让它退出整个脚本
     # 注意: 过滤 HTML 注释 (Codex/branch 会写 <!-- --> 进度笔记到 Flags Found 段)
+    # 注意: 模型偶尔会把进度笔记写进该段 (如 "- 2026-08-15: 已读取xx，准备继续侦察")，
+    #       所以加"像 flag"过滤 (与 master/challenge_state.py 的 _looks_like_flag 一致):
+    #       含空格/中文/日期前缀、超长的行都是笔记，不算 flag
     FLAGS=$(awk '/^## *Flags Found/{f=1;next} /^##/{f=0} f' "$WORK_DIR/progress.md" \
-        | grep -v '^(无)' | grep -v '^<!--' | grep -v '^$' | head -1 || true)
+        | grep -v '^(无)' | grep -v '^<!--' | grep -v '^$' \
+        | grep -v ' ' \
+        | grep -v '[一-鿿]' \
+        | awk 'length($0) <= 128 && $0 !~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/' \
+        | head -1 || true)
     if [ -n "$FLAGS" ]; then
         echo ""
         echo "=== FLAG FOUND! ==="

@@ -47,9 +47,24 @@ def test_extract_flags() -> None:
     for raw, expected in cases.items():
         got = extract_flags(f"## Flags Found\n{raw}\n")
         assert got == [expected], f"{raw!r} -> {got} != [{expected!r}]"
+
+    # 2026-08-15 ezssti 事故实测: recon 阶段的进度笔记被误当 flag (假闭环+误杀 solver)
+    noise_lines = [
+        "- 2026-08-15: 已按要求完整读取浏览器技能说明、Web 攻击流程、board.md 与 progress.md，准备基于现有状态继续侦察。",
+        "2026-08-15: recon complete, continuing.",
+        "已读取全部文件，准备开始侦察。",
+        "- Progress: scanning target, 30% done.",
+        "- 正在分析附件，稍后更新。",
+    ]
+    for noise in noise_lines:
+        got = extract_flags(f"## Flags Found\n(无)\n\n{noise}\n")
+        assert got == [], f"进度笔记被误判为 flag: {noise!r} -> {got}"
+
     assert extract_flags("## Flags Found\n(无)\n") == []
     assert extract_flags("## Flags Found\n<!-- 进度笔记 -->\n") == []
     assert extract_flags("## Flags Found\nflag{a}\n\n## Next\nx") == ["flag{a}"]
+    # 笔记与真 flag 混排: 只取 flag
+    assert extract_flags("## Flags Found\n- 2026-08-15: recon done\n- flag{real_one}\n") == ["flag{real_one}"]
     print("[PASS] extract_flags")
 
 

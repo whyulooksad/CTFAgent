@@ -55,6 +55,32 @@ _FLAG_HEADER = re.compile(r"^##\s*Flags Found\b")
 # 截成 "CTF{...}" 这类子串误匹配；非 flag{}/ctf{} 前缀走原始行回退
 _FLAG_TOKEN = re.compile(r"(?<![A-Za-z0-9_])(?:flag|ctf)\{[^}]+\}", re.IGNORECASE)
 
+# 回退行的"像 flag"判据参数。实测 (2026-08-15 ezssti) 模型会把进度笔记写进
+# Flags Found 段 (如 "- 2026-08-15: 已按要求完整读取...准备继续侦察")，
+# 整句当 flag 提交造成假闭环 + solver 被误杀，回退必须严格过滤
+_MAX_FLAG_LEN = 128
+_CJK_CHAR = re.compile(r"[一-鿿　-〿＀-￯]")   # 汉字/中文标点/全角
+_DATE_PREFIX = re.compile(r"^\d{4}-\d{2}-\d{2}")                        # 日志式笔记前缀
+
+
+def _looks_like_flag(s: str) -> bool:
+    """
+    回退行 (正则未命中 token 时) 是否像 flag。
+
+    flag 是无空白的短 token；带空格的自然语言句子、日期前缀的进度笔记、
+    含中文的行都判为笔记噪音。(中文 flag 的平台极少，且那种 flag{中文} 形式
+    会被上面的 _FLAG_TOKEN 正则命中，不走回退)
+    """
+    if not s or len(s) > _MAX_FLAG_LEN:
+        return False
+    if any(ch.isspace() for ch in s):
+        return False
+    if _DATE_PREFIX.match(s):
+        return False
+    if _CJK_CHAR.search(s):
+        return False
+    return True
+
 
 def extract_flags(progress_text: str) -> list[str]:
     """
@@ -89,7 +115,7 @@ def extract_flags(progress_text: str) -> list[str]:
                     flags.append(m.group(0))
         else:
             cleaned = s.strip("-*• `\"'").strip()
-            if cleaned and cleaned not in flags:
+            if cleaned and _looks_like_flag(cleaned) and cleaned not in flags:
                 flags.append(cleaned)
     return flags
 
