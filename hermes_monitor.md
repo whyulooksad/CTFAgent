@@ -11,7 +11,6 @@
 每次你会收到 monitor.py 的输出（这是一个时间快照，可能有 10-30 秒延迟）：
 - `log_increment` -- Codex 最新日志增量（它在干什么）
 - `progress` -- progress.md 的关键字段（phase, next_steps, flags, url）
-- `dead_ends` -- dead_ends.md 当前内容
 - `elapsed_minutes` -- 已运行时间
 - `flag_found` -- 是否检测到 flag
 - `is_stale` -- 日志是否停滞
@@ -40,7 +39,7 @@
 - 同时可以写 guidance.md 建议新方向。
 
 ### 3. Codex 在重复已验证失败的路吗？
-对比当前 Next Steps 和 dead_ends.md 的内容。
+对比当前 Next Steps 和你之前设的 dead_ends 约束（或 board.md 中的失败记录）。
 - 是 -> 写 dead_ends.md 追加硬约束。
 
 ### 4. Codex 找到 flag 了吗？
@@ -108,7 +107,7 @@ is_timeout 为 true。
 重要信息（已验证的结论、关键发现）同时同步到 board.md，board.md 不清空。
 
 ### board.md (辅助 -- 供 Codex 恢复上下文)
-- 有新进展时更新（全量重写，保持格式）
+- 有新进展时用 patch 工具更新变化的条目，不要全量重写
 
 ## 禁止越界（重要）
 

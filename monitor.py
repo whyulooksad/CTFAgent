@@ -28,7 +28,6 @@ from typing import Optional
 
 STALE_LOG_SECONDS = 300  # 日志无更新超过 5 分钟 -> stale 信号
 TIMEOUT_SECONDS = 7200  # 整体超时 2 小时
-MAX_LOG_LINES = 80  # 单次输出最大日志行数 (防 JSON 过大)
 STATE_FILE = "monitor_state.json"
 
 FLAG_PATTERN = re.compile(r"(?:flag|ctf)\{[^}]+\}", re.IGNORECASE)
@@ -58,7 +57,7 @@ def parse_progress(path: Path) -> dict:
     if not path.exists():
         return {}
     text = path.read_text()
-    result = {"raw": text}
+    result = {}
 
     phase_match = re.search(r"##\s*Current Phase\s*\n(.+)", text)
     result["phase"] = phase_match.group(1).strip() if phase_match else ""
@@ -76,13 +75,6 @@ def parse_progress(path: Path) -> dict:
     result["start_time"] = time_match.group(1).strip() if time_match else ""
 
     return result
-
-
-def read_dead_ends(path: Path) -> str:
-    """读取 dead_ends.md 全文。"""
-    if not path.exists():
-        return ""
-    return path.read_text().strip()
 
 
 def read_log_increment(path: Path, state: MonitorState) -> str:
@@ -146,7 +138,6 @@ def run_monitor(work_dir: Path) -> Optional[dict]:
         state.start_time = time.time()
 
     progress = parse_progress(work_dir / "progress.md")
-    dead_ends = read_dead_ends(work_dir / "dead_ends.md")
     log_path = work_dir / "codex.log"
 
     # 读日志增量
@@ -179,11 +170,8 @@ def run_monitor(work_dir: Path) -> Optional[dict]:
         # 一切正常，无新日志 -> 静默
         return None
 
-    # 截断日志增量，防 JSON 过大
-    log_lines = log_increment.strip().split("\n") if log_increment.strip() else []
-    if len(log_lines) > MAX_LOG_LINES:
-        log_lines = log_lines[-MAX_LOG_LINES:]
-        log_increment = "...(已截断前部分)...\n" + "\n".join(log_lines)
+    # 日志增量只作为闹钟信号，不传内容（Hermes 自行 tail 读新鲜数据）
+    log_line_count = len(log_increment.strip().split("\n")) if log_increment.strip() else 0
 
     output = {
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
@@ -195,8 +183,8 @@ def run_monitor(work_dir: Path) -> Optional[dict]:
             "flags": progress.get("flags", ""),
             "url": progress.get("url", ""),
         },
-        "dead_ends": dead_ends if dead_ends else "(空)",
-        "log_increment": log_increment.strip() if log_increment.strip() else "(无新日志)",
+        "log_increment_lines": log_line_count,
+        "log_increment_hint": "(有新日志，请自行 tail codex.log 读取)" if log_line_count > 0 else "(无新日志)",
         "flag_found": flag,
         "is_stale": is_stale,
         "stale_seconds": stale_seconds,
