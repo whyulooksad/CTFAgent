@@ -106,6 +106,115 @@ def test_rule_order() -> None:
     print(f"[PASS] rule_order: {order}")
 
 
+def test_multiflag_no_loop() -> None:
+    """
+    回归: 多 flag 题死循环事故 (2026-08-16 b 系列)。
+
+    事故链: flag correct 未通关 -> recycle 清 flags_seen -> solver 重跑解出同一
+    flag -> 再提交 -> 平台 duplicate -> 被当 correct -> 又 recycle -> 死循环，
+    3 槽位被占满，新题永远进不来。
+
+    修复断言: ① duplicate 不计分不回收 ② flags_seen 不清空(同 flag 不再提交)
+    ③ recycle 后 hint 含已得 flag ④ 死循环切断后能腾出槽位分发新题。
+    """
+    import threading
+
+    class MultiFlagAdapter(MockAdapter):
+        """一道 3 flag 的题: solver 陆续解出三个 flag (模拟同一会话持续攻坚)。"""
+
+        def list_challenges(self) -> list[Challenge]:
+            return super().list_challenges() + [
+                Challenge(id="t-multi", title="多flag题", type="misc", score=500,
+                          solve_count=10, flag_count=3,
+                          description="3 个 flag"),
+            ]
+
+        def submit(self, cid: str, flag: str) -> SubmitResult:
+            if cid == "t-multi" and flag in ("flag{first}", "flag{second}", "flag{third}"):
+                if flag in self._submitted_ok:
+                    return SubmitResult("correct", "duplicate: 已计过分",
+                                        data={"duplicate": True,
+                                              "correct_flag_count": len(self._submitted_ok),
+                                              "total_flag_count": 3})
+                self._submitted_ok.append(flag)
+                return SubmitResult("correct", f"+100 ({flag})",
+                                    data={"correct_flag_count": len(self._submitted_ok),
+                                          "total_flag_count": 3})
+            return super().submit(cid, flag)
+
+        _submitted_ok: list = []
+
+    # FakeBackend 变体: t-multi 的 solver 不退出，每 0.6s 依次解出一个 flag
+    class RepeatBackend(FakeBackend):
+        def _simulate(self, ch, handle):
+            if ch.id == "t-multi":
+                ev = handle.opaque["stop_event"]
+                handle.work_dir.mkdir(parents=True, exist_ok=True)
+                for i, flag in enumerate(("flag{first}", "flag{second}", "flag{third}")):
+                    if ev.wait(0.6):
+                        return
+                    prev = []
+                    f = handle.work_dir / "progress.md"
+                    if f.exists():
+                        prev = [l for l in f.read_text().splitlines()
+                                if l.startswith("flag{")]
+                    f.write_text("## Flags Found\n" + "\n".join(prev + [flag]) + "\n",
+                                 encoding="utf-8")
+                return
+            super()._simulate(ch, handle)
+
+    state_file = SCRIPT_DIR / "tests" / "master_state_mf.json"
+    log_file = SCRIPT_DIR / "tests" / "master_mf.log"
+    flags_file = SCRIPT_DIR / "tests" / "master_flags_mf.jsonl"
+    for p in (state_file, log_file, flags_file):
+        p.unlink(missing_ok=True)
+
+    cfg = Config(
+        adapter="mock", backend="fake", llm_priority=False,
+        max_solvers=1, max_challenges=10,   # 单槽: 死循环会永远饿死其他题
+        poll_interval=0.3, solver_timeout=60,
+        submit_min_interval=0.2, max_submit_per_challenge=3,
+        state_file=str(state_file), log_file=str(log_file), flags_file=str(flags_file),
+    )
+    # 直连构造 Master 不经过 CLI 的 logging 配置，手动挂 FileHandler
+    import logging
+    root = logging.getLogger("master")
+    root.setLevel(logging.INFO)
+    fh = logging.FileHandler(log_file, encoding="utf-8")
+    fh.setFormatter(logging.Formatter("[%(asctime)s] %(levelname)-7s %(message)s", "%H:%M:%S"))
+    root.addHandler(fh)
+    m = Master(cfg, adapter=MultiFlagAdapter(), backend=RepeatBackend())
+    t = threading.Thread(target=m.run, daemon=True)
+    t.start()
+    time.sleep(10)
+    m._stop.set()
+    t.join(timeout=6)
+
+    rec = m.state.get("t-multi")
+    log_text = log_file.read_text(encoding="utf-8")
+    # ① 多 flag 全通关: 3 个 flag 各提交一次，状态终态
+    assert rec.status == SUBMITTED_CORRECT, \
+        f"应通关: {rec.status}, correct={rec.flags_correct}"
+    assert rec.flags_correct == 3, rec.flags_correct
+    assert sorted(rec.flags_submitted) == ["flag{first}", "flag{second}", "flag{third}"]
+    # ② 无重复提交 (flags_seen 保留)
+    for f in ("flag{first}", "flag{second}", "flag{third}"):
+        assert rec.flags_submitted.count(f) == 1
+    # ③ solver 未通关期间不被回收 (日志有"继续攻剩余")
+    assert "solver 存活，继续攻剩余 flag" in log_text
+    # ④ duplicate 防御分支 (状态恢复等场景): 不计分、不回收
+    m.submitter._results.put({"cid": "t-multi", "flag": "flag{first}",
+                              "status": "correct", "message": "dup",
+                              "data": {"duplicate": True}})
+    m._drain_results()
+    log_text = log_file.read_text(encoding="utf-8")
+    assert "重复 flag 已计过分" in log_text, "duplicate 未被识别"
+    rec = m.state.get("t-multi")
+    assert rec.flags_correct == 3, "duplicate 计了分"
+    assert rec.status == SUBMITTED_CORRECT, "duplicate 触发了回收"
+    print("[PASS] multiflag-no-loop")
+
+
 def test_e2e() -> None:
     state_file = SCRIPT_DIR / "tests" / "master_state_test.json"
     log_file = SCRIPT_DIR / "tests" / "master_test.log"
@@ -352,5 +461,6 @@ if __name__ == "__main__":
     test_llm_order()
     test_dashboard()
     test_manual_and_resident()
+    test_multiflag_no_loop()
     test_e2e()
     print("ALL PASS")

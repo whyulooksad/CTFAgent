@@ -75,6 +75,8 @@ def build_overview(master) -> dict:
             "source": r.source,
             "status": r.status,
             "attempts": r.attempts,
+            "flag_count": getattr(r, "flag_count", 1),
+            "flags_correct": getattr(r, "flags_correct", 0),
             "flag": r.flag,
             "last_submit_status": r.last_submit_status,
             "error": r.error,

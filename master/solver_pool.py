@@ -93,6 +93,9 @@ class ProcessBackend(SolverBackend):
             cmd += ["--attachment", str(ch.attachment_path)]
         hint = (ch.description or "").strip() or "(无)"
         cmd += ["--hint", hint]
+        fc = int(getattr(ch, "flag_count", 1) or 1)
+        if fc > 1:
+            cmd += ["--flag-count", str(fc)]  # 多 flag: solver 拿满前不退出
 
         # run.sh 的 stdout 横幅收集到 master_logs (codex/hermes 日志在 work_dir 内)
         # 每次尝试追加写入 (不覆盖)，带分隔头 -- "w" 模式曾把重试前一轮的日志抹掉
@@ -316,6 +319,9 @@ class DockerBackend(SolverBackend):
         else:
             cmd += ["--attachment", str(self._container_attachment(ch))]
         cmd += ["--hint", (ch.description or "").strip() or "(无)"]
+        fc = int(getattr(ch, "flag_count", 1) or 1)
+        if fc > 1:
+            cmd += ["--flag-count", str(fc)]  # 多 flag: solver 拿满前不退出
 
         res = subprocess.run(cmd, capture_output=True, text=True, timeout=90)
         if res.returncode != 0:

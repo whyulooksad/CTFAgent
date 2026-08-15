@@ -335,7 +335,8 @@ async function refresh() {
   const tb = document.getElementById('tbody');
   tb.innerHTML = d.challenges.map(c => {
     const st = `<span class="st st-${esc(c.status)}">${esc(c.status)}</span>`;
-    const src = c.source === 'manual' ? '<span class="src-tag">手动</span>' : '';
+    const src = c.source === 'manual' ? '<span class="src-tag">手动</span>' : ''
+        + (c.flag_count > 1 ? `<span class="src-tag" style="color:#bc8cff;border-color:#bc8cff">⚑×${c.flag_count} 已得${c.flags_correct}</span>` : '');
     const title = `<div class="title-cell"><b>${esc(c.title)}</b>${src}<br><span>${esc(c.id)}</span></div>`;
     const flag = c.flag ? `<span class="flag-cell">${esc(c.flag)}</span>` : '-';
     const elapsed = c.elapsed != null ? fmtElapsed(c.elapsed) : '-';

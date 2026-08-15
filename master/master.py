@@ -219,6 +219,11 @@ class Master:
                     break
                 self._stop.wait(self.cfg.poll_interval)
         finally:
+            # 收尾前最后一次 drain: 退出瞬间可能还有刚提交完的 flag 结果没处理
+            try:
+                self._drain_results()
+            except Exception:
+                pass
             self._shutdown()
         self._log_summary()
         return 0
@@ -442,8 +447,13 @@ class Master:
             self.state.record_submit_result(cid, flag, status, res.get("message", ""))
 
             if status == "correct":
-                # 多 flag 题: 平台返回的进度判定是否通关
                 extra = res.get("data") or {}
+                # duplicate: 平台幂等返回"该 flag 已计过分" —— 不计分不回收，
+                # 否则会死循环 (solver 重跑又解出同一 flag -> 又提交 -> 又 duplicate)
+                if extra.get("duplicate"):
+                    self.log.warning("%s 重复 flag 已计过分，跳过: %s", cid, flag)
+                    continue
+                # 多 flag 题: 平台返回的进度判定是否通关
                 total = int(extra.get("total_flag_count") or rec.flag_count or 1)
                 done_cnt = int(extra.get("correct_flag_count") or (rec.flags_correct + 1))
                 all_done = done_cnt >= total
@@ -457,25 +467,42 @@ class Master:
                         self.backend.stop(handle)  # run.sh 找到 flag 后通常已自行退出
                     self._release_target(rec)
                 else:
-                    # 多 flag 未通关: 收回 solver，回队列继续攻下一个 flag
+                    # 多 flag 未通关: solver 活着就不动它 (同一 codex 会话继续攻剩余
+                    # flag，run.sh 在拿满前不退出)；死了才回队列重跑
                     self.log.info("=== FLAG ACCEPTED: %s %s (%d/%d，未通关继续) ===",
                                   cid, flag, done_cnt, total)
-                    self._recycle_for_next_flag(rec)
+                    handle = self.running.get(cid)
+                    if handle is not None and self.backend.is_alive(handle):
+                        self.log.info("%s solver 存活，继续攻剩余 flag (%d/%d)",
+                                      cid, done_cnt, total)
+                    else:
+                        self._recycle_for_next_flag(rec)
             elif status == "wrong":
                 self.log.warning("%s flag 提交错误: %s (solver 继续跑)", cid, flag)
             else:  # error / skipped
                 self.log.error("%s 提交未成功 (%s): %s", cid, status, res.get("message", ""))
 
     def _recycle_for_next_flag(self, rec) -> None:
-        """多 flag 题收到一个正确 flag 但未通关: 回队列继续攻剩余 flag。"""
+        """
+        多 flag 题收到一个正确 flag 但未通关: 回队列继续攻剩余 flag。
+
+        已提交的 flag 保留在 flags_seen (防止下一轮 solver 重解同一 flag 后再提交，
+        平台会返回 duplicate)；并把已得 flag 注入 hint，让 codex 明确找"不同的" flag。
+        """
         handle = self.running.pop(rec.id, None)
         if handle:
             try:
                 self.backend.stop(handle)
             except Exception as e:
                 self.log.error("停止 %s 失败: %s", rec.id, e)
-        # 靶机保留 (下一轮 dispatch 复用; 平台 close 逻辑仍由终态触发)
-        rec.flags_seen = []       # 允许 solver 重新声明 flag (旧的已提交)
+        got = list(rec.flags_submitted)  # 已提交成功的 flag
+        if got:
+            rec.description = (
+                (rec.description or "").split("\n\n[多 flag 进度]")[0]
+                + "\n\n[多 flag 进度] 该题共 " + str(rec.flag_count) + " 个 flag，已提交 "
+                + str(len(got)) + " 个: " + ", ".join(got)
+                + "。这些 flag 已计分，不要再提交，去找剩余的 flag (注意换攻击点/入口)。"
+            )
         rec.results_received = []
         rec.next_eligible_at = time.time() + 3
         rec.attempts -= 1         # 不消耗重试配额 (这是同一轮攻略的延续)
@@ -669,6 +696,7 @@ class Master:
             url=rec.url,
             attachment_url=rec.attachment_url,
             attachment_path=Path(rec.attachment_path) if rec.attachment_path else None,
+            flag_count=getattr(rec, "flag_count", 1),
         )
 
     def _read_flags(self, handle: SolverHandle) -> list[str]:

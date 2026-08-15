@@ -241,7 +241,12 @@ class MasterState:
                 rec.score = meta.score
                 rec.solve_count = meta.solve_count
                 if meta.description:
-                    rec.description = meta.description
+                    # 保留 master 注入的多 flag 进度提示 (sync 每轮都会跑，不能覆盖)
+                    tail = ""
+                    if "[多 flag 进度]" in (rec.description or ""):
+                        tail = "\n\n[多 flag 进度]" + \
+                            rec.description.split("[多 flag 进度]", 1)[1]
+                    rec.description = meta.description + tail
                 if meta.attachment_url:
                     rec.attachment_url = meta.attachment_url
                 if getattr(meta, "source", "platform") == "manual":

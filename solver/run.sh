@@ -26,6 +26,7 @@ CHALLENGE_TYPE=""
 TARGET_URL=""
 ATTACHMENT=""
 HINT=""
+FLAG_COUNT=1
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -33,6 +34,7 @@ while [ $# -gt 0 ]; do
         --url)        TARGET_URL="$2"; shift 2 ;;
         --attachment) ATTACHMENT="$2"; shift 2 ;;
         --hint)       HINT="$2"; shift 2 ;;
+        --flag-count) FLAG_COUNT="$2"; shift 2 ;;
         *) echo "未知参数: $1"; exit 1 ;;
     esac
 done
@@ -331,6 +333,17 @@ case "$CHALLENGE_TYPE" in
         ;;
 esac
 
+# 多 flag 题: prompt 声明总数量与续跑语义 (每轮 codex 都带上)
+if [ "$FLAG_COUNT" -gt 1 ] 2>/dev/null; then
+    CODEX_PROMPT="$CODEX_PROMPT
+
+注意: 这是多 flag 题目，共 $FLAG_COUNT 个 flag，全部拿到才算通关。
+progress.md 的 Flags Found 段里可能已有之前获得的 flag (已提交计分)，
+不要重复提交它们，也不要重复攻击已拿过 flag 的入口，去寻找剩余的 flag
+(通常意味着换攻击点/换入口/深入下一阶段)。每拿到一个新 flag 立即追加到
+Flags Found 段 (一行一个)。"
+fi
+
 RETRY=0
 while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
     echo ""
@@ -359,12 +372,24 @@ while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
         | grep -v '[一-鿿]' \
         | awk 'length($0) <= 128 && $0 !~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/' \
         | head -1 || true)
+    # 多 flag 题: 统计已得 flag 数，拿满 FLAG_COUNT 个才算完成 (单 flag 行为不变)
+    FLAGS_COUNT=$(awk '/^## *Flags Found/{f=1;next} /^##/{f=0} f' "$WORK_DIR/progress.md" \
+        | grep -v '^(无)' | grep -v '^<!--' | grep -v '^$' \
+        | grep -v ' ' \
+        | grep -v '[一-鿿]' \
+        | awk 'length($0) <= 128 && $0 !~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/' \
+        | wc -l | tr -d ' ' || true)
     if [ -n "$FLAGS" ]; then
+        if [ "$FLAGS_COUNT" -ge "$FLAG_COUNT" ] 2>/dev/null || [ "$FLAG_COUNT" = "1" ]; then
+            echo ""
+            echo "=== FLAG FOUND! (${FLAGS_COUNT}/${FLAG_COUNT} 全部拿到) ==="
+            echo "$FLAGS"
+            echo "=== Check codex.log for details ==="
+            break
+        fi
         echo ""
-        echo "=== FLAG FOUND! ==="
-        echo "$FLAGS"
-        echo "=== Check codex.log for details ==="
-        break
+        echo "=== FLAG FOUND (${FLAGS_COUNT}/${FLAG_COUNT})，多 flag 未拿满，继续攻剩余 ==="
+        # 不 break: 下一轮 codex 续跑继续找 (prompt 会带已得 flag 进度)
     fi
 
     # Codex 正常退出但没 flag，继续
