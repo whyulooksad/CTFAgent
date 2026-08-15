@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import signal
 import sys
 import threading
@@ -96,6 +97,14 @@ class Config:
 def make_adapter(name: str):
     if name == "mock":
         return MockAdapter()
+    if name == "tsec":
+        # 腾讯 Tsecbench (BENCHMARK_TOKEN 认证 + VPN 直连)
+        base_url = os.environ.get("TSEC_BASE_URL", "https://tsecbench.zc.tencent.com")
+        token = os.environ.get("TSEC_TOKEN", "")
+        if not token:
+            raise ValueError("adapter=tsec 需要环境变量 TSEC_TOKEN")
+        from adapters.tsec import TSecAdapter
+        return TSecAdapter(base_url, token)
     if name in ("none", "live"):
         # none: 只用手动题 + 面板「平台接入」热切换 (手动测试其他平台的主模式)
         # live: 同 none 启动，接入信息由面板输入后切换到 LiveAdapter
@@ -167,7 +176,7 @@ class Master:
         self._stop = threading.Event()
         self._interrupted = False
         self.paused = False
-        self.platform_connected = isinstance(self.adapter, MockAdapter)
+        self.platform_connected = not isinstance(self.adapter, NoPlatformAdapter)
         self.platform_info: dict = {"base_url": "", "token": ""}
         self.log = logging.getLogger("master")
 
@@ -285,8 +294,8 @@ class Master:
         self.state.set_status(rec.id, "dispatched")
         adapter = self.manual_adapter if rec.source == "manual" else self.adapter
 
-        # 1. web 题开靶机 (手动题: 用户输入的 URL 即靶机)
-        if rec.type == "web":
+        # 1. web/binary 题开靶机 (手动题: 用户输入的 URL 即靶机；binary 远程服务同此)
+        if rec.type in ("web", "binary"):
             try:
                 url = adapter.start_challenge(rec.id)
                 if not url:
@@ -311,7 +320,7 @@ class Master:
         #   - 平台题重试前: 靶机可能已到期被平台回收 (实测 ezphp: 1h 超时触发重试时
         #     靶机已自动关闭，对着死靶机重跑纯浪费)
         #   - 手动题首次分发: URL 填错能立即反馈，不烧一整轮 solver
-        if rec.type == "web" and rec.url and (
+        if rec.type in ("web", "binary") and rec.url and (
             rec.source == "manual" or rec.attempts >= 1
         ):
             if not self._target_alive(rec.url):
@@ -433,17 +442,44 @@ class Master:
             self.state.record_submit_result(cid, flag, status, res.get("message", ""))
 
             if status == "correct":
-                self.state.mark_correct(cid, flag)
+                # 多 flag 题: 平台返回的进度判定是否通关
+                extra = res.get("data") or {}
+                total = int(extra.get("total_flag_count") or rec.flag_count or 1)
+                done_cnt = int(extra.get("correct_flag_count") or (rec.flags_correct + 1))
+                all_done = done_cnt >= total
+                self.state.mark_correct(cid, flag, all_flags_done=all_done)
                 self._log_flag(rec, flag, auto_submitted=True)
-                self.log.info("=== FLAG ACCEPTED: %s %s ===", cid, flag)
-                handle = self.running.pop(cid, None)
-                if handle:
-                    self.backend.stop(handle)  # run.sh 找到 flag 后通常已自行退出
-                self._release_target(rec)
+                if all_done:
+                    self.log.info("=== FLAG ACCEPTED: %s %s (通关 %d/%d) ===",
+                                  cid, flag, done_cnt, total)
+                    handle = self.running.pop(cid, None)
+                    if handle:
+                        self.backend.stop(handle)  # run.sh 找到 flag 后通常已自行退出
+                    self._release_target(rec)
+                else:
+                    # 多 flag 未通关: 收回 solver，回队列继续攻下一个 flag
+                    self.log.info("=== FLAG ACCEPTED: %s %s (%d/%d，未通关继续) ===",
+                                  cid, flag, done_cnt, total)
+                    self._recycle_for_next_flag(rec)
             elif status == "wrong":
                 self.log.warning("%s flag 提交错误: %s (solver 继续跑)", cid, flag)
             else:  # error / skipped
                 self.log.error("%s 提交未成功 (%s): %s", cid, status, res.get("message", ""))
+
+    def _recycle_for_next_flag(self, rec) -> None:
+        """多 flag 题收到一个正确 flag 但未通关: 回队列继续攻剩余 flag。"""
+        handle = self.running.pop(rec.id, None)
+        if handle:
+            try:
+                self.backend.stop(handle)
+            except Exception as e:
+                self.log.error("停止 %s 失败: %s", rec.id, e)
+        # 靶机保留 (下一轮 dispatch 复用; 平台 close 逻辑仍由终态触发)
+        rec.flags_seen = []       # 允许 solver 重新声明 flag (旧的已提交)
+        rec.results_received = []
+        rec.next_eligible_at = time.time() + 3
+        rec.attempts -= 1         # 不消耗重试配额 (这是同一轮攻略的延续)
+        self.state.set_status(rec.id, QUEUED)
 
     def _accept_manual_flag(self, rec, flag: str, handle: SolverHandle) -> None:
         """手动模式 flag 闭环: 不走提交器，记录 + 展示 + 回收 solver。"""
@@ -697,15 +733,19 @@ class Master:
 
     def _build_manual_challenge(self, item: dict) -> Challenge:
         ctype = str(item.get("type", "")).strip().lower()
-        if ctype not in ("web", "crypto", "misc"):
-            raise ValueError(f"题目类型必须是 web/crypto/misc，收到: {ctype!r}")
+        if ctype not in ("web", "crypto", "misc", "binary"):
+            raise ValueError(f"题目类型必须是 web/crypto/misc/binary，收到: {ctype!r}")
         url = str(item.get("url", "")).strip()
         attachment = str(item.get("attachment", "")).strip()
         title = str(item.get("title", "")).strip()
 
-        if ctype == "web":
+        if ctype in ("web", "binary"):
             if not url:
-                raise ValueError("web 题必须填 URL")
+                raise ValueError(f"{ctype} 题必须填 URL")
+            if ctype == "binary" and attachment and not Path(attachment).is_file():
+                raise FileNotFoundError(f"附件不存在: {attachment}")
+            if ctype == "binary" and attachment:
+                attachment = f"manual://{Path(attachment).resolve()}"
         else:
             if not attachment:
                 raise ValueError(f"{ctype} 题必须填附件路径")

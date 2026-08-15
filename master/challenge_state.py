@@ -158,6 +158,8 @@ class ChallengeRecord:
     description: str = ""
     attachment_url: Optional[str] = None
     source: str = "platform"           # platform (adapter 拉取) | manual (面板手动加入)
+    flag_count: int = 1                # 该题 flag 总数 (平台多 flag 题)
+    flags_correct: int = 0             # 已正确提交的 flag 数
 
     # 调度状态
     status: str = QUEUED
@@ -244,6 +246,8 @@ class MasterState:
                     rec.attachment_url = meta.attachment_url
                 if getattr(meta, "source", "platform") == "manual":
                     rec.source = "manual"
+                if getattr(meta, "flag_count", 1) > 1:
+                    rec.flag_count = meta.flag_count
             rec.updated_at = _now()
             return rec
 
@@ -324,14 +328,17 @@ class MasterState:
                 rec.error = message
             rec.updated_at = _now()
 
-    def mark_correct(self, cid: str, flag: str) -> None:
+    def mark_correct(self, cid: str, flag: str, all_flags_done: bool = True) -> None:
+        """记录一个正确 flag。all_flags_done=False (多 flag 未通关) 不终态。"""
         with self._lock:
             rec = self.records.get(cid)
             if rec is None:
                 return
             rec.flag = flag
-            rec.status = SUBMITTED_CORRECT
-            rec.finished_at = time.time()
+            rec.flags_correct += 1
+            if all_flags_done:
+                rec.status = SUBMITTED_CORRECT
+                rec.finished_at = time.time()
             rec.updated_at = _now()
 
     # ─── 持久化 ───

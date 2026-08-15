@@ -119,8 +119,12 @@ class Submitter:
         if result is None:
             self._emit(cid, flag, "error", f"平台提交失败: {last_err}")
             return
-        self._emit(cid, flag, result.status, result.message)
+        self._emit(cid, flag, result.status, result.message, result.data)
 
-    def _emit(self, cid: str, flag: str, status: str, message: str = "") -> None:
+    def _emit(self, cid: str, flag: str, status: str, message: str = "",
+              data: dict | None = None) -> None:
         log.info("[submitter] %s flag=%s -> %s %s", cid, flag, status, message)
-        self._results.put({"cid": cid, "flag": flag, "status": status, "message": message})
+        self._results.put({
+            "cid": cid, "flag": flag, "status": status,
+            "message": message, "data": data or {},
+        })

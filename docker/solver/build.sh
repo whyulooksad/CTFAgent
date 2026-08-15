@@ -41,7 +41,11 @@ if [ "${1:-}" != "--no-sync" ]; then
         --exclude .git \
         --exclude __pycache__ \
         --exclude '*.pyc' \
+        --exclude '*.egg-info' \
         "$HERMES_SRC"/ "$SYNC_DIR"/
+    # rsync 保留源时间戳，若源目录时间戳异常(如未来时间)会导致容器内 editable 安装
+    # 报 "Cannot update time stamp" -- 统一重置为当前时间
+    find "$SYNC_DIR" -exec touch {} + 2>/dev/null || true
 fi
 
 echo "[build] docker build -t $IMAGE_TAG (context: $REPO_ROOT)"

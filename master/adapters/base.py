@@ -16,7 +16,7 @@ Master 只依赖这里的接口与数据结构，不依赖任何具体平台实�
 from __future__ import annotations
 
 import abc
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
@@ -35,6 +35,7 @@ class Challenge:
     attachment_url: Optional[str] = None
     attachment_path: Optional[Path] = None   # Master 下载后的本地路径
     source: str = "platform"      # platform (adapter 拉取) | manual (面板手动加入)
+    flag_count: int = 1           # 该题 flag 总数 (平台多 flag 题)
 
 
 @dataclass
@@ -43,6 +44,7 @@ class SubmitResult:
 
     status: str                   # correct | wrong | error
     message: str = ""
+    data: dict = field(default_factory=dict)  # 平台附加数据 (如 tsec 多 flag 进度)
 
 
 class PlatformAdapter(abc.ABC):

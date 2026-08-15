@@ -6,6 +6,7 @@
 #   ./run.sh --type web --url "http://target:8080" --hint "SQL注入"
 #   ./run.sh --type crypto --attachment "/path/to/challenge.zip" --hint "RSA"
 #   ./run.sh --type misc --attachment "/path/to/file.zip" --hint "隐写"
+#   ./run.sh --type binary --url "http://target:9999" [--attachment "/path/to/binary"] --hint "栈溢出"
 #
 # 功能:
 #   1. 创建挑战工作目录 + 初始化文件
@@ -59,8 +60,17 @@ case "$CHALLENGE_TYPE" in
         SHORT_HASH=$(printf '%s' "$ATTACHMENT" | md5sum | cut -c1-12)
         WORK_DIR_NAME="manual_${CHALLENGE_TYPE}_${SHORT_HASH}"
         ;;
+    binary)
+        # 二进制题: 远程服务 (URL) + 可选附件 (二进制制品/固件)
+        if [ -z "$TARGET_URL" ]; then echo "binary 类型需要 --url (远程服务地址)"; exit 1; fi
+        if [ -n "$ATTACHMENT" ] && [ ! -f "$ATTACHMENT" ]; then
+            echo "附件不存在: $ATTACHMENT"; exit 1
+        fi
+        SHORT_HASH=$(printf '%s' "$TARGET_URL" | md5sum | cut -c1-12)
+        WORK_DIR_NAME="manual_binary_${SHORT_HASH}"
+        ;;
     *)
-        echo "未知题目类型: $CHALLENGE_TYPE (支持: web, crypto, misc)"
+        echo "未知题目类型: $CHALLENGE_TYPE (支持: web, crypto, misc, binary)"
         exit 1
         ;;
 esac
@@ -72,8 +82,9 @@ BRANCH_SOCKET=$(python3 "$SCRIPT_DIR/branch.py" socket-path --work-dir "$WORK_DI
 echo "=== CTF Agent 启动 ==="
 echo "Type: $CHALLENGE_TYPE"
 case "$CHALLENGE_TYPE" in
-    web)        echo "Target: $TARGET_URL" ;;
-    crypto|misc) echo "Attachment: $ATTACHMENT" ;;
+    web)          echo "Target: $TARGET_URL" ;;
+    crypto|misc)  echo "Attachment: $ATTACHMENT" ;;
+    binary)       echo "Target: $TARGET_URL"; [ -n "$ATTACHMENT" ] && echo "Attachment: $ATTACHMENT" ;;
 esac
 echo "Work dir: $WORK_DIR"
 echo "Branch socket: $BRANCH_SOCKET"
@@ -88,7 +99,7 @@ rm -f "$WORK_DIR/codex.log" "$WORK_DIR/hermes.log" "$WORK_DIR/monitor_state.json
 
 mkdir -p "$WORK_DIR/poc_scripts"
 
-# crypto/misc: 复制附件到工作目录
+# crypto/misc/binary: 复制附件到工作目录
 if [ -n "$ATTACHMENT" ]; then
     cp "$ATTACHMENT" "$WORK_DIR/"
     ATTACHMENT_IN_WORKDIR="$WORK_DIR/$(basename "$ATTACHMENT")"
@@ -131,6 +142,29 @@ recon
 ## Next Steps
 1. 解压附件，识别文件类型
 2. 分析文件内容，寻找突破口
+
+## Key Artifacts
+
+## Flags Found
+(无)
+EOF
+        ;;
+    binary)
+        cat > "$WORK_DIR/progress.md" << EOF
+## Target
+- Type: binary
+- URL: $TARGET_URL
+- Attachment: ${ATTACHMENT_NAME:-无}
+- Background: $HINT
+- Start Time: $(date -Iseconds)
+
+## Current Phase
+recon
+
+## Next Steps
+1. 有附件先 file/strings/逆向分析制品
+2. 探测远程服务协议
+3. 寻找内存安全缺陷/逻辑漏洞，构造 exploit
 
 ## Key Artifacts
 
@@ -280,6 +314,19 @@ case "$CHALLENGE_TYPE" in
 再读 board.md 了解当前 ideas 和 memory 状态。
 再读 progress.md 了解当前进度。
 然后开始解题: 先解压/识别附件，分析文件内容，寻找 flag。
+每次工具调用后更新 progress.md。"
+        ;;
+    binary)
+        CODEX_PROMPT="目标: $TARGET_URL
+附件: ${ATTACHMENT_IN_WORKDIR:-无}
+背景: $HINT
+
+这是一个二进制安全题目。远程服务: $TARGET_URL${ATTACHMENT_IN_WORKDIR:+，制品附件已复制到工作目录}。
+先读 $REPO_ROOT/strategies/binary.md 了解二进制题攻击流程。
+再读 board.md 了解当前 ideas 和 memory 状态。
+再读 progress.md 了解当前进度。
+然后开始解题: 先逆向分析附件/探测远程服务协议，定位内存安全缺陷或逻辑漏洞，
+编写 exploit (pwntools 可用) 从远程服务读取 flag。
 每次工具调用后更新 progress.md。"
         ;;
 esac

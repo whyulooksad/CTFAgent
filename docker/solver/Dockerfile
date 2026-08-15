@@ -38,6 +38,7 @@ RUN set -eux; \
            nmap sqlmap netcat-openbsd \
            ffuf gobuster dirsearch wfuzz \
            binwalk steghide libimage-exiftool-perl poppler-utils \
+           binutils gdb ltrace strace socat \
            nodejs npm; then ok=1; break; fi; \
       echo "apt 安装失败，重试 $i/3"; sleep 5; apt-get update; \
     done; \
@@ -50,15 +51,24 @@ RUN set -eux; \
     if [ -n "$NPM_REGISTRY" ]; then npm config set registry "$NPM_REGISTRY"; fi; \
     npm install -g --omit=dev @openai/codex@${CODEX_VERSION}
 
+# ── 二进制题工具链: pwntools (exploit 编写) ──
+# pip 带重试: 镜像源对个别包偶发 403 (实测 TUNA openai wheel 瞬时限流)
+RUN set -eux; \
+    if [ -n "$PIP_INDEX_URL" ]; then \
+      pip install --no-cache-dir --retries 5 -i "$PIP_INDEX_URL" pwntools; \
+    else \
+      pip install --no-cache-dir --retries 5 pwntools; \
+    fi
+
 # ── Hermes Agent (build.sh 从宿主机同步源码，排除 venv/node_modules 等) ──
 # 注意: hermes 官方禁止 wheel/sdist 构建，必须 editable 安装 (pip install -e)
 COPY docker/solver/hermes-src /opt/hermes/hermes-agent
 RUN set -eux; \
     python -m venv /opt/hermes/venv; \
     if [ -n "$PIP_INDEX_URL" ]; then \
-      /opt/hermes/venv/bin/pip install --no-cache-dir -i "$PIP_INDEX_URL" -e /opt/hermes/hermes-agent; \
+      /opt/hermes/venv/bin/pip install --no-cache-dir --retries 5 -i "$PIP_INDEX_URL" -e /opt/hermes/hermes-agent; \
     else \
-      /opt/hermes/venv/bin/pip install --no-cache-dir -e /opt/hermes/hermes-agent; \
+      /opt/hermes/venv/bin/pip install --no-cache-dir --retries 5 -e /opt/hermes/hermes-agent; \
     fi; \
     printf '#!/usr/bin/env bash\nexec /opt/hermes/venv/bin/python /opt/hermes/hermes-agent/hermes "$@"\n' \
       > /usr/local/bin/hermes; \

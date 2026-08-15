@@ -85,8 +85,10 @@ class ProcessBackend(SolverBackend):
         work_dir = self._predict_work_dir(ch)
 
         cmd = ["bash", str(REPO_DIR / "solver" / "run.sh"), "--type", ch.type]
-        if ch.type == "web":
+        if ch.type in ("web", "binary"):
             cmd += ["--url", ch.url or ""]
+            if ch.type == "binary" and ch.attachment_path:
+                cmd += ["--attachment", str(ch.attachment_path)]  # 可选制品
         else:
             cmd += ["--attachment", str(ch.attachment_path)]
         hint = (ch.description or "").strip() or "(无)"
@@ -122,9 +124,10 @@ class ProcessBackend(SolverBackend):
 
     @staticmethod
     def _predict_work_dir(ch: Challenge) -> Path:
-        if ch.type == "web":
+        # binary: url 决定 work_dir (附件可选)，与 run.sh 的 binary 分支一致
+        if ch.type == "web" or (ch.type == "binary" and ch.url):
             digest = hashlib.md5(ch.url.encode()).hexdigest()[:12]
-            name = f"manual_web_{digest}"
+            name = f"manual_{ch.type}_{digest}"
         else:
             digest = hashlib.md5(str(ch.attachment_path).encode()).hexdigest()[:12]
             name = f"manual_{ch.type}_{digest}"
@@ -269,9 +272,9 @@ class DockerBackend(SolverBackend):
 
     def _predict_work_dir(self, ch: Challenge) -> Path:
         """与 run.sh 命名规则一致，但附件用容器路径语义。"""
-        if ch.type == "web":
+        if ch.type == "web" or (ch.type == "binary" and ch.url):
             digest = hashlib.md5(ch.url.encode()).hexdigest()[:12]
-            name = f"manual_web_{digest}"
+            name = f"manual_{ch.type}_{digest}"
         else:
             digest = hashlib.md5(str(self._container_attachment(ch)).encode()).hexdigest()[:12]
             name = f"manual_{ch.type}_{digest}"
@@ -296,14 +299,20 @@ class DockerBackend(SolverBackend):
         if self.proxy_url:
             for var in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"):
                 cmd += ["-e", f"{var}={self.proxy_url}"]
-            cmd += ["-e", "NO_PROXY=localhost,127.0.0.1"]
+            # VPN/内网段直连 (靶机在 10.x VPN 网内，必须绕过代理)
+            no_proxy = "localhost,127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+            cmd += ["-e", f"NO_PROXY={no_proxy}", "-e", f"no_proxy={no_proxy}"]
         cmd += [
             self.image,
             # 镜像 ENTRYPOINT 已 exec run.sh，这里只传 run.sh 参数
             "--type", ch.type,
         ]
-        if ch.type == "web":
+        if ch.type in ("web", "binary"):
             cmd += ["--url", ch.url or ""]
+            if ch.type == "binary":
+                attach = self._container_attachment(ch)
+                if attach:
+                    cmd += ["--attachment", str(attach)]  # 可选制品
         else:
             cmd += ["--attachment", str(self._container_attachment(ch))]
         cmd += ["--hint", (ch.description or "").strip() or "(无)"]
