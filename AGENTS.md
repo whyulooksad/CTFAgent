@@ -136,6 +136,12 @@ recon
 (无)
 ```
 
+**Flags Found 段只允许写 flag 本身** (如 `flag{...}`)，一行一个。
+进度笔记、状态说明绝对不要写进这个段——写在该段上方加 `<!-- -->` 注释，或写在
+Next Steps / Key Artifacts 里。没找到 flag 前该段保持 `(无)`。
+（原因：run.sh 和 Master 调度器都靠解析这个段检测 flag，进度笔记会被误判成 flag，
+导致假闭环或误杀 solver。）
+
 ## 7. Compact 恢复
 
 上下文压缩后，按以下顺序恢复：

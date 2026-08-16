@@ -22,6 +22,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import select
@@ -39,6 +40,26 @@ DEFAULT_TIMEOUT = 900  # 单个 subagent 默认 15 分钟，xhigh 推理与大�
 SOCKET_BACKLOG = 8
 SELECT_TIMEOUT = 1.0  # select 轮询间隔 (秒)
 RECV_BUF = 1 << 20  # 1MB
+SOCKET_DIR_ENV = "CTF_AGENT_SOCKET_DIR"
+
+
+def branch_socket_path(work_dir: Path) -> Path:
+    """
+    为工作目录生成稳定、短小的 Unix socket 路径。
+
+    AF_UNIX 路径上限 108 字节 (macOS 104)，work_dir 常常超限
+    (实测 macOS 上直接 work_dir/branch.sock 绑定报 OSError: AF_UNIX path too long)，
+    所以按 work_dir 哈希放到 /tmp/ctf-agent-<uid>/ 短路径下。
+    """
+    digest = hashlib.sha256(os.fsencode(work_dir.resolve())).hexdigest()[:20]
+    configured_dir = os.environ.get(SOCKET_DIR_ENV)
+    if configured_dir:
+        socket_dir = Path(configured_dir).expanduser()
+        if not socket_dir.is_absolute():
+            raise ValueError(f"{SOCKET_DIR_ENV} must be an absolute path")
+    else:
+        socket_dir = Path("/tmp") / f"ctf-agent-{os.getuid()}"
+    return socket_dir / f"branch-{digest}.sock"
 
 
 # ───────────────────────── Data Models ─────────────────────────
@@ -74,7 +95,7 @@ class BranchDaemon:
 
     def __init__(self, work_dir: Path):
         self.work_dir = work_dir
-        self.sock_path = work_dir / "branch.sock"
+        self.sock_path = branch_socket_path(work_dir)
         self.state_path = work_dir / "branch_state.json"
         self.pid_path = work_dir / "branch.pid"
         self.subagents: dict[str, Subagent] = {}
@@ -117,6 +138,8 @@ class BranchDaemon:
         self._running = False
 
     def _bind_socket(self) -> None:
+        # socket 目录在 /tmp 下，需确保存在 (0700 仅当前用户)
+        self.sock_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         if self.sock_path.exists():
             self.sock_path.unlink()
         self._srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -449,7 +472,7 @@ class BranchClient:
 
     def __init__(self, work_dir: Path):
         self.work_dir = work_dir
-        self.sock_path = work_dir / "branch.sock"
+        self.sock_path = branch_socket_path(work_dir)
         self.pid_path = work_dir / "branch.pid"
 
     def _daemon_alive(self) -> Optional[bool]:
@@ -597,6 +620,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_shutdown = sub.add_parser("shutdown", help="shutdown daemon")
     p_shutdown.add_argument("--work-dir", required=True)
 
+    # socket-path (脚本用: 查询 work_dir 对应的短路径 socket 位置)
+    p_sock = sub.add_parser("socket-path", help="print socket path for work dir")
+    p_sock.add_argument("--work-dir", required=True)
+
     return parser
 
 
@@ -605,6 +632,9 @@ def main() -> int:
     args = parser.parse_args()
     if args.command == "daemon":
         return daemon_main(args)
+    if args.command == "socket-path":
+        print(branch_socket_path(Path(args.work_dir).resolve()))
+        return 0
     return cli_main(args)
 
 

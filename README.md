@@ -214,7 +214,7 @@ rm challenges/manual_<name>/branch.sock
 
 - [x] board.md — 全量更新，8 条 Ideas（6 failed + 1 verified + 2 testing）+ 12 条 Memory   有点小，但改大的话是单纯改大，还是做个压缩管理？
 
-- [ ] 环境未安装 ffuf/feroxbuster/gobuster/dirsearch/wfuzz；目录字典扫描需用 curl 并发脚本实现。后续可能需要补充更多工具。
+- [x] 环境未安装 ffuf/feroxbuster/gobuster/dirsearch/wfuzz；目录字典扫描需用 curl 并发脚本实现。后续可能需要补充更多工具。
 
 - [x] hermes可能需要更多的ctf 的做题技巧，而且人应该可以和Hermes交互
 

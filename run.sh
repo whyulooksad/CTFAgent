@@ -79,7 +79,9 @@ echo ""
 # ─── 初始化工作目录 ───
 
 # 清理上一次运行的残留状态（同一 URL 会复用工作目录）
-rm -f "$WORK_DIR/branch_state.json" "$WORK_DIR/branch.sock"
+# branch.sock 实际在 /tmp/ctf-agent-<uid>/ 短路径下 (AF_UNIX 108 限制)，由 socket-path 查询
+BRANCH_SOCKET=$(python3 "$SCRIPT_DIR/branch.py" socket-path --work-dir "$WORK_DIR")
+rm -f "$WORK_DIR/branch_state.json" "$BRANCH_SOCKET"
 rm -f "$WORK_DIR/branch_result_"*.md
 rm -f "$WORK_DIR/codex.log" "$WORK_DIR/hermes.log" "$WORK_DIR/monitor_state.json"
 
@@ -168,14 +170,14 @@ echo "[run.sh] Branch daemon started (PID: $BRANCH_DAEMON_PID)"
 
 # 等待 daemon 就绪 (socket 出现)
 for i in $(seq 1 10); do
-    if [ -S "$WORK_DIR/branch.sock" ]; then
+    if [ -S "$BRANCH_SOCKET" ]; then
         echo "[run.sh] Branch daemon ready"
         break
     fi
     sleep 0.3
 done
 
-if [ ! -S "$WORK_DIR/branch.sock" ]; then
+if [ ! -S "$BRANCH_SOCKET" ]; then
     echo "[run.sh] ERROR: Branch daemon failed to start"
     kill $BRANCH_DAEMON_PID 2>/dev/null || true
     exit 1
@@ -301,8 +303,17 @@ while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
     # 检查 progress.md 的 Flags Found 段 (Codex 主动声明的，不碰 codex.log)
     # 注意: grep 无匹配时返回 1，不能用 set -e 让它退出整个脚本
     # 注意: 过滤 HTML 注释 (Codex/branch 会写 <!-- --> 进度笔记到 Flags Found 段)
+    # 注意: 模型偶尔会把进度笔记写进该段 (如 "- 2026-08-15: 已读取xx，准备继续侦察")，
+    #       所以加"像 flag"过滤: 含空格/中文/日期前缀、超长的行都是笔记，不算 flag
+    #       (与 master/challenge_state.py 的 _looks_like_flag 一致)
+    #       中文过滤用 python3 而非 grep '[一-鿿]'——后者依赖 locale collation，
+    #       C.UTF-8 下会报 "Invalid collation character" (WSL 实测)
     FLAGS=$(awk '/^## *Flags Found/{f=1;next} /^##/{f=0} f' "$WORK_DIR/progress.md" \
-        | grep -v '^(无)' | grep -v '^<!--' | grep -v '^$' | head -1 || true)
+        | grep -v '^(无)' | grep -v '^<!--' | grep -v '^$' \
+        | grep -v ' ' \
+        | python3 -c "import sys; [print(l.rstrip()) for l in sys.stdin if not any('\u4e00' <= c <= '\u9fff' for c in l)]" \
+        | awk 'length($0) <= 128 && $0 !~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/' \
+        | head -1 || true)
     if [ -n "$FLAGS" ]; then
         echo ""
         echo "=== FLAG FOUND! ==="
