@@ -322,18 +322,34 @@ class Master:
                 return None
 
         # 2.5 web 靶机存活预检
-        #   - 平台题重试前: 靶机可能已到期被平台回收 (实测 ezphp: 1h 超时触发重试时
-        #     靶机已自动关闭，对着死靶机重跑纯浪费)
-        #   - 手动题首次分发: URL 填错能立即反馈，不烧一整轮 solver
+        #   - 手动题: URL 填错立即终态反馈，不烧一整轮 solver
+        #   - 平台题重试: 平台 start 返回地址时容器可能仍在启动 (实测 tsec 容器
+        #     就绪有窗口期)，预检失败 -> 冷却等待容器就绪后复用，不能判死:
+        #     误杀会 close 刚开的容器 + 耗尽重试配额，且 close 失败还会泄漏
+        #     平台槽位 (腾讯侧 3 容器、master 侧无 solver 的错位就是这么来的)
         if rec.type in ("web", "binary") and rec.url and (
             rec.source == "manual" or rec.attempts >= 1
         ):
             if not self._target_alive(rec.url):
-                rec.finished_at = time.time()
-                self.state.set_status(rec.id, FAILED, f"靶机不可达: {rec.url}")
-                self._release_target(rec)
-                self.log.warning("%s 靶机不可达 (%s)，不启动 solver", rec.id, rec.url)
+                if rec.source == "manual":
+                    rec.finished_at = time.time()
+                    self.state.set_status(rec.id, FAILED, f"靶机不可达: {rec.url}")
+                    self._release_target(rec)
+                    self.log.warning("%s 靶机不可达 (%s)，不启动 solver", rec.id, rec.url)
+                    return None
+                # 平台题: 等容器就绪，连续多次仍不可达才判死
+                rec.boot_fails = getattr(rec, "boot_fails", 0) + 1
+                if rec.boot_fails >= 8:  # 8 x 30s ≈ 4 分钟仍不就绪
+                    rec.finished_at = time.time()
+                    self.state.set_status(rec.id, FAILED, f"靶机长时间未就绪: {rec.url}")
+                    self._release_target(rec)
+                    self.log.warning("%s 靶机 %s 约4分钟未就绪，判失败", rec.id, rec.url)
+                    return None
+                self._dispatch_cooldown(
+                    rec, f"靶机未就绪 ({rec.url})，等容器启动后重试 "
+                         f"({rec.boot_fails}/8)")
                 return None
+            rec.boot_fails = 0  # 就绪了，清计数
 
         # 3. 启动 solver
         try:
@@ -592,14 +608,25 @@ class Master:
             self.backend.stop(handle)
 
     def _release_target(self, rec) -> None:
-        """释放 web 题靶机 (赛方有数量/时长限制，即用即释放)。"""
+        """
+        释放 web 题靶机 (赛方有数量/时长限制，即用即释放)。
+
+        close 失败会泄漏平台槽位 (腾讯活跃上限 3，泄漏一个就永久少一个并发)，
+        所以失败时退避重试 3 次，全部失败才放弃并告警。
+        """
         if rec.id in self._started_targets:
             self._started_targets.discard(rec.id)
-            try:
-                self.adapter.stop_challenge(rec.id)
-                self.log.info("靶机已释放: %s", rec.id)
-            except Exception as e:
-                self.log.warning("释放靶机 %s 失败 (仅告警): %s", rec.id, e)
+            last_err = None
+            for wait in (0, 5, 15):
+                if wait:
+                    time.sleep(wait)
+                try:
+                    self.adapter.stop_challenge(rec.id)
+                    self.log.info("靶机已释放: %s", rec.id)
+                    return
+                except Exception as e:
+                    last_err = e
+            self.log.error("释放靶机 %s 失败 (平台槽位可能泄漏!): %s", rec.id, last_err)
 
     # ─── 停止判定 / 收尾 ───
 
@@ -839,16 +866,39 @@ def setup_logging(log_file: Path) -> None:
         root.addHandler(fh)
 
 
+def _apply_token_scoping(cfg: Config) -> None:
+    """
+    按 TSEC_TOKEN 隔离状态/flag 文件 (用户需求: 每次 token 一份，历史保留不删)。
+
+    不同 token 是不同的跑分任务，题目进度互不可比 —— 复用旧 token 的状态会把
+    上一次的 submitted_correct/running/重试计数带进新任务 (实测下午启动加载了
+    凌晨 57 条记录，重试配额直接耗尽)。
+    同一 token 重启则正确恢复自己的进度。
+    """
+    token = os.environ.get("TSEC_TOKEN", "").strip()
+    if cfg.adapter == "tsec" and token:
+        suffix = token[:8]
+        for attr in ("state_file", "flags_file"):
+            p = Path(getattr(cfg, attr))
+            stem = p.stem
+            if not stem.endswith(f"_{suffix}"):  # 已带后缀则幂等
+                setattr(cfg, attr, str(p.with_name(f"{stem}_{suffix}{p.suffix}")))
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="CTF Master 多题调度器")
     parser.add_argument("--config", default=str(SCRIPT_DIR / "master_config.json"))
     args = parser.parse_args()
 
     cfg = Config.load(Path(args.config))
+    _apply_token_scoping(cfg)
     log_file = Path(cfg.log_file)
     if not log_file.is_absolute():
         log_file = REPO_DIR / log_file
     setup_logging(log_file)
+    logging.getLogger("master").info(
+        "状态文件: %s (token 隔离)", cfg.state_file,
+    )
 
     logging.getLogger("master").info(
         "Master 启动: adapter=%s backend=%s max_solvers=%d max_challenges=%d",

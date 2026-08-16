@@ -215,6 +215,77 @@ def test_multiflag_no_loop() -> None:
     print("[PASS] multiflag-no-loop")
 
 
+def test_platform_boot_wait() -> None:
+    """
+    回归: 平台靶机预检不再误杀 (2026-08-16 下午事故)。
+
+    事故链: 平台 start 返回地址时容器仍在启动 -> 5s 预检失败被误判"不可达"
+    -> 终态 FAILED + close 刚开的容器 -> close 超时泄漏平台槽位 -> 腾讯侧
+    3 容器、master 侧无 solver 错位 + 后续 start 撞 409 max-active。
+
+    修复断言: 平台题预检失败 -> 冷却重试(不终态/不释放)；就绪后正常分发；
+    连续 8 次不就绪才判死。手动题仍立即终态。
+    """
+    state_file = SCRIPT_DIR / "tests" / "master_state_boot.json"
+    log_file = SCRIPT_DIR / "tests" / "master_boot.log"
+    for p in (state_file, log_file):
+        p.unlink(missing_ok=True)
+
+    cfg = Config(
+        adapter="mock", backend="fake", llm_priority=False,
+        max_solvers=3, max_challenges=10, poll_interval=0.3, solver_timeout=60,
+        state_file=str(state_file), log_file=str(log_file),
+        flags_file=str(SCRIPT_DIR / "tests" / "master_flags_boot.jsonl"),
+    )
+    m = Master(cfg, adapter=MockAdapter(),
+               backend=FakeBackend(flag_lookup=MOCK_FLAGS.get, solve_delay=0.2))
+
+    web = m.state.sync_challenge(
+        [c for c in MockAdapter().list_challenges() if c.type == "web"][0])
+    m.state.set_status(web.id, QUEUED)
+    web.attempts = 1   # 模拟重试分发 (预检只在 attempts>=1 时介入，与事故场景一致)
+
+    # 模拟容器启动窗口: 前 2 次预检不可达，第 3 次就绪
+    seq = {"n": 0}
+    orig_alive = Master._target_alive
+    def flaky_alive(url):
+        seq["n"] += 1
+        return seq["n"] > 2
+    Master._target_alive = staticmethod(flaky_alive)
+    try:
+        m._dispatch(web)   # 第1次: 未就绪 -> 冷却 (QUEUED，不终态)
+        assert web.status == QUEUED and web.boot_fails == 1, (web.status, web.boot_fails)
+        assert m.running == {}, f"冷却期不应有 solver: {list(m.running)}"
+        m._dispatch(web)   # 第2次: 仍未就绪 -> 冷却
+        assert web.boot_fails == 2 and web.status == QUEUED
+        m._dispatch(web)   # 第3次: 就绪 -> 正常分发
+        assert web.id in m.running, f"就绪后应分发: {web.status} boot_fails={web.boot_fails}"
+        h = m.running[web.id]
+        time.sleep(1.0)    # FakeBackend 秒解
+        # 就绪即清计数
+        assert web.boot_fails == 0
+        m.submitter.start()   # 直连构造 Master 需手动起提交线程
+        m.submitter.submit(web.id, MOCK_FLAGS[web.id])
+        time.sleep(1.5)
+        m._drain_results()
+        assert m.state.get(web.id).status == SUBMITTED_CORRECT
+        m.submitter.stop()
+    finally:
+        Master._target_alive = orig_alive
+
+    # 手动题语义不变: 不可达立即终态
+    man = m._build_manual_challenge({"type": "web", "url": "http://127.0.0.1:9", "title": "x"})
+    m.manual_adapter.add(man)
+    rec2 = m.state.sync_challenge(man)
+    Master._target_alive = staticmethod(lambda url: False)
+    try:
+        m._dispatch(rec2)
+        assert rec2.status == FAILED, f"手动题应立即终态: {rec2.status}"
+    finally:
+        Master._target_alive = orig_alive
+    print("[PASS] platform-boot-wait")
+
+
 def test_e2e() -> None:
     state_file = SCRIPT_DIR / "tests" / "master_state_test.json"
     log_file = SCRIPT_DIR / "tests" / "master_test.log"
@@ -461,6 +532,7 @@ if __name__ == "__main__":
     test_llm_order()
     test_dashboard()
     test_manual_and_resident()
+    test_platform_boot_wait()
     test_multiflag_no_loop()
     test_e2e()
     print("ALL PASS")

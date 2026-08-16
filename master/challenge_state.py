@@ -160,6 +160,7 @@ class ChallengeRecord:
     source: str = "platform"           # platform (adapter 拉取) | manual (面板手动加入)
     flag_count: int = 1                # 该题 flag 总数 (平台多 flag 题)
     flags_correct: int = 0             # 已正确提交的 flag 数
+    boot_fails: int = 0                # 平台靶机就绪预检连续失败次数 (容器启动窗口)
 
     # 调度状态
     status: str = QUEUED

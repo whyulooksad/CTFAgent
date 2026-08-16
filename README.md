@@ -152,7 +152,10 @@ TSEC_EXCLUDE_PREFIXES="b" \
   python3 master/master.py --config master/master_config.tsec.json
 ```
 
-- `TSEC_TOKEN`：平台创建跑分任务时返回的 UUID（请求头 `BENCHMARK_TOKEN`，非网站登录 token；有效期短，跑前现取）
+- `TSEC_TOKEN`：平台创建跑分任务时返回的 UUID（请求头 `BENCHMARK_TOKEN`，非网站登录 token；有效期短，跑前现取）。
+  **状态/flag 文件按 token 隔离**：自动存为 `master_state_tsec_<token前8位>.json` /
+  `flags_tsec_<token前8位>.jsonl`，历史保留不删——新 token 全新进度，同 token 重启正确恢复，
+  不同轮次的 `submitted_correct` 不会互相污染
 - `TSEC_EXCLUDE_PREFIXES`：排除不做的题系（逗号分隔题号前缀，如 `"b,f2"`；默认空）
 - 平台 63 题 6 大维度：`a`=web 挖掘、`b`=多阶段渗透(多flag)、`c`=面板渗透、`d`=云、
   `e1/e2/e3`=对抗规避——均按 **web** 流程调度；`f1/f2`=二进制——按 **binary** 流程
@@ -291,4 +294,6 @@ docker/solver/build.sh --no-sync     # 跳过 hermes 同步
 | b 系列多 flag 反复"解出"同一 flag | duplicate 被当 correct + flags_seen 被清空 → 死循环 | duplicate 不计分不回收；flags_seen 保留；同 solver 持续攻坚 |
 | recon 阶段 solver 被误杀 | Codex 把进度笔记写进 Flags Found 段被当 flag | 提取端"像 flag"过滤 + AGENTS.md 约束 + run.sh 同款过滤 |
 | 手动题失败被莫名重试 | 0分0解被 rarity 公式判"高价值" | 手动题不自动重试；web 重试前靶机探活 |
+| 腾讯侧 3 容器、master 面板只有 2 个在跑，其余"靶机不可达" | 平台 start 返回地址时容器仍在启动，5s 预检误判不可达 → 终态+close 刚开的容器 → close 超时泄漏平台槽位 → 后续 start 撞 409 | 平台题预检失败改冷却等待（约 4 分钟窗口，容器就绪后复用同地址）；close 失败退避重试 3 次 |
+| 新 token 启动带着旧 token 的 submitted_correct / 重试计数 | 状态文件跨 token 复用 | 状态/flag 文件按 token 前 8 位隔离，历史保留 |
 | hermes 会话复用失效 | run.sh 用了 BSD grep 不支持的 `grep -P` | 改 POSIX sed 提取 session_id |
