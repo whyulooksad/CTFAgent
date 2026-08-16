@@ -114,7 +114,19 @@ hook 机制：每次 Codex 执行完 Bash 命令后，检查工作目录下的 `
 │   └── ctf-agent-design.md   # 详细设计文档
 ├── docker/                   # Docker 封装 (档3)
 │   └── solver/               #   镜像: Dockerfile / build.sh / entrypoint.sh
-└── master/                   # 多题调度 (档4, 合并 master-agent)
+├── master/                   # 多题调度 (档4, 参考 master-agent 实现)
+│   ├── master.py             # 调度主循环
+│   ├── solver_pool.py        # solver 后端 (process/docker/fake)
+│   ├── challenge_state.py    # 挑战状态机
+│   ├── prioritizer.py        # 优先级排序
+│   ├── submitter.py          # flag 提交
+│   ├── cred_snapshot.py      # 凭据快照 (容器挂载, 含 hooks.json 重写)
+│   ├── master_dashboard.py/.html  # 多题面板 (:8081)
+│   ├── adapters/             # 平台适配 (none/mock/tsec/live)
+│   └── master_config*.json   # 场景配置 (见下文)
+└── tests/
+    ├── test_master.py        # 调度器测试 (fake 后端, 秒级)
+    └── fake_codex_llm.sh     # 假 codex (测试用)
 ```
 
 ## 启动
@@ -214,6 +226,54 @@ rm challenges/manual_<name>/branch.sock
 | Dashboard 端口 | 8080 | `python3 solver/dashboard.py --port <port>` 可改 |
 
 可通过环境变量 `CODEX_CMD` 覆盖 codex 命令路径（默认 `codex`）。
+
+## Docker 封装（档3）
+
+单题 Solver 整个打包成镜像 `ctf-solver:latest`（Ubuntu 24.04 + 工具链 + Codex + Hermes + 项目），供多题调度器拉起。
+
+```bash
+# 构建（自动同步宿主机 hermes 源码 + 国内镜像源，可 --no-sync 跳过同步）
+bash docker/solver/build.sh
+
+# 手动跑一道题（认证/题目用挂载注入，不进镜像）
+docker run --rm \
+  -v $(pwd)/challenges:/opt/ctf-agent/challenges \
+  -v cred_snapshots/current/codex:/root/.codex \
+  -v cred_snapshots/current/hermes:/root/.hermes \
+  -e HTTP_PROXY=http://172.23.48.1:7897 -e HTTPS_PROXY=http://172.23.48.1:7897 \
+  -e NO_PROXY=localhost,127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16 \
+  ctf-solver:latest --type web --url http://靶机 --hint "背景"
+```
+
+- 凭据/配置/skills 由 `master/cred_snapshot.py` 生成快照挂载（含 hooks.json 路径重写），不烧进镜像
+- 镜像 ENTRYPOINT 焊死 run.sh，容器 = 跑一道题；覆盖入口需 `--entrypoint bash`
+
+## 多题调度 master（档4）
+
+多题调度器（参考 master-agent 分支实现，已适配 WSL + 我们的 hook 机制）。
+
+```bash
+# 测试：3 道 mock 题，容器并行解（验证过 3/3 全解）
+CTF_MOCK_PUBLIC_HOST=172.17.0.1 PROXY_FOR_CONTAINERS=http://172.23.48.1:7897 \
+  python3 master/master.py --config master/master_config.docker.json
+
+# 真机：腾讯 TSec（需 VPN 连通 + TSEC_TOKEN）
+TSEC_TOKEN=<你的token> PROXY_FOR_CONTAINERS=http://172.23.48.1:7897 \
+  python3 master/master.py --config master/master_config.tsec.json
+```
+
+| 配置文件 | adapter | backend | 用途 |
+|------|------|------|------|
+| master_config.json | none | process | 手动加题 + 本地跑（默认）|
+| master_config.demo.json | mock | fake | 演示调度流程（不真解）|
+| master_config.smoke.json | mock | process | 冒烟：mock 题本地解 |
+| master_config.docker.json | mock | docker | 测试：mock 题容器解 |
+| master_config.tsec.json | tsec | docker | 真机：腾讯 TSec |
+
+环境变量：
+- `TSEC_TOKEN`：TSec 平台跑分任务 token（adapter=tsec 必需）
+- `PROXY_FOR_CONTAINERS`：容器内 Codex 出网代理（WSL 下 `http://172.23.48.1:7897`；不设则自动探测 7890/7892/1087/7897）
+- `CTF_MOCK_PUBLIC_HOST`：mock web 靶机对容器的地址（WSL 原生 docker 用 `172.17.0.1`，Docker Desktop 用 `host.docker.internal`）
 
 # 待改
 

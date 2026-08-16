@@ -27,3 +27,21 @@ Thumbs.db
 
 # Docker 构建中间产物 (build.sh 从 ~/.hermes/hermes-agent rsync 同步，勿提交)
 docker/solver/hermes-src/
+
+# 凭据快照 (含 auth.json，敏感，勿提交)
+cred_snapshots/
+
+# Master 调度器运行产物
+master_state*.json
+master_*.log
+master.log
+master_logs/
+flags.jsonl
+flags*.jsonl
+tests/master_flags_*.jsonl
+challenges/manual_*/
+challenges/attachments/
+challenges/fake/
+tests/master_state_test.json
+tests/master_test.log
+tests/mock_challenges/*.zip
