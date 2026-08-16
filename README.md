@@ -5,50 +5,60 @@ Codex 解题 + Hermes 监督 + Subagent 并行试探的 CTF 自动解题系统�
 ## 架构
 
 ```
-┌───────────────────────────────────────────────┐
-│              Hermes (监督者/外接大脑)            │
-│  monitor.py 每 10s tail codex.log，有新日志     │
-│  时调 hermes agent，agent 看日志增量自己判断     │
-│  介入方式: 写 guidance.md / dead_ends.md        │
-│  辅助维护: board.md (供 Codex compact 后恢复)    │
-└──────────────────┬────────────────────────────┘
-                   │ md 文档 + PostToolUse hook
-                   ▼
-┌───────────────────────────────────────────────┐
-│              Codex (主决策者/解题者)             │
-│  模型: GPT5.6 | reasoning: xhigh               │
-│  按题型构建 prompt (web/crypto/misc/binary)，自动续跑最多10轮  │
-│  guidance/dead_ends 通过 hook 实时注入(读后清空)  │
-└──────────────────┬────────────────────────────┘
-                   │ branch.py (daemon, 异步)
-                   ▼
-┌───────────────────────────────────────────────┐
-│           Codex Subagents (试探者)              │
-│  branch.py daemon 长驻管理 (unix socket)       │
-│  遇到分岔路口并行 spawn，结果写文件回收          │
-└───────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────┐
+│        Master 多题调度 (宿主机, master/master.py)       │
+│  adapter: tsec(腾讯)/mock/none → 题目列表+flag提交      │
+│  backend: docker/process → 并行拉起 N 个 solver         │
+│  cred_snapshot.py → 凭据快照(含 hooks.json 重写)        │
+│  状态机/优先级/重试/超时 | 面板 :8081                   │
+└──────────────┬────────────────────────────────────────┘
+               │ docker run (每道题一个容器)
+               ▼
+┌───────────────────────────────────────────────────────┐
+│  ctf-solver 容器 (镜像, Ubuntu 24.04)                  │
+│  ┌─────────────────────────────────────────────────┐  │
+│  │      Hermes (监督者/外接大脑)                    │  │
+│  │  monitor.py tail codex.log → hermes agent       │  │
+│  │  写 guidance.md / dead_ends.md / board.md       │  │
+│  └──────────────────┬──────────────────────────────┘  │
+│                     │ md 文档 + PostToolUse hook      │
+│                     ▼                                 │
+│  ┌─────────────────────────────────────────────────┐  │
+│  │      Codex (主决策者/解题者)                     │  │
+│  │  GPT-5.5 | xhigh | 按题型 prompt ≤10 轮          │  │
+│  │  guidance/dead_ends hook 实时注入(读后清空)      │  │
+│  └──────────────────┬──────────────────────────────┘  │
+│                     │ branch.py (daemon, 异步)        │
+│                     ▼                                 │
+│  ┌─────────────────────────────────────────────────┐  │
+│  │      Codex Subagents (试探者)                    │  │
+│  │  branch.py daemon 长驻 (unix socket)             │  │
+│  └─────────────────────────────────────────────────┘  │
+│  挂载: challenges/ + cred_snapshots/{codex,hermes}     │
+└───────────────────────────────────────────────────────┘
 ```
 
-三个角色：
-- **Codex 主进程** -- 唯一决策者，负责侦察、分析、决策、利用全流程
+四个角色：
+- **Master 调度器** -- 宿主机跑，从平台拉题目、调度 N 个 solver 容器并行、回收 flag 提交、状态持久化
+- **Codex 主进程** -- 容器内唯一决策者，负责侦察、分析、决策、利用全流程
 - **Hermes** -- 监督者/外接大脑，持续看日志理解 Codex 状态，主动给建议(guidance)和下死命令(dead_ends)
 - **Codex Subagent** -- 试探者，branch.py daemon 异步管理，并行试探分岔路口
 
-支持的题目类型：Web（靶场 URL）、Crypto（本地附件）、Misc（本地附件）。
+支持的题目类型：Web（靶场 URL）、Crypto（本地附件）、Misc（本地附件）、Binary（远程服务/制品）。
 
 ## 前置依赖
 
-1. **Codex CLI** -- `npm install -g @openai/codex`，需要已登录 (gpt-5.6-sol)
+1. **Codex CLI** -- `npm install -g @openai/codex`，需要已登录 (gpt-5.5)
 2. **Hermes Agent** -- 已安装，用于后台监控 (`hermes chat -q`)
 3. **Python 3** -- 标准库即可，无第三方依赖
-4. **CTF 工具** -- curl/nmap/ffuf/sqlmap 等按需安装
+4. **CTF 工具** -- curl/nmap/ffuf/gdb/radare2 等，完整清单见 `solver/TOOLS.md`（容器镜像已内置）
 
 ## 部署配置
 
 ### 1. Codex 全局配置 `~/.codex/config.toml`
 
 ```toml
-model = "gpt-5.6-sol"
+model = "gpt-5.5"
 model_reasoning_effort = "xhigh"
 
 [features]
