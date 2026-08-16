@@ -1,0 +1,36 @@
+=== [18:07:54] Hermes agent 被触发 ===
+  ┊ review diff
+a/challenges/manual_web_8aa27f620091/board.md → b/challenges/manual_web_8aa27f620091/board.md
+@@ -4,8 +4,12 @@
+ 
+ | ID | Status | Idea | Result | Updated |
+ |----|--------|------|--------|---------|
++| 1 | pending | 直接抓取页面 HTML，检查注释（<!-- -->）找 flag | 题目背景明确提示 flag 藏在 HTML 注释里，先做这个 | 2026-08-16T18:08 |
+ 
+ ## Memory
+ 
+ | ID | Kind | Content | Source | Updated |
+ |----|------|---------|--------|---------|
++| 1 | fact | 题目类型 web，mock 靶机，URL http://127.0.0.1:8888 | progress.md | 2026-08-16T18:08 |
++| 2 | fact | 题目背景明确说明：flag 藏在页面 HTML 注释里，找到并提交即可 | progress.md Background | 2026-08-16T18:08 |
++| 3 | evidence | Codex 18:07 启动，phase=recon，next_steps=curl 探测目标/识别技术栈 | codex.log | 2026-08-16T18:08 |
+  ┊ review diff
+a/challenges/manual_web_8aa27f620091/guidance.md → b/challenges/manual_web_8aa27f620091/guidance.md
+@@ -0,0 +1,7 @@
++题目背景已明确提示：flag 藏在页面 HTML 注释里。供参考，这个方向成本极低，值得先做：
++
++1. `curl -s http://127.0.0.1:8888/` 看完整 HTML body（含 <!-- --> 注释），不要只 grep 可见文本；必要时加 `-i` 看响应头
++2. 首页没有的话，把常见路径也 curl 一遍看注释：/index.html、/robots.txt、/flag、/admin、/secret 等
++3. 也可 `curl -s ... | grep -oE 'flag\{[^}]+\}'` 直接匹配 flag 格式
++
++背景信息既然直接给了藏匿位置，先走这条直线路径，比全面扫描更快。
+
+session_id: 20260816_180756_1c0c19
+摘要：Codex 刚启动（elapsed 0min），正处于 recon 初始化阶段（读 board/progress，下一步 curl 探测）。无停滞、无死路、无 flag。
+
+已做：
+1. board.md 初始化——记录题目事实（mock 靶机，URL 8888）、关键情报（背景明确说 flag 藏在 HTML 注释里）、当前进度。
+2. guidance.md——提示先走直线路径：curl 首页看完整 HTML 注释，无果则扫常见路径，可直接 grep flag 格式。成本极低，避免它绕远路。
+
+无需 dead_ends（尚无失败路径可拦）。等待 Codex 下一步探测结果。
+

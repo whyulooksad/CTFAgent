@@ -17,7 +17,7 @@ Codex 解题 + Hermes 监督 + Subagent 并行试探的 CTF 自动解题系统�
 ┌───────────────────────────────────────────────┐
 │              Codex (主决策者/解题者)             │
 │  模型: GPT5.6 | reasoning: xhigh               │
-│  按题型读 strategies/<type>.md，自动续跑最多10轮  │
+│  按题型构建 prompt (web/crypto/misc/binary)，自动续跑最多10轮  │
 │  guidance/dead_ends 通过 hook 实时注入(读后清空)  │
 └──────────────────┬────────────────────────────┘
                    │ branch.py (daemon, 异步)
@@ -68,7 +68,7 @@ hook 配在全局是因为工作目录不固定（每次挑战一个子目录）
         "hooks": [
           {
             "type": "command",
-            "command": "python3 /home/stw/ctf-agent/hooks/check_guidance.py",
+            "command": "python3 /home/stw/ctf-agent/solver/hooks/check_guidance.py",
             "timeout": 5,
             "statusMessage": "检查监督者指导"
           }
@@ -85,31 +85,36 @@ hook 机制：每次 Codex 执行完 Bash 命令后，检查工作目录下的 `
 
 ```
 ~/ctf-agent/
-├── AGENTS.md                 # Codex 系统指令 (通用)
-├── run.sh                    # 启动脚本 (支持 web/crypto/misc 三种题型)
-├── branch.py                 # Subagent daemon + CLI
-├── monitor.py                # Hermes 的眼睛 (tail codex.log)
-├── hermes_monitor.md         # Hermes 监控 agent 的 prompt 指令
-├── dashboard.py              # Web 面板后端 (HTTP + SSE)
-├── dashboard.html            # Web 面板前端
-├── hooks/
-│   └── check_guidance.py     # PostToolUse hook 脚本
-├── strategies/
-│   ├── web.md                # Web 题攻击流程
-│   ├── crypto.md             # Crypto 题攻击流程
-│   └── misc.md               # Misc 题攻击流程
-├── ctf-agent-design.md       # 详细设计文档
-└── challenges/
-    └── manual_<name>/        # 每次挑战的工作目录 (自动创建)
-        ├── progress.md       # Codex 写: 轻量状态
-        ├── board.md          # Hermes 维护: 结构化看板
-        ├── guidance.md       # Hermes 写: 软建议 (hook 注入后清空)
-        ├── dead_ends.md      # Hermes 写: 硬约束 (hook 注入后清空)
-        ├── codex.log         # Codex 运行日志
-        ├── hermes.log        # Hermes 监控日志
-        ├── branch.sock       # daemon socket (运行时)
-        ├── branch_state.json # daemon 状态持久化
-        └── branch_result_*.md # subagent 结果
+├── README.md                 # 本文档
+├── att/                      # 附件缓存
+├── challenges/
+│   └── manual_<name>/        # 每次挑战的工作目录 (自动创建)
+│       ├── AGENTS.md         # Codex 系统指令 (run.sh 从 solver/ 复制)
+│       ├── progress.md       # Codex 写: 轻量状态
+│       ├── board.md          # Hermes 维护: 结构化看板
+│       ├── guidance.md       # Hermes 写: 软建议 (hook 注入后清空)
+│       ├── dead_ends.md      # Hermes 写: 硬约束 (hook 注入后清空)
+│       ├── codex.log         # Codex 运行日志
+│       ├── hermes.log        # Hermes 监控日志
+│       ├── branch.sock       # daemon socket (运行时)
+│       ├── branch_state.json # daemon 状态持久化
+│       └── branch_result_*.md # subagent 结果
+├── solver/                   # 单题 Solver (可打包成 Docker 镜像)
+│   ├── AGENTS.md             # Codex 系统指令
+│   ├── TOOLS.md              # 工具手册 (Codex 查阅)
+│   ├── run.sh                # 启动脚本 (web/crypto/misc/binary)
+│   ├── branch.py             # Subagent daemon + CLI
+│   ├── monitor.py            # Hermes 的眼睛 (tail codex.log)
+│   ├── hermes_monitor.md     # Hermes 监控 agent 的 prompt 指令
+│   ├── dashboard.py          # Web 面板后端 (HTTP + SSE)
+│   ├── dashboard.html        # Web 面板前端
+│   └── hooks/
+│       └── check_guidance.py # PostToolUse hook 脚本
+├── docs/
+│   └── ctf-agent-design.md   # 详细设计文档
+├── docker/                   # Docker 封装 (档3)
+│   └── solver/               #   镜像: Dockerfile / build.sh / entrypoint.sh
+└── master/                   # 多题调度 (档4, 合并 master-agent)
 ```
 
 ## 启动
@@ -118,7 +123,7 @@ hook 机制：每次 Codex 执行完 Bash 命令后，检查工作目录下的 `
 
 ```bash
 cd ~/ctf-agent
-python3 dashboard.py
+python3 solver/dashboard.py
 ```
 
 浏览器打开 `http://localhost:8080`，在页面上：
@@ -140,21 +145,21 @@ python3 dashboard.py
 cd ~/ctf-agent
 
 # Web 题
-./run.sh --type web --url "http://target:8080" --hint "这是XX系统，可能存在SQL注入"
+./solver/run.sh --type web --url "http://target:8080" --hint "这是XX系统，可能存在SQL注入"
 
 # Crypto 题
-./run.sh --type crypto --attachment "/path/to/challenge.zip" --hint "RSA，给了公钥和密文"
+./solver/run.sh --type crypto --attachment "/path/to/challenge.zip" --hint "RSA，给了公钥和密文"
 
 # Misc 题
-./run.sh --type misc --attachment "/path/to/file.zip" --hint "图片隐写"
+./solver/run.sh --type misc --attachment "/path/to/file.zip" --hint "图片隐写"
 ```
 
 run.sh 会自动完成：
-1. 创建挑战工作目录，初始化 progress.md / board.md / guidance.md / dead_ends.md
+1. 创建挑战工作目录，初始化 progress.md / board.md / guidance.md / dead_ends.md / AGENTS.md
 2. Crypto/Misc 题会自动复制附件到工作目录
 3. 启动 branch.py daemon（subagent 管理进程）
 4. 启动 Hermes 监控循环（每 10s 跑 monitor.py，有新日志时调 hermes agent，输出写 hermes.log）
-5. 启动 Codex 解题（按题型读 strategies/<type>.md，自动续跑最多 10 轮）
+5. 启动 Codex 解题（按题型构建 prompt，自动续跑最多 10 轮）
 6. 找到 flag 或达到最大轮次后退出，自动清理 daemon 和监控循环
 
 运行过程中可以随时查看进度：
@@ -172,7 +177,7 @@ tail -f challenges/manual_<name>/codex.log
 tail -f challenges/manual_<name>/hermes.log
 
 # 看 subagent 状态
-python3 branch.py status --work-dir challenges/manual_<name>/
+python3 solver/branch.py status --work-dir challenges/manual_<name>/
 ```
 
 ## 停止
@@ -206,7 +211,7 @@ rm challenges/manual_<name>/branch.sock
 | 监控轮询间隔 | 10s | monitor.py 每 10 秒执行一次 |
 | model_reasoning_effort | xhigh | Codex 推理程度 |
 | MAX_LOG_LINES | 80 | monitor.py 单次输出最大日志行数 |
-| Dashboard 端口 | 8080 | `python3 dashboard.py --port <port>` 可改 |
+| Dashboard 端口 | 8080 | `python3 solver/dashboard.py --port <port>` 可改 |
 
 可通过环境变量 `CODEX_CMD` 覆盖 codex 命令路径（默认 `codex`）。
 

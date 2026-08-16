@@ -17,6 +17,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"   # 仓库根 (challenges/ 所在)
 
 # ─── 参数解析 ───
 
@@ -76,7 +77,7 @@ case "$CHALLENGE_TYPE" in
 esac
 
 MAX_RETRIES=10
-WORK_DIR="$SCRIPT_DIR/challenges/$WORK_DIR_NAME"
+WORK_DIR="$REPO_ROOT/challenges/$WORK_DIR_NAME"
 
 echo "=== CTF Agent 启动 ==="
 echo "Type: $CHALLENGE_TYPE"
@@ -97,6 +98,10 @@ rm -f "$WORK_DIR/branch_result_"*.md
 rm -f "$WORK_DIR/codex.log" "$WORK_DIR/hermes.log" "$WORK_DIR/monitor_state.json"
 
 mkdir -p "$WORK_DIR/poc_scripts"
+
+# AGENTS.md 副本: Codex 从 work_dir (cwd) 加载，solver/AGENTS.md 不在向上查找路径上
+# (work_dir=challenges/<name>/ -> challenges/ -> 根，均无 AGENTS.md)，必须复制到 cwd
+cp "$SCRIPT_DIR/AGENTS.md" "$WORK_DIR/AGENTS.md"
 
 # crypto/misc: 复制附件到工作目录
 if [ -n "$ATTACHMENT" ]; then

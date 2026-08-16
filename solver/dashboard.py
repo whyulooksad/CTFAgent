@@ -36,7 +36,7 @@ from typing import Optional
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 FRONTEND_FILE = SCRIPT_DIR / "dashboard.html"
-CHALLENGES_DIR = SCRIPT_DIR / "challenges"
+CHALLENGES_DIR = SCRIPT_DIR.parent / "challenges"
 DEFAULT_PORT = 8080
 
 # ───────────────────────── State ─────────────────────────

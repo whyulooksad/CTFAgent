@@ -1,0 +1,18 @@
+# 构建上下文 = 仓库根，排除与镜像无关的内容
+# (注意: docker/solver/hermes-src/ 必须保留，Dockerfile 要 COPY 它)
+
+.git
+__pycache__/
+**/__pycache__/
+*.pyc
+.DS_Store
+
+# 运行产物 / 本地数据
+challenges/
+cred_snapshots/
+att/
+docs/
+tests/
+
+# 本地开发残留
+progress.md

@@ -122,24 +122,6 @@ print(xor(b'data', 0x41))        # 异或
 print(base64.b64encode(b'x'))
 ```
 
-## 通用
-
-### python3 — 一切皆可 Python
-- requests 库发 HTTP 请求（Cookie 保持、会话管理）
-- Pillow 处理图片像素（LSB 隐写等）
-- 网络 socket 写交互脚本
-
-## 字典位置速查
-```bash
-/usr/share/wordlists/dirb/common.txt   # 目录扫描小字典
-/usr/share/wordlists/dirb/big.txt      # 目录扫描中字典
-# 如需 seclists: sudo apt-get install -y seclists
-```
-
-## 缺工具怎么办
-- 工具不在列表里：`sudo apt-get install -y <工具>` 或 `python3 -m pip install --user --break-system-packages <库>`
-- 装不了就换思路，别卡在装工具上
-
 ## 二进制题（远程服务 / 制品逆向）
 
 ### checksec — 保护机制速览 (pwntools)
@@ -219,3 +201,24 @@ print(r.recvall(timeout=3))
 4. 常见漏洞面: 栈溢出 / 格式化字符串 (`%p` 泄露 `%n` 写) / 堆 (tcache/double free) /
    整数截断 / 逻辑越界；固件类 (f2) 逆向授权码校验算法找等价输入
 5. 服务可能有连接频率限制，payload 失败后 sleep 再试，别高频重连
+
+## 通用
+
+### python3 — 一切皆可 Python
+
+- requests 库发 HTTP 请求（Cookie 保持、会话管理）
+- Pillow 处理图片像素（LSB 隐写等）
+- 网络 socket 写交互脚本
+
+## 字典位置速查
+
+```bash
+/usr/share/wordlists/dirb/common.txt   # 目录扫描小字典
+/usr/share/wordlists/dirb/big.txt      # 目录扫描中字典
+# 如需 seclists: sudo apt-get install -y seclists
+```
+
+## 缺工具怎么办
+
+- 工具不在列表里：`sudo apt-get install -y <工具>` 或 `python3 -m pip install --user --break-system-packages <库>`
+- 装不了就换思路，别卡在装工具上

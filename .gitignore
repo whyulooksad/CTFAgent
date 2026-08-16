@@ -24,3 +24,6 @@ env/
 
 # OS
 Thumbs.db
+
+# Docker 构建中间产物 (build.sh 从 ~/.hermes/hermes-agent rsync 同步，勿提交)
+docker/solver/hermes-src/

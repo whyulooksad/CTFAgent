@@ -62,7 +62,7 @@
 
 ### 4.1 环境工具手册
 
-环境已预装 CTF 工具。**用法示例见 `TOOLS.md`（工作目录上级，即项目根目录），需要时 `cat TOOLS.md` 查看**，别凭记忆猜参数。
+环境已预装 CTF 工具。**用法示例见 `solver/TOOLS.md`（work_dir 相对路径 `../../solver/TOOLS.md`），需要时 `cat` 查看**，别凭记忆猜参数。
 
 已装工具速览：
 - **Web**：nmap（端口扫描）、ffuf（目录/参数 fuzz）、jq（JSON 处理）、curl
