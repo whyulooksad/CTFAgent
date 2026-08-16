@@ -39,6 +39,7 @@ RUN set -eux; \
            ffuf gobuster dirsearch wfuzz \
            binwalk steghide libimage-exiftool-perl poppler-utils \
            binutils gdb ltrace strace socat \
+           dirb tshark foremost \
            nodejs npm; then ok=1; break; fi; \
       echo "apt 安装失败，重试 $i/3"; sleep 5; apt-get update; \
     done; \
@@ -51,13 +52,13 @@ RUN set -eux; \
     if [ -n "$NPM_REGISTRY" ]; then npm config set registry "$NPM_REGISTRY"; fi; \
     npm install -g --omit=dev @openai/codex@${CODEX_VERSION}
 
-# ── 二进制题工具链: pwntools (exploit 编写) ──
+# ── 解题 Python 库: pwntools(二进制) + z3/pycryptodome/Pillow/requests (TOOLS.md 承诺的环境) ──
 # pip 带重试: 镜像源对个别包偶发 403 (实测 TUNA openai wheel 瞬时限流)
 RUN set -eux; \
     if [ -n "$PIP_INDEX_URL" ]; then \
-      pip install --no-cache-dir --retries 5 -i "$PIP_INDEX_URL" pwntools; \
+      pip install --no-cache-dir --retries 5 -i "$PIP_INDEX_URL" pwntools z3-solver pycryptodome Pillow requests; \
     else \
-      pip install --no-cache-dir --retries 5 pwntools; \
+      pip install --no-cache-dir --retries 5 pwntools z3-solver pycryptodome Pillow requests; \
     fi
 
 # ── Hermes Agent (build.sh 从宿主机同步源码，排除 venv/node_modules 等) ──

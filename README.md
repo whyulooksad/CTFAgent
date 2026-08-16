@@ -24,6 +24,7 @@ Solver 内部协议 (board/guidance/dead_ends/branch) 零改动。
 ```
 CTFAgent/
 ├── README.md                        # 本文件
+├── TOOLS.md                         # 环境工具手册 (main 引入, Codex 按需读取; 含二进制题流程)
 │
 ├── master/                          # ── Master 调度层 ──
 │   ├── master.py                    # 调度主循环: 拉题/分发/监控/重试/收尾/崩溃恢复
@@ -59,12 +60,9 @@ CTFAgent/
 │       ├── Dockerfile               # python3.11 + CTF 工具链 + codex 0.147.0 + hermes
 │       ├── entrypoint.sh            # 容器入口 -> solver/run.sh
 │       ├── build.sh                 # hermes 源同步 + docker build (默认国内镜像源)
+│       └── SOLVER_SYNC.md            # main→master-agent 的 solver 同步记录
 │       └── hermes-src/              # (构建时从 ~/.hermes 同步, gitignore)
 │
-├── strategies/                      # 按题型攻击流程 (Codex 按需读取)
-│   ├── web.md
-│   ├── crypto.md
-│   └── misc.md
 │
 ├── tests/
 │   ├── test_master.py               # 全量测试 (fake 后端, 不依赖 codex/hermes)
@@ -91,7 +89,7 @@ CTFAgent/
 2. **Hermes Agent** 已安装（`hermes chat -q` 可用）
 3. **Python 3**（标准库即可，零第三方依赖）
 4. Docker（仅 Docker 后端需要）
-5. CTF 工具按需（进程后端用宿主机的；容器镜像已装齐 nmap/sqlmap/ffuf/gobuster/dirsearch/wfuzz/binwalk/steghide/exiftool）
+5. CTF 工具按需（进程后端用宿主机的；容器镜像已装齐 nmap/sqlmap/ffuf/gobuster/dirsearch/wfuzz/binwalk/steghide/exiftool/dirb 字典/tshark/foremost/gdb/pwntools/z3/pycryptodome，手册见 `TOOLS.md`）
 
 ## 部署配置
 
@@ -159,7 +157,7 @@ TSEC_EXCLUDE_PREFIXES="b" \
 - `TSEC_EXCLUDE_PREFIXES`：排除不做的题系（逗号分隔题号前缀，如 `"b,f2"`；默认空）
 - 平台 63 题 6 大维度：`a`=web 挖掘、`b`=多阶段渗透(多flag)、`c`=面板渗透、`d`=云、
   `e1/e2/e3`=对抗规避——均按 **web** 流程调度；`f1/f2`=二进制——按 **binary** 流程
-  （`strategies/binary.md` + 镜像内 pwntools/gdb/binutils 工具链）
+  （TOOLS.md 二进制章节 + 镜像内 pwntools/gdb/binutils/z3 工具链）
 - 活跃靶机上限 3（与 `max_solvers=3` 对齐），解出自动提交，通关自动 close 释放名额
 - 多 flag 题（b 系 4-6 个）：**同一 solver 持续攻坚**——容器内声明 `--flag-count N`，
   codex 拿满全部 flag 才退出；未通关期间不关容器；面板显示 `⚑×N 已得M`；
@@ -267,6 +265,40 @@ docker/solver/build.sh --no-sync     # 跳过 hermes 同步
 | run.sh 输出横幅 | `master_logs/<题目id>.log` |
 | 容器 stdout | `docker logs <容器名>` |
 | 面板 API | `curl --noproxy '*' localhost:8081/api/overview` |
+
+## main → master-agent 的 solver 合并流程
+
+`main` 分支是单个 solver 的持续优化线（独立提交平台测试）；`master-agent` 把 solver
+打进镜像作为调度消耗品。**合并 = 把 main 的解题核心成品替换进本分支**（不是 git 分支
+合并——两边目录结构已分叉），流程固定如下：
+
+1. **同步清单**（main 平铺 → 本分支位置，只拷解题核心）：
+
+   | main 的文件 | 放到 | 方式 |
+   |---|---|---|
+   | branch.py / monitor.py / hermes_monitor.md / dashboard.py / dashboard.html | solver/ | 直接覆盖（main 独有优化） |
+   | run.sh / AGENTS.md | solver/ | **手工合并**（见第 2 步） |
+   | TOOLS.md | **仓库根** | 直接覆盖（AGENTS.md 引用 `../../TOOLS.md`） |
+
+   不同步：main 的 challenges/ 运行产物、README、设计文档。
+
+2. **重放 master 适配**（solver 文件里 master 分支埋的 8 处改动，丢了就出事故）：
+   - `run.sh`：`--flag-count N`（多 flag 拿满才退出）+ `--type binary` +
+     Flags Found 段噪音过滤（防假闭环）+ `grep -P`→POSIX sed（macOS）+
+     `REPO_ROOT` 路径（work_dir 在仓库根 challenges/）+ branch socket 短路径查询
+   - `AGENTS.md`：Flags Found 段只写 flag 本身的约束
+   - `dashboard.py`：`CHALLENGES_DIR` 指向仓库根
+   - 若 main 又加了新的 hermes skill 调用：确认 skill 已装宿主机（`hermes skills list`），
+     cred_snapshot 会把 `~/.hermes/skills/` 带进容器
+
+3. **检查环境差异**：main 的 TOOLS.md/AGENTS.md 若引用新工具 → 更新
+   `docker/solver/Dockerfile`（Debian 源没有的包不能加，如 seclists 是 Kali 专属）
+
+4. **验证**：`python3 tests/test_master.py`（8/8）→ `master_config.smoke.json`
+   进程后端 mock 一轮（3/3）→ 需要容器时重建镜像跑 docker 冒烟
+
+5. **记录**：在 `docker/solver/SOLVER_SYNC.md` 追加一行（main commit 哈希 +
+   重放清单），镜像 tag 用 `ctf-solver:<日期>-<main短哈希>` 便于回滚
 
 ## 设计文档
 

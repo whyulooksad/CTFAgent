@@ -17,7 +17,6 @@ Usage:
   python3 branch.py results --work-dir <dir> [id]
   python3 branch.py wait    --work-dir <dir> [id] [--timeout 60]
   python3 branch.py shutdown --work-dir <dir>
-  python3 branch.py socket-path --work-dir <dir>
 """
 
 from __future__ import annotations
@@ -29,7 +28,6 @@ import os
 import select
 import signal
 import socket
-import stat
 import subprocess
 import sys
 import time
@@ -46,7 +44,13 @@ SOCKET_DIR_ENV = "CTF_AGENT_SOCKET_DIR"
 
 
 def branch_socket_path(work_dir: Path) -> Path:
-    """为工作目录生成稳定、短小的 Unix socket 路径。"""
+    """
+    为工作目录生成稳定、短小的 Unix socket 路径。
+
+    AF_UNIX 路径上限 108 字节，work_dir 常常超限 (实测 macOS 上直接
+    work_dir/branch.sock 绑定报 OSError: AF_UNIX path too long)，
+    所以按 work_dir 哈希放到 /tmp/ctf-agent-<uid>/ 短路径下。
+    """
     digest = hashlib.sha256(os.fsencode(work_dir.resolve())).hexdigest()[:20]
     configured_dir = os.environ.get(SOCKET_DIR_ENV)
     if configured_dir:
@@ -56,20 +60,6 @@ def branch_socket_path(work_dir: Path) -> Path:
     else:
         socket_dir = Path("/tmp") / f"ctf-agent-{os.getuid()}"
     return socket_dir / f"branch-{digest}.sock"
-
-
-def ensure_socket_dir(sock_path: Path) -> None:
-    """创建当前用户专属的 socket 目录，并拒绝不安全的已有路径。"""
-    socket_dir = sock_path.parent
-    socket_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
-    if socket_dir.is_symlink():
-        raise RuntimeError(f"socket directory must not be a symlink: {socket_dir}")
-    info = socket_dir.stat()
-    if not stat.S_ISDIR(info.st_mode):
-        raise RuntimeError(f"socket path parent is not a directory: {socket_dir}")
-    if info.st_uid != os.getuid():
-        raise PermissionError(f"socket directory is not owned by current user: {socket_dir}")
-    socket_dir.chmod(0o700)
 
 
 # ───────────────────────── Data Models ─────────────────────────
@@ -107,6 +97,7 @@ class BranchDaemon:
         self.work_dir = work_dir
         self.sock_path = branch_socket_path(work_dir)
         self.state_path = work_dir / "branch_state.json"
+        self.pid_path = work_dir / "branch.pid"
         self.subagents: dict[str, Subagent] = {}
         self._counter = 0
         self._running = True
@@ -118,6 +109,7 @@ class BranchDaemon:
         self._setup_signals()
         self._restore_state()
         self._bind_socket()
+        self._write_pid_file()
         print(f"[branch-daemon] listening on {self.sock_path}", flush=True)
 
         while self._running:
@@ -132,8 +124,7 @@ class BranchDaemon:
 
         self._shutdown_all()
         self._srv.close()
-        if self.sock_path.exists():
-            self.sock_path.unlink()
+        self._cleanup_files()
         print("[branch-daemon] exited cleanly", flush=True)
 
     # ─── internal: setup ───
@@ -147,13 +138,24 @@ class BranchDaemon:
         self._running = False
 
     def _bind_socket(self) -> None:
-        ensure_socket_dir(self.sock_path)
+        # socket 目录在 /tmp 下，需确保存在 (0700 仅当前用户)
+        self.sock_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         if self.sock_path.exists():
             self.sock_path.unlink()
         self._srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self._srv.bind(str(self.sock_path))
         self._srv.listen(SOCKET_BACKLOG)
         self._srv.setblocking(False)
+
+    def _write_pid_file(self) -> None:
+        """启动时写 PID 文件，供 CLI 检测 daemon 是否存活。"""
+        self.pid_path.write_text(str(os.getpid()), encoding="utf-8")
+
+    def _cleanup_files(self) -> None:
+        """干净退出时清理 socket 和 PID 文件。"""
+        for p in (self.sock_path, self.pid_path):
+            if p.exists():
+                p.unlink()
 
     # ─── internal: state persistence ───
 
@@ -202,6 +204,7 @@ class BranchDaemon:
             except ChildProcessError:
                 sa.status = "killed"
                 sa.finished_at = time.time()
+                self._ensure_result_file(sa)
                 continue
             if waited_pid == 0:
                 continue  # still running
@@ -212,6 +215,7 @@ class BranchDaemon:
                 sa.status = "killed"
                 sa.exit_code = -os.WTERMSIG(status)
             sa.finished_at = time.time()
+            self._ensure_result_file(sa)
 
     def _check_timeouts(self) -> None:
         """检查超时，主动 SIGTERM。"""
@@ -230,6 +234,64 @@ class BranchDaemon:
             pass
         sa.status = status
         sa.finished_at = time.time()
+        self._ensure_result_file(sa)
+
+    # ─── internal: result file guarantee ───
+
+    def _write_in_progress(self, sa: Subagent) -> None:
+        """spawn 时立即创建 IN_PROGRESS 结果文件，保证文件始终存在。"""
+        path = self.work_dir / sa.result_file
+        started_str = time.strftime(
+            "%Y-%m-%dT%H:%M:%S", time.localtime(sa.started_at)
+        )
+        content = (
+            f"## Branch Result\n"
+            f"direction: {sa.name}\n"
+            f"subagent_id: {sa.id}\n"
+            f"status: IN_PROGRESS\n"
+            f"started_at: {started_str}\n"
+            f"log_file: {sa.id}.log\n\n"
+            f"(子进程正在运行，结果尚未返回)\n"
+        )
+        path.write_text(content, encoding="utf-8")
+
+    def _ensure_result_file(self, sa: Subagent) -> None:
+        """子进程结束后检查结果文件，模型没写则 daemon 补写终态。"""
+        path = self.work_dir / sa.result_file
+        if path.exists():
+            text = path.read_text(encoding="utf-8")
+            # 模型已覆写（不再是 IN_PROGRESS 模板）-> 保留模型输出
+            if "IN_PROGRESS" not in text:
+                return
+        # 文件不存在或仍是 IN_PROGRESS 模板 -> daemon 补写终态
+        status_map = {
+            "done": "DONE_NO_RESULT",
+            "crashed": "CRASHED",
+            "timeout": "TIMEOUT",
+            "killed": "KILLED",
+        }
+        terminal = status_map.get(sa.status, sa.status.upper())
+        started_str = time.strftime(
+            "%Y-%m-%dT%H:%M:%S", time.localtime(sa.started_at)
+        )
+        finished_str = time.strftime(
+            "%Y-%m-%dT%H:%M:%S", time.localtime(sa.finished_at)
+        )
+        elapsed = int(sa.elapsed())
+        exit_info = f"exit_code: {sa.exit_code}\n" if sa.exit_code is not None else ""
+        content = (
+            f"## Branch Result\n"
+            f"direction: {sa.name}\n"
+            f"subagent_id: {sa.id}\n"
+            f"status: {terminal}\n"
+            f"started_at: {started_str}\n"
+            f"finished_at: {finished_str}\n"
+            f"elapsed: {elapsed}s\n"
+            f"{exit_info}"
+            f"log_file: {sa.id}.log\n\n"
+            f"(子进程 {terminal}，未自行写入结果。查看日志: {sa.id}.log)\n"
+        )
+        path.write_text(content, encoding="utf-8")
 
     def _shutdown_all(self) -> None:
         for sa in self.subagents.values():
@@ -291,20 +353,7 @@ class BranchDaemon:
 
         try:
             proc = subprocess.Popen(
-                [
-                    CODEX_CMD,
-                    "exec",
-                    "--profile",
-                    "ctf",
-                    "--dangerously-bypass-approvals-and-sandbox",
-                    "--dangerously-bypass-hook-trust",
-                    "--ignore-rules",
-                    "--disable",
-                    "guardian_approval",
-                    "-c",
-                    "model_reasoning_effort=xhigh",
-                    full_prompt,
-                ],
+                [CODEX_CMD, "exec", "--dangerously-bypass-approvals-and-sandbox", "--dangerously-bypass-hook-trust", "--ignore-rules", "--disable", "guardian_approval", "-c", "model_reasoning_effort=xhigh", full_prompt],
                 stdout=open(log_file, "w"),
                 stderr=subprocess.STDOUT,
                 cwd=str(self.work_dir),
@@ -323,6 +372,7 @@ class BranchDaemon:
             result_file=result_file,
         )
         self.subagents[sid] = sa
+        self._write_in_progress(sa)
         print(f"[branch-daemon] spawned {sid} (pid={proc.pid}): {name}", flush=True)
         return {"id": sid, "pid": proc.pid}
 
@@ -421,11 +471,49 @@ class BranchClient:
     """Thin client，连接 daemon socket 发请求。"""
 
     def __init__(self, work_dir: Path):
+        self.work_dir = work_dir
         self.sock_path = branch_socket_path(work_dir)
+        self.pid_path = work_dir / "branch.pid"
+
+    def _daemon_alive(self) -> Optional[bool]:
+        """通过 PID 文件检查 daemon 是否存活。
+
+        Returns:
+            True  -- PID 存活
+            False -- PID 已死
+            None  -- PID 文件不存在（旧版 daemon 或未启动）
+        """
+        if not self.pid_path.exists():
+            return None
+        try:
+            pid = int(self.pid_path.read_text(encoding="utf-8").strip())
+            os.kill(pid, 0)
+            return True
+        except (ProcessLookupError, PermissionError):
+            return False
+        except (ValueError, OSError):
+            return False
+
+    def _cleanup_stale_files(self) -> None:
+        """清理 daemon 崩溃后残留的 socket 和 PID 文件。"""
+        for p in (self.sock_path, self.pid_path):
+            try:
+                p.unlink()
+            except FileNotFoundError:
+                pass
 
     def call(self, req: dict) -> dict:
         if not self.sock_path.exists():
             return {"error": "daemon not running (socket not found)"}
+
+        # 通过 PID 文件检查 daemon 是否存活
+        alive = self._daemon_alive()
+        if alive is False:
+            # PID 文件存在但进程已死 -> daemon 崩溃了，清理残留
+            self._cleanup_stale_files()
+            return {"error": "daemon is dead (stale socket and pid file cleaned up)"}
+
+        # alive is True 或 None（PID 文件不存在，可能是旧版 daemon）-> 尝试连接
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         try:
             sock.settimeout(120)  # wait 命令可能阻塞较久
@@ -433,7 +521,11 @@ class BranchClient:
             sock.sendall(json.dumps(req, ensure_ascii=False).encode())
             raw = sock.recv(RECV_BUF)
             return json.loads(raw)
-        except (ConnectionRefusedError, socket.timeout) as e:
+        except ConnectionRefusedError as e:
+            # 连接被拒绝 -> daemon 确实死了，清理残留
+            self._cleanup_stale_files()
+            return {"error": f"daemon not responding (cleaned up stale files): {e}"}
+        except socket.timeout as e:
             return {"error": str(e)}
         finally:
             sock.close()
@@ -497,10 +589,6 @@ def build_parser() -> argparse.ArgumentParser:
     p_daemon = sub.add_parser("daemon", help="start the daemon")
     p_daemon.add_argument("--work-dir", required=True)
 
-    # socket-path
-    p_socket_path = sub.add_parser("socket-path", help="print daemon socket path")
-    p_socket_path.add_argument("--work-dir", required=True)
-
     # spawn
     p_spawn = sub.add_parser("spawn", help="spawn a subagent")
     p_spawn.add_argument("--work-dir", required=True)
@@ -532,17 +620,21 @@ def build_parser() -> argparse.ArgumentParser:
     p_shutdown = sub.add_parser("shutdown", help="shutdown daemon")
     p_shutdown.add_argument("--work-dir", required=True)
 
+    # socket-path (脚本用: 查询 work_dir 对应的短路径 socket 位置)
+    p_sock = sub.add_parser("socket-path", help="print socket path for work dir")
+    p_sock.add_argument("--work-dir", required=True)
+
     return parser
 
 
 def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
-    if args.command == "socket-path":
-        print(branch_socket_path(Path(args.work_dir)))
-        return 0
     if args.command == "daemon":
         return daemon_main(args)
+    if args.command == "socket-path":
+        print(branch_socket_path(Path(args.work_dir).resolve()))
+        return 0
     return cli_main(args)
 
 

@@ -6,7 +6,8 @@
 #   ./run.sh --type web --url "http://target:8080" --hint "SQL注入"
 #   ./run.sh --type crypto --attachment "/path/to/challenge.zip" --hint "RSA"
 #   ./run.sh --type misc --attachment "/path/to/file.zip" --hint "隐写"
-#   ./run.sh --type binary --url "http://target:9999" [--attachment "/path/to/binary"] --hint "栈溢出"
+#   ./run.sh --type binary --url "http://target:9999" [--attachment ./pwn.bin] --hint "栈溢出"
+#   多 flag 题: 追加 --flag-count N (拿满 N 个才退出)
 #
 # 功能:
 #   1. 创建挑战工作目录 + 初始化文件
@@ -18,7 +19,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"   # 仓库根 (challenges/ 与 TOOLS.md 所在)
 
 # ─── 参数解析 ───
 
@@ -79,29 +80,28 @@ esac
 
 MAX_RETRIES=10
 WORK_DIR="$REPO_ROOT/challenges/$WORK_DIR_NAME"
-BRANCH_SOCKET=$(python3 "$SCRIPT_DIR/branch.py" socket-path --work-dir "$WORK_DIR")
 
 echo "=== CTF Agent 启动 ==="
 echo "Type: $CHALLENGE_TYPE"
 case "$CHALLENGE_TYPE" in
-    web)          echo "Target: $TARGET_URL" ;;
-    crypto|misc)  echo "Attachment: $ATTACHMENT" ;;
-    binary)       echo "Target: $TARGET_URL"; [ -n "$ATTACHMENT" ] && echo "Attachment: $ATTACHMENT" ;;
+    web)        echo "Target: $TARGET_URL" ;;
+    crypto|misc) echo "Attachment: $ATTACHMENT" ;;
 esac
 echo "Work dir: $WORK_DIR"
-echo "Branch socket: $BRANCH_SOCKET"
 echo ""
 
 # ─── 初始化工作目录 ───
 
 # 清理上一次运行的残留状态（同一 URL 会复用工作目录）
-rm -f "$WORK_DIR/branch_state.json" "$WORK_DIR/branch.sock" "$BRANCH_SOCKET"
+# branch.sock 实际在 /tmp/ctf-agent-<uid>/ 短路径下 (AF_UNIX 108 限制)，由 socket-path 查询
+BRANCH_SOCKET=$(python3 "$SCRIPT_DIR/branch.py" socket-path --work-dir "$WORK_DIR")
+rm -f "$WORK_DIR/branch_state.json" "$BRANCH_SOCKET"
 rm -f "$WORK_DIR/branch_result_"*.md
 rm -f "$WORK_DIR/codex.log" "$WORK_DIR/hermes.log" "$WORK_DIR/monitor_state.json"
 
 mkdir -p "$WORK_DIR/poc_scripts"
 
-# crypto/misc/binary: 复制附件到工作目录
+# crypto/misc: 复制附件到工作目录
 if [ -n "$ATTACHMENT" ]; then
     cp "$ATTACHMENT" "$WORK_DIR/"
     ATTACHMENT_IN_WORKDIR="$WORK_DIR/$(basename "$ATTACHMENT")"
@@ -164,7 +164,7 @@ EOF
 recon
 
 ## Next Steps
-1. 有附件先 file/strings/逆向分析制品
+1. 有附件先 file/strings/checksec 分析制品
 2. 探测远程服务协议
 3. 寻找内存安全缺陷/逻辑漏洞，构造 exploit
 
@@ -175,8 +175,6 @@ recon
 EOF
         ;;
 esac
-
-# board.md (空看板)
 cat > "$WORK_DIR/board.md" << 'EOF'
 # Board
 
@@ -194,6 +192,7 @@ EOF
 # 空文件
 touch "$WORK_DIR/guidance.md"
 touch "$WORK_DIR/dead_ends.md"
+touch "$WORK_DIR/human_guidance.md"
 touch "$WORK_DIR/hermes.log"
 
 echo "[run.sh] 工作目录初始化完成"
@@ -214,7 +213,7 @@ for i in $(seq 1 10); do
 done
 
 if [ ! -S "$BRANCH_SOCKET" ]; then
-    echo "[run.sh] ERROR: Branch daemon failed to start ($BRANCH_SOCKET)"
+    echo "[run.sh] ERROR: Branch daemon failed to start"
     kill $BRANCH_DAEMON_PID 2>/dev/null || true
     exit 1
 fi
@@ -240,14 +239,16 @@ if [ -f "$SCRIPT_DIR/hermes_monitor.md" ]; then
 
                 if [ -z "$HERMES_SESSION" ]; then
                     # 第一次触发：新会话，给完整指令，捕获 session_id
+                    # -s 预加载 ctf-supervisor-knowledge (SKILL.md 注入上下文, references 按需 skill_view)
                     RESP=$(hermes chat -q "你是 CTF 监督者。以下是 monitor.py 收集的 Codex 最新进展:
 $OUTPUT
 
 请读 $SCRIPT_DIR/hermes_monitor.md 获取详细指令，然后按指令执行。
 执行完毕后回复简短摘要。" \
-                        -t terminal,file,web,search \
+                        -t terminal,file,web,search,skills \
+                        -s ctf-supervisor-knowledge \
                         --quiet 2>&1) || true
-                    HERMES_SESSION=$(echo "$RESP" | grep -o 'session_id:[[:space:]]*[^[:space:]]*' | sed -E 's/session_id:[[:space:]]*//' | head -1)
+                    HERMES_SESSION=$(echo "$RESP" | sed -n 's/.*session_id:[[:space:]]*\([^[:space:]]*\).*/\1/p' | head -1)
                     echo "$RESP" >> "$WORK_DIR/hermes.log"
                 else
                     # 后续触发：复用会话，简短 prompt 即可
@@ -256,7 +257,7 @@ $OUTPUT
 
 请按指令执行，回复简短摘要。" \
                         -r "$HERMES_SESSION" \
-                        -t terminal,file,web,search \
+                        -t terminal,file,web,search,skills \
                         --quiet >> "$WORK_DIR/hermes.log" 2>&1 || true
                 fi
 
@@ -301,7 +302,6 @@ case "$CHALLENGE_TYPE" in
         CODEX_PROMPT="目标: $TARGET_URL
 背景: $HINT
 
-先读 $REPO_ROOT/strategies/web.md 了解 Web 题攻击流程。
 再读 board.md 了解当前 ideas 和 memory 状态。
 再读 progress.md 了解当前进度。
 然后继续解题。
@@ -312,7 +312,6 @@ case "$CHALLENGE_TYPE" in
 背景: $HINT
 
 这是一个 $CHALLENGE_TYPE 题目。附件已复制到工作目录。
-先读 $REPO_ROOT/strategies/$CHALLENGE_TYPE.md 了解 $CHALLENGE_TYPE 题攻击流程。
 再读 board.md 了解当前 ideas 和 memory 状态。
 再读 progress.md 了解当前进度。
 然后开始解题: 先解压/识别附件，分析文件内容，寻找 flag。
@@ -324,11 +323,10 @@ case "$CHALLENGE_TYPE" in
 背景: $HINT
 
 这是一个二进制安全题目。远程服务: $TARGET_URL${ATTACHMENT_IN_WORKDIR:+，制品附件已复制到工作目录}。
-先读 $REPO_ROOT/strategies/binary.md 了解二进制题攻击流程。
 再读 board.md 了解当前 ideas 和 memory 状态。
 再读 progress.md 了解当前进度。
 然后开始解题: 先逆向分析附件/探测远程服务协议，定位内存安全缺陷或逻辑漏洞，
-编写 exploit (pwntools 可用) 从远程服务读取 flag。
+编写 exploit (pwntools 可用) 从远程服务读取 flag。工具用法见 $REPO_ROOT/TOOLS.md。
 每次工具调用后更新 progress.md。"
         ;;
 esac
@@ -350,7 +348,7 @@ while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
     echo "=== Codex round $((RETRY+1))/$MAX_RETRIES ==="
 
     cd "$WORK_DIR"
-    codex exec --profile ctf --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust \
+    codex exec --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust \
       --ignore-rules --disable guardian_approval -c model_reasoning_effort="xhigh" \
       "$CODEX_PROMPT" \
         < /dev/null > codex.log 2>&1 || true

@@ -141,6 +141,17 @@ def build_hermes(src: Path, dst: Path) -> None:
             (dst / name).write_text(
                 _rewrite_home_paths(f.read_text(encoding="utf-8")), encoding="utf-8"
             )
+    # 用户安装的 skills (如 ctf-supervisor-knowledge) -- run.sh 的 hermes 调用
+    # 带 -s ctf-supervisor-knowledge，容器里没这个 skill 监督循环会降级
+    skills = src / "skills"
+    if skills.is_dir():
+        shutil.copytree(
+            skills, dst / "skills",
+            dirs_exist_ok=True,
+            ignore=shutil.ignore_patterns("__pycache__", ".DS_Store"),
+        )
+    else:
+        _warn(f"{skills} 不存在 (hermes 将无用户 skills，监督质量降级)")
 
 
 # ─── 入口 ───
