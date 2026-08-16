@@ -221,10 +221,30 @@ docker/solver/build.sh --no-sync     # 跳过 hermes 同步
 - 工具链含二进制题所需：binutils / gdb / ltrace / strace / socat / pwntools
 - **架构跟随构建机**：Apple Silicon 构建 = arm64；**WSL x86 机器上需重新跑 build.sh** 得到
   amd64 镜像
-- 凭据快照：`python3 master/cred_snapshot.py`（Master 用 docker 后端时也会自动生成），
-  做的是精制拷贝——auth 原样、`ctf.config.toml` 重写路径、主 `config.toml` 生成最小版
 - TUNA pypi 偶发个别 wheel 403 时换阿里云源：
   `PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/ bash docker/solver/build.sh`
+
+### 凭据快照与容器内 hooks 机制（cred_snapshot.py）
+
+Master 用 docker 后端时自动生成（也可手动 `python3 master/cred_snapshot.py`），
+产物挂载为容器的 `/root/.codex` 和 `/root/.hermes`。**codex 部分做的是精制拷贝**：
+
+| 文件 | 容器内处理 | 目的 |
+|---|---|---|
+| `auth.json` / `models_cache.json` | 原样复制 | 登录态与模型目录 |
+| `ctf.config.toml` | 复制 + 两处路径重写：`model_catalog_json` → `/root/.codex/...`；hook 命令 → 绝对路径 `python3 /opt/ctf-agent/solver/hooks/check_guidance.py` | profile 机制保留；hook 不依赖运行时 git 布局 |
+| 主 `config.toml` | **不复制，重新生成最小版**（仅 model/effort/项目 trust） | 剔除宿主 desktop 专属配置（notify/marketplaces/mcp_servers/projects，其中 node_repl MCP 指向 /Applications 会卡启动 120s） |
+| `~/.hermes/skills/` | 整目录复制 | run.sh 的 `-s ctf-supervisor-knowledge` 在容器内可用 |
+
+**与宿主机 desktop 的隔离是双保险**：① 机制层——hook 只在 `--profile ctf` 加载
+（run.sh 专用），不带该 flag 的 codex 进程（含 desktop）永远不触发；② 物理层——
+容器挂的是**快照副本**（复制而非挂载宿主目录），容器内 codex 的任何写入（含 auth
+刷新）都只落在快照里，宿主 `~/.codex` 不会被触碰。
+
+**WSL 直接可用**，前置仅三项：WSL 上装好 codex-cli 并 `codex login`；按上文在 WSL 的
+`~/.codex/ctf.config.toml` 放同样的 profile（hook 命令两种路径形态——`hooks/` 或
+`solver/hooks/`——快照都认）；确认 `~/.codex/models_cache.json` 存在（codex 跑过一次
+即有）。快照生成对路径做了 host 无关处理，macOS/WSL 通用。
 
 ## 网络环境注意事项（重要，踩过的坑）
 
