@@ -31,6 +31,8 @@ master_*.log
 master.log
 master_logs/
 flags.jsonl
+flags*.jsonl
+tests/master_flags_*.jsonl
 challenges/manual_*/
 challenges/attachments/
 challenges/fake/
