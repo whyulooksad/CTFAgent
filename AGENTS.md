@@ -54,11 +54,30 @@
 
 ## 4. 工具使用规则
 
-- 所有命令通过 shell 执行 (curl/nmap/sqlmap/ffuf/python3 等)
+- 所有命令通过 shell 执行 (curl/nmap/ffuf/python3 等)
 - 长输出重定向到文件 (`cmd > /tmp/out.txt 2>&1`)，只回传摘要
 - Python PoC 用 `python3` 执行
 - 禁止交互式命令 (sqlmap 交互式、nc -l 等)
 - 禁止暴力破解密码 (效率太低)
+
+### 4.1 环境工具手册
+
+环境已预装 CTF 工具。**用法示例见 `TOOLS.md`（工作目录上级，即项目根目录），需要时 `cat TOOLS.md` 查看**，别凭记忆猜参数。
+
+已装工具速览：
+- **Web**：nmap（端口扫描）、ffuf（目录/参数 fuzz）、jq（JSON 处理）、curl
+- **Misc**：exiftool（图片元数据）、steghide（隐写）、binwalk（文件提取）、foremost（文件雕刻）、tshark（流量分析）、file/strings/xxd
+- **Crypto**：openssl、python 库 z3-solver / pycryptodome / pwntools / Pillow / requests
+
+### 4.2 工具使用原则
+
+- **目录扫描用 ffuf，不要写 curl 并发脚本**（ffuf 一条命令，脚本浪费 token 还容易错）
+- **端口扫描先 nmap**：`nmap -sV target` 快速指纹，必要时 `-p-` 全端口
+- **按题目类型选工具**：
+  - Web 题：nmap 指纹 → 目录扫描 ffuf → 手工测漏洞（SQLi/XSS/SSRF/上传等）
+  - Crypto 题：先识别算法/编码（openssl、CyberChef 思路），再上 z3/pycryptodome
+  - Misc 题：先 file/strings/xxd 看文件是什么，再按类型上 exiftool/steghide/binwalk/tshark
+- 缺工具：`sudo apt-get install -y <工具>` 或 `python3 -m pip install --user --break-system-packages <库>`，装不上就换思路，别卡在装工具上
 
 ## 5. Subagent 使用规则
 

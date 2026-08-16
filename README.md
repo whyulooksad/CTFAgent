@@ -216,7 +216,7 @@ rm challenges/manual_<name>/branch.sock
 
 - [ ] 环境未安装 ffuf/feroxbuster/gobuster/dirsearch/wfuzz；目录字典扫描需用 curl 并发脚本实现。后续可能需要补充更多工具。
 
-- [ ] hermes可能需要更多的ctf 的做题技巧，而且人应该可以和Hermes交互
+- [x] hermes可能需要更多的ctf 的做题技巧，而且人应该可以和Hermes交互
 
 - [x] === [01:22:53] Hermes agent 被触发 ===
   Error: Response remained truncated after 3 continuation attempts
