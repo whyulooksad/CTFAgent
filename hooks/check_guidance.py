@@ -12,11 +12,17 @@ stdin 收到 PostToolUse 的 JSON，含 cwd 字段指向工作目录。
 """
 
 import json
+import os
 import sys
 from pathlib import Path
 
 
 def main() -> None:
+    # subagent 不消费全局指导（guidance/dead_ends 只给主进程）。
+    # branch.py spawn 时注入 CODEX_ROLE=subagent，hook 是 codex 子进程会继承。
+    if os.environ.get("CODEX_ROLE") == "subagent":
+        return
+
     try:
         data = json.load(sys.stdin)
     except Exception:

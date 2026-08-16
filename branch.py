@@ -352,6 +352,8 @@ class BranchDaemon:
         full_prompt = self._build_prompt(prompt, name, sid, result_file)
 
         try:
+            env = os.environ.copy()
+            env["CODEX_ROLE"] = "subagent"
             proc = subprocess.Popen(
                 [CODEX_CMD, "exec", "--dangerously-bypass-approvals-and-sandbox", "--dangerously-bypass-hook-trust", "--ignore-rules", "--disable", "guardian_approval", "-c", "model_reasoning_effort=xhigh", full_prompt],
                 stdout=open(log_file, "w"),
@@ -359,6 +361,7 @@ class BranchDaemon:
                 cwd=str(self.work_dir),
                 stdin=subprocess.DEVNULL,
                 start_new_session=True,
+                env=env,
             )
         except FileNotFoundError:
             return {"error": f"codex command not found: {CODEX_CMD}"}
