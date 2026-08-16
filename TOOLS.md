@@ -139,3 +139,83 @@ print(base64.b64encode(b'x'))
 ## 缺工具怎么办
 - 工具不在列表里：`sudo apt-get install -y <工具>` 或 `python3 -m pip install --user --break-system-packages <库>`
 - 装不了就换思路，别卡在装工具上
+
+## 二进制题（远程服务 / 制品逆向）
+
+### checksec — 保护机制速览 (pwntools)
+```bash
+python3 -c "from pwn import *; print(ELF('./pwn').checksec())"   # NX/PIE/Canary/RELRO
+```
+
+### objdump / readelf — 静态分析
+```bash
+objdump -d -M intel ./pwn | less          # 反汇编 (Intel 语法)
+objdump -d -M intel ./pwn | grep -A20 '<main>:'   # 只看某函数
+readelf -h ./pwn                          # ELF 头 (架构/入口)
+strings -n 8 ./pwn | grep -i flag         # 找 flag 相关字符串
+```
+
+### gdb — 动态调试（本地复现）
+```bash
+gdb ./pwn
+  (gdb) break main        # 断点
+  (gdb) run               # 运行
+  (gdb) x/20xg $rsp       # 看栈
+  (gdb) info registers
+```
+
+### radare2 — 静态分析（终端反汇编，比 objdump 交互强）
+```bash
+r2 -A ./pwn                  # 打开并自动分析 (aaa)
+  [0x...]> afl               # 列出所有函数
+  [0x...]> pdf @main         # 反汇编 main (print disassembly function)
+  [0x...]> s sym.main        # 跳到 main 地址
+  [0x...]> px 64 @ 0x401000  # 看地址处 hexdump
+  [0x...]> axt @ sym.win     # 谁调用了 win 函数 (交叉引用)
+  [0x...]> q                 # 退出
+r2 -A -c 'pdf @main' ./pwn   # 一条命令直接出反汇编，配合 grep 过滤
+```
+
+### strace / ltrace — 运行时跟踪
+```bash
+strace -f ./pwn < input.txt        # 跟踪系统调用 (read/write/open/execve)
+strace -f -e trace=read,write ./pwn # 只跟读写，看程序收发了什么
+ltrace ./pwn < input.txt           # 跟踪库函数调用 (strcmp/printf/strlen)
+# 黑盒比对输入: 程序吃进你的 payload 后调了哪些函数，泄露逻辑走向
+```
+
+### socat — 网络连接 / 端口转发
+```bash
+socat - TCP:10.0.0.5:9999          # 等同 nc，连远程服务 (交互式可用)
+socat TCP-LISTEN:4444,fork TCP:10.0.0.5:9999  # 本地转发，先连 127.0.0.1:4444
+socat TCP:10.0.0.5:9999 EXEC:./pwn,pty,stderr  # 远程服务接到本地二进制 (测试用)
+```
+
+### angr — 符号执行（穷举路径找解，最后手段）
+```python
+import angr
+p = angr.Project('./pwn', auto_load_libs=False)
+st = p.factory.entry_state()
+sm = p.factory.simulation_manager(st)
+sm.explore(find=0x401234)          # find=目标地址 (想走到的分支)
+if sm.found:
+    print(sm.found[0].posix.dumps(0))   # 到达目标的输入 (即 payload)
+# 注意: angr 吃内存吃时间，简单题先用 gdb/objdump 手解，解不动再上
+```
+
+### pwntools — exploit 编写（主力）
+```python
+from pwn import *
+context.arch = 'amd64'
+r = remote('10.x.x.x', 9999)      # 远程服务 (VPN 内网，直连)
+r.sendline(b'A' * 72 + p64(0xdeadbeef))   # 栈溢出覆写返回地址
+print(r.recvall(timeout=3))
+```
+
+### 二进制题流程
+1. 有制品: checksec → strings → objdump 定位输入点与漏洞函数
+2. 无制品: `nc` 探测远程服务协议，记录交互流程（菜单/提示/长度限制）
+3. 定位偏移 (`cyclic`) → 构造 exploit → 无 shell 场景直接 ROP/格式化串读 flag
+4. 常见漏洞面: 栈溢出 / 格式化字符串 (`%p` 泄露 `%n` 写) / 堆 (tcache/double free) /
+   整数截断 / 逻辑越界；固件类 (f2) 逆向授权码校验算法找等价输入
+5. 服务可能有连接频率限制，payload 失败后 sleep 再试，别高频重连

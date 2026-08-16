@@ -24,6 +24,7 @@ CHALLENGE_TYPE=""
 TARGET_URL=""
 ATTACHMENT=""
 HINT=""
+FLAG_COUNT=1
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -31,6 +32,7 @@ while [ $# -gt 0 ]; do
         --url)        TARGET_URL="$2"; shift 2 ;;
         --attachment) ATTACHMENT="$2"; shift 2 ;;
         --hint)       HINT="$2"; shift 2 ;;
+        --flag-count) FLAG_COUNT="$2"; shift 2 ;;
         *) echo "未知参数: $1"; exit 1 ;;
     esac
 done
@@ -58,8 +60,17 @@ case "$CHALLENGE_TYPE" in
         SHORT_HASH=$(printf '%s' "$ATTACHMENT" | md5sum | cut -c1-12)
         WORK_DIR_NAME="manual_${CHALLENGE_TYPE}_${SHORT_HASH}"
         ;;
+    binary)
+        # 二进制题: 远程服务 (URL) + 可选附件 (二进制制品/固件)
+        if [ -z "$TARGET_URL" ]; then echo "binary 类型需要 --url (远程服务地址)"; exit 1; fi
+        if [ -n "$ATTACHMENT" ] && [ ! -f "$ATTACHMENT" ]; then
+            echo "附件不存在: $ATTACHMENT"; exit 1
+        fi
+        SHORT_HASH=$(printf '%s' "$TARGET_URL" | md5sum | cut -c1-12)
+        WORK_DIR_NAME="manual_binary_${SHORT_HASH}"
+        ;;
     *)
-        echo "未知题目类型: $CHALLENGE_TYPE (支持: web, crypto, misc)"
+        echo "未知题目类型: $CHALLENGE_TYPE (支持: web, crypto, misc, binary)"
         exit 1
         ;;
 esac
@@ -130,6 +141,29 @@ recon
 ## Next Steps
 1. 解压附件，识别文件类型
 2. 分析文件内容，寻找突破口
+
+## Key Artifacts
+
+## Flags Found
+(无)
+EOF
+        ;;
+    binary)
+        cat > "$WORK_DIR/progress.md" << EOF
+## Target
+- Type: binary
+- URL: $TARGET_URL
+- Attachment: ${ATTACHMENT_NAME:-无}
+- Background: $HINT
+- Start Time: $(date -Iseconds)
+
+## Current Phase
+recon
+
+## Next Steps
+1. 有附件先 file/strings/checksec 分析制品
+2. 探测远程服务协议
+3. 寻找内存安全缺陷/逻辑漏洞，构造 exploit
 
 ## Key Artifacts
 
@@ -282,7 +316,30 @@ case "$CHALLENGE_TYPE" in
 然后开始解题: 先解压/识别附件，分析文件内容，寻找 flag。
 每次工具调用后更新 progress.md。"
         ;;
+    binary)
+        CODEX_PROMPT="目标: $TARGET_URL
+附件: ${ATTACHMENT_IN_WORKDIR:-无}
+背景: $HINT
+
+这是一个二进制安全题目。远程服务: $TARGET_URL${ATTACHMENT_IN_WORKDIR:+，制品附件已复制到工作目录}。
+再读 board.md 了解当前 ideas 和 memory 状态。
+再读 progress.md 了解当前进度。
+然后开始解题: 先逆向分析附件/探测远程服务协议，定位内存安全缺陷或逻辑漏洞，
+编写 exploit (pwntools 可用) 从远程服务读取 flag。工具用法见 $SCRIPT_DIR/TOOLS.md。
+每次工具调用后更新 progress.md。"
+        ;;
 esac
+
+# 多 flag 题: prompt 声明总数量与续跑语义 (每轮 codex 都带上)
+if [ "$FLAG_COUNT" -gt 1 ] 2>/dev/null; then
+    CODEX_PROMPT="$CODEX_PROMPT
+
+注意: 这是多 flag 题目，共 $FLAG_COUNT 个 flag，全部拿到才算通关。
+progress.md 的 Flags Found 段里可能已有之前获得的 flag (已提交计分)，
+不要重复提交它们，也不要重复攻击已拿过 flag 的入口，去寻找剩余的 flag
+(通常意味着换攻击点/换入口/深入下一阶段)。每拿到一个新 flag 立即追加到
+Flags Found 段 (一行一个)。"
+fi
 
 RETRY=0
 while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
@@ -314,12 +371,24 @@ while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
         | python3 -c "import sys; [print(l.rstrip()) for l in sys.stdin if not any('\u4e00' <= c <= '\u9fff' for c in l)]" \
         | awk 'length($0) <= 128 && $0 !~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/' \
         | head -1 || true)
+    # 多 flag 题: 统计已得 flag 数，拿满 FLAG_COUNT 个才算完成 (单 flag 行为不变)
+    FLAGS_COUNT=$(awk '/^## *Flags Found/{f=1;next} /^##/{f=0} f' "$WORK_DIR/progress.md" \
+        | grep -v '^(无)' | grep -v '^<!--' | grep -v '^$' \
+        | grep -v ' ' \
+        | python3 -c "import sys; [print(l.rstrip()) for l in sys.stdin if not any('\u4e00' <= c <= '\u9fff' for c in l)]" \
+        | awk 'length($0) <= 128 && $0 !~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/' \
+        | wc -l | tr -d ' ' || true)
     if [ -n "$FLAGS" ]; then
+        if [ "$FLAGS_COUNT" -ge "$FLAG_COUNT" ] 2>/dev/null || [ "$FLAG_COUNT" = "1" ]; then
+            echo ""
+            echo "=== FLAG FOUND! (${FLAGS_COUNT}/${FLAG_COUNT} 全部拿到) ==="
+            echo "$FLAGS"
+            echo "=== Check codex.log for details ==="
+            break
+        fi
         echo ""
-        echo "=== FLAG FOUND! ==="
-        echo "$FLAGS"
-        echo "=== Check codex.log for details ==="
-        break
+        echo "=== FLAG FOUND (${FLAGS_COUNT}/${FLAG_COUNT})，多 flag 未拿满，继续攻剩余 ==="
+        # 不 break: 下一轮 codex 续跑继续找 (prompt 会带已得 flag 进度)
     fi
 
     # Codex 正常退出但没 flag，继续
