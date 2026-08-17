@@ -193,6 +193,16 @@ class Master:
         if restored:
             self.log.info("恢复状态: %d 条题目记录", len(self.state.all_records()))
             self._recover()
+        # 兜底: 清掉平台上所有残留活跃靶机 (kill -9 强杀等无法优雅退出的残留，
+        # 状态文件可能没记录到 running，_recover 管不到)
+        closer = getattr(self.adapter, "close_all_active", None)
+        if closer and self.platform_connected:
+            try:
+                n = int(closer() or 0)
+                if n:
+                    self.log.info("启动清扫: 关闭 %d 个残留活跃靶机", n)
+            except Exception as e:
+                self.log.warning("启动清扫失败: %s", e)
         self.submitter.start()
 
         # Phase 3: 总览面板 (失败不影响调度)
