@@ -71,6 +71,42 @@ def _read_model(codex_home: Path) -> str:
     return DEFAULT_MODEL
 
 
+def _extra_provider_sections(src: Path) -> str:
+    """把宿主的 model_provider / model_providers 透传到容器配置。
+
+    宿主机可能配置了自定义模型提供方 (如 deepseek/verytoken)，容器 codex
+    没有这些段会回退默认 provider 导致请求发错地方。
+    """
+    config = src / "config.toml"
+    if not config.exists():
+        return ""
+    try:
+        import tomllib
+
+        data = tomllib.loads(config.read_text(encoding="utf-8"))
+    except Exception:
+        return ""
+
+    lines: list[str] = []
+    mp = data.get("model_provider")
+    if isinstance(mp, str) and mp:
+        lines.append(f'model_provider = "{mp}"')
+    providers = data.get("model_providers")
+    if isinstance(providers, dict):
+        for name, p in providers.items():
+            if not isinstance(p, dict):
+                continue
+            lines.append(f"\n[model_providers.{name}]")
+            for k, v in p.items():
+                if isinstance(v, str):
+                    lines.append(f'{k} = "{v}"')
+                elif isinstance(v, bool):
+                    lines.append(f"{k} = {'true' if v else 'false'}")
+                elif isinstance(v, (int, float)):
+                    lines.append(f"{k} = {v}")
+    return ("\n".join(lines) + "\n") if lines else ""
+
+
 def build_codex(src: Path, dst: Path) -> None:
     dst.mkdir(parents=True, exist_ok=True)
 
@@ -98,12 +134,14 @@ def build_codex(src: Path, dst: Path) -> None:
     else:
         _warn(f"{hooks} 不存在 (容器内 codex 将无 hook，监督者指导无法注入)")
 
-    # 2. 生成最小 config.toml
+    # 2. 生成最小 config.toml (透传宿主的自定义 provider 段)
+    extra = _extra_provider_sections(src)
     (dst / "config.toml").write_text(
         "# 容器专用最小配置 (cred_snapshot.py 生成，勿手改)\n"
         f'model = "{_read_model(src)}"\n'
         'model_reasoning_effort = "high"\n'
-        "\n"
+        + extra
+        + "\n"
         '[projects."/opt/ctf-agent"]\n'
         'trust_level = "trusted"\n',
         encoding="utf-8",
