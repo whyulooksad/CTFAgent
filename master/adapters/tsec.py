@@ -150,6 +150,22 @@ class TSecAdapter(PlatformAdapter):
         q = urllib.parse.quote(cid)
         self._request("POST", f"/openapi/v1/challenges/close?unique_code={q}")
 
+    def close_all_active(self) -> int:
+        """关闭平台上所有活跃靶机 (container_status=available)，返回关闭数。"""
+        n = 0
+        try:
+            items = self._request("GET", "/openapi/v1/challenges")
+        except Exception:
+            return 0
+        for x in items:
+            if x.get("container_status") == "available":
+                try:
+                    self.stop_challenge(str(x["unique_code"]))
+                    n += 1
+                except Exception:
+                    pass
+        return n
+
     def submit(self, cid: str, flag: str) -> SubmitResult:
         try:
             data = self._request(

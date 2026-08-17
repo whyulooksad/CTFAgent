@@ -152,6 +152,10 @@ def _make_handler(master):
                 ok = master.stop_solver(data.get("cid", ""))
                 self._json(HTTPStatus.OK if ok else HTTPStatus.NOT_FOUND,
                            {"stopped": ok})
+            elif path == "/api/kill-all":
+                """Kill All: 停所有 solver (容器+平台靶机) + 清扫平台残留靶机。"""
+                killed = master.kill_all()
+                self._json(HTTPStatus.OK, killed)
             elif path == "/api/config":
                 try:
                     master.update_config(

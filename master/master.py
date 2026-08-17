@@ -240,6 +240,13 @@ class Master:
         for rec in self.state.all_records():
             if rec.status in ACTIVE_STATES:
                 self.log.warning("恢复: %s 上次处于 %s，标记失败", rec.id, rec.status)
+                # 关闭平台残留靶机 (释放 max active 名额，否则新题 start 全 409)
+                try:
+                    if self.adapter is not None:
+                        self.adapter.stop_challenge(rec.id)
+                        self.log.info("恢复: %s 平台靶机已关闭", rec.id)
+                except Exception as e:
+                    self.log.warning("恢复: %s 平台靶机关闭失败: %s", rec.id, e)
                 self._finalize(rec.id, FAILED, "Master 重启，solver 进程丢失")
 
     # ─── 主循环各阶段 ───
@@ -854,6 +861,35 @@ class Master:
         self.backend.stop(handle)
         self._finalize(cid, MANUAL_STOP, "手动终止")
         return True
+
+    def kill_all(self) -> dict:
+        """面板「Kill All」: 停掉所有 running solver (容器+平台靶机)，再清扫平台残留靶机。"""
+        killed = {"solver": 0, "targets": 0}
+        # 1. 停所有 running solver (容器 + 对应平台靶机)
+        for cid, handle in list(self.running.items()):
+            try:
+                self.backend.stop(handle)
+                killed["solver"] += 1
+            except Exception as e:
+                self.log.warning("kill-all: %s 容器停止失败: %s", cid, e)
+            try:
+                if self.adapter is not None:
+                    self.adapter.stop_challenge(cid)
+                    killed["targets"] += 1
+            except Exception as e:
+                self.log.warning("kill-all: %s 靶机关闭失败: %s", cid, e)
+            self._finalize(cid, MANUAL_STOP, "面板 kill-all")
+        self.running.clear()
+        # 2. 平台清扫: 关掉所有活跃残留靶机 (释放 max active 名额)
+        if self.platform_connected and self.adapter is not None:
+            closer = getattr(self.adapter, "close_all_active", None)
+            if closer:
+                try:
+                    killed["targets"] += int(closer() or 0)
+                except Exception as e:
+                    self.log.warning("kill-all: 平台清扫失败: %s", e)
+        self.log.info("kill-all: 已停 %d solver、关闭 %d 靶机", killed["solver"], killed["targets"])
+        return killed
 
 
 # ───────────────────────── CLI ─────────────────────────

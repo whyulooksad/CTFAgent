@@ -164,6 +164,10 @@
     <button class="btn" onclick="applyConfig()">应用</button>
     <span class="msg" id="config-msg"></span>
   </div>
+  <div class="inline-row" style="margin-top:8px">
+    <button class="btn" style="background:#da3633;border-color:#da3633" onclick="killAll()">Kill All（停全部 solver + 清理平台靶机）</button>
+    <span class="msg" id="killall-msg"></span>
+  </div>
 </div>
 
 <!-- Flags 面板 -->
@@ -268,6 +272,21 @@ async function submitChallenges() {
     }
   } catch (e) { msg.className = 'msg err'; msg.textContent = `✗ ${e}`; }
   setTimeout(() => msg.textContent = '', 5000);
+  refresh();
+}
+
+/* ── Kill All ── */
+async function killAll() {
+  const msg = document.getElementById('killall-msg');
+  if (!confirm('确定 Kill All？将停掉所有 solver 容器并关闭平台上所有活跃靶机。')) return;
+  msg.className = 'msg'; msg.textContent = '清理中...';
+  try {
+    const r = await fetch('/api/kill-all', { method: 'POST' });
+    const d = await r.json();
+    if (r.ok) { msg.className = 'msg ok'; msg.textContent = `✓ 已停 ${d.solver} 个 solver、关闭 ${d.targets} 个平台靶机`; }
+    else { msg.className = 'msg err'; msg.textContent = `✗ ${d.error || '失败'}`; }
+  } catch (e) { msg.className = 'msg err'; msg.textContent = `✗ ${e}`; }
+  setTimeout(() => msg.textContent = '', 6000);
   refresh();
 }
 
