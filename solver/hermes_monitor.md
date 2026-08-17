@@ -54,6 +54,13 @@
 
 读日志增量时，问自己这几个问题：
 
+### 0. Codex 遇到分岔路口但没 spawn subagent 吗？
+如果日志显示 Codex 面临 2 个及以上可行方向（多个入口 / 多个漏洞候选 / 多端口 / 多利用手法），
+但它还在主会话里串行一个个试、没有调用 branch.py spawn 并行试探：
+- 是 -> 写 guidance.md 明确催它 spawn。列出 2-3 个值得并行验证的方向，
+  并给出具体的 spawn 命令示例（python3 branch.py spawn --work-dir . --name ... --prompt ...）。
+  这是高优先级介入——subagent 并行是解题效率关键，deepseek 等模型常忘记用，你要主动提醒。
+
 ### 1. Codex 发现了新线索吗？
 比如日志里出现了新技术栈、新端口、新入口点、新漏洞类型。
 - 是 -> 这是你帮 Codex 找新路的机会。把你想到的思路写进 guidance.md。

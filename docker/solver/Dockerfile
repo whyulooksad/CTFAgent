@@ -52,7 +52,7 @@ RUN set -eux; \
     rm -rf /var/lib/apt/lists/*
 
 # ── Codex CLI (版本锁定，与宿主机一致) ──
-ARG CODEX_VERSION=0.147.0
+ARG CODEX_VERSION=0.146.0
 RUN set -eux; \
     if [ -n "$NPM_REGISTRY" ]; then npm config set registry "$NPM_REGISTRY"; fi; \
     npm install -g --omit=dev @openai/codex@${CODEX_VERSION}

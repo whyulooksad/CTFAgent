@@ -339,6 +339,17 @@ case "$CHALLENGE_TYPE" in
         ;;
 esac
 
+# 并行试探硬指令 (deepseek 等模型不主动用 subagent，每轮 prompt 都强调)
+CODEX_PROMPT="$CODEX_PROMPT
+
+重要 (硬性要求): 遇到分岔路口 —— 即 2 个及以上可行攻击方向需要验证时 —— 必须用 branch.py spawn 并行试探，
+不要在主会话里串行一个个试。用法:
+  python3 branch.py spawn --work-dir . --name \"方向名\" --prompt \"...\"
+  python3 branch.py status --work-dir .          # 查看所有 subagent 状态
+  python3 branch.py results --work-dir . <id>    # 读已完成结果
+  python3 branch.py kill --work-dir . <id>       # 终止不需要的方向
+spawn 后继续你的主攻方向，定期 status 查状态；某方向 FEASIBLE 就深入、INFEASIBLE 就 kill。"
+
 # 多 flag 题: prompt 声明总数量与续跑语义 (每轮 codex 都带上)
 if [ "$FLAG_COUNT" -gt 1 ] 2>/dev/null; then
     CODEX_PROMPT="$CODEX_PROMPT

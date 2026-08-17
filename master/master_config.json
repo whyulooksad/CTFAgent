@@ -1,6 +1,6 @@
 {
   "adapter": "none",
-  "backend": "process",
+  "backend": "docker",
   "max_solvers": 3,
   "max_challenges": 20,
   "solver_timeout": 3600,
