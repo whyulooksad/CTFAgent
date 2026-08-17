@@ -85,6 +85,7 @@ class ProcessBackend(SolverBackend):
         work_dir = self._predict_work_dir(ch)
 
         cmd = ["bash", str(REPO_DIR / "solver" / "run.sh"), "--type", ch.type]
+        cmd += ["--challenge-id", ch.id]  # run.sh 用 id 哈希命名 work_dir (url 会被平台复用)
         if ch.type in ("web", "binary"):
             cmd += ["--url", ch.url or ""]
             if ch.type == "binary" and ch.attachment_path:
@@ -127,10 +128,8 @@ class ProcessBackend(SolverBackend):
 
     @staticmethod
     def _predict_work_dir(ch: Challenge) -> Path:
-        # work_dir 按 challenge id 生成。
-        # 不能按 url 哈希: 平台并发实例 IP 会复用 (并发上限 3 只有 3 个 IP)，
-        # 不同题在不同时间 start 可能拿到相同 url -> 目录撞车 -> 互相踩踏清空。
-        # 用 id: 同题重试一定同目录 (续跑语义保持)，不同题一定不同目录。
+        # 与 run.sh 的命名规则一致 (run.sh 优先用 challenge-id 做 md5 命名 work_dir，
+        # master 只是预测)。用 id: 同题重试同目录，不同题永不撞 (url 会被平台复用)。
         digest = hashlib.md5(ch.id.encode()).hexdigest()[:12]
         return CHALLENGES_DIR / f"manual_{ch.type}_{digest}"
 
@@ -259,14 +258,9 @@ class DockerBackend(SolverBackend):
         return self.CONTAINER_ROOT / "challenges" / rel
 
     def _predict_work_dir(self, ch: Challenge) -> Path:
-        """与 run.sh 命名规则一致，但附件用容器路径语义。"""
-        if ch.type == "web" or (ch.type == "binary" and ch.url):
-            digest = hashlib.md5(ch.url.encode()).hexdigest()[:12]
-            name = f"manual_{ch.type}_{digest}"
-        else:
-            digest = hashlib.md5(str(self._container_attachment(ch)).encode()).hexdigest()[:12]
-            name = f"manual_{ch.type}_{digest}"
-        return CHALLENGES_DIR / name  # bind mount 下与容器内同名
+        """与 run.sh 命名规则一致 (run.sh 优先用 challenge-id 哈希)。"""
+        digest = hashlib.md5(ch.id.encode()).hexdigest()[:12]
+        return CHALLENGES_DIR / f"manual_{ch.type}_{digest}"  # bind mount 下与容器内同名
 
     # ─── 生命周期 ───
 
@@ -295,6 +289,7 @@ class DockerBackend(SolverBackend):
             self.image,
             # 镜像 ENTRYPOINT 已 exec run.sh，这里只传 run.sh 参数
             "--type", ch.type,
+            "--challenge-id", ch.id,  # run.sh 用 id 哈希命名 work_dir (url 会被平台复用)
         ]
         if ch.type in ("web", "binary"):
             cmd += ["--url", ch.url or ""]

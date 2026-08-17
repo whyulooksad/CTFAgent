@@ -26,6 +26,7 @@ TARGET_URL=""
 ATTACHMENT=""
 HINT=""
 FLAG_COUNT=1
+CHALLENGE_ID=""
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -34,6 +35,7 @@ while [ $# -gt 0 ]; do
         --attachment) ATTACHMENT="$2"; shift 2 ;;
         --hint)       HINT="$2"; shift 2 ;;
         --flag-count) FLAG_COUNT="$2"; shift 2 ;;
+        --challenge-id) CHALLENGE_ID="$2"; shift 2 ;;
         *) echo "未知参数: $1"; exit 1 ;;
     esac
 done
@@ -50,7 +52,12 @@ case "$CHALLENGE_TYPE" in
     web)
         if [ -z "$TARGET_URL" ]; then echo "web 类型需要 --url"; exit 1; fi
         # 用 MD5 短哈希避免 URL 带路径时 socket 路径超长 (AF_UNIX 限制 108)
-        SHORT_HASH=$(printf '%s' "$TARGET_URL" | md5sum | cut -c1-12)
+        # 优先用 challenge-id 哈希: 平台并发实例 IP 会复用，按 url 命名不同题会撞目录
+        if [ -n "$CHALLENGE_ID" ]; then
+            SHORT_HASH=$(printf '%s' "$CHALLENGE_ID" | md5sum | cut -c1-12)
+        else
+            SHORT_HASH=$(printf '%s' "$TARGET_URL" | md5sum | cut -c1-12)
+        fi
         WORK_DIR_NAME="manual_web_${SHORT_HASH}"
         ;;
     crypto|misc)
@@ -58,7 +65,11 @@ case "$CHALLENGE_TYPE" in
         if [ ! -f "$ATTACHMENT" ]; then echo "附件不存在: $ATTACHMENT"; exit 1; fi
         # 复制附件到工作目录，用短哈希避免 socket 路径超长
         ATTACHMENT_NAME=$(basename "$ATTACHMENT")
-        SHORT_HASH=$(printf '%s' "$ATTACHMENT" | md5sum | cut -c1-12)
+        if [ -n "$CHALLENGE_ID" ]; then
+            SHORT_HASH=$(printf '%s' "$CHALLENGE_ID" | md5sum | cut -c1-12)
+        else
+            SHORT_HASH=$(printf '%s' "$ATTACHMENT" | md5sum | cut -c1-12)
+        fi
         WORK_DIR_NAME="manual_${CHALLENGE_TYPE}_${SHORT_HASH}"
         ;;
     binary)
@@ -67,7 +78,11 @@ case "$CHALLENGE_TYPE" in
         if [ -n "$ATTACHMENT" ] && [ ! -f "$ATTACHMENT" ]; then
             echo "附件不存在: $ATTACHMENT"; exit 1
         fi
-        SHORT_HASH=$(printf '%s' "$TARGET_URL" | md5sum | cut -c1-12)
+        if [ -n "$CHALLENGE_ID" ]; then
+            SHORT_HASH=$(printf '%s' "$CHALLENGE_ID" | md5sum | cut -c1-12)
+        else
+            SHORT_HASH=$(printf '%s' "$TARGET_URL" | md5sum | cut -c1-12)
+        fi
         WORK_DIR_NAME="manual_binary_${SHORT_HASH}"
         ;;
     *)
