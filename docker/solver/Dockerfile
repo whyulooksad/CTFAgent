@@ -85,5 +85,9 @@ RUN set -eux; \
 COPY . /opt/ctf-agent
 RUN git -C /opt/ctf-agent init -q
 
+# 非 root 运行支持: DockerBackend 用 --user 1000:1000 (宿主 stw uid) 跑容器，
+# 使 work_dir 文件 owner=1000 (宿主可删)；/root 需可进入以读挂载快照
+RUN chmod 755 /root
+
 WORKDIR /opt/ctf-agent
 ENTRYPOINT ["bash", "/opt/ctf-agent/docker/solver/entrypoint.sh"]

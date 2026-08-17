@@ -278,6 +278,7 @@ class DockerBackend(SolverBackend):
 
         cmd = [
             "docker", "run", "-d", "--name", cname,
+            "--user", "1000:1000",  # 对齐宿主 stw uid: work_dir 文件宿主可删
             "-v", f"{CHALLENGES_DIR}:{self.CONTAINER_ROOT}/challenges",
             "-v", f"{self.snapshot_dir}/codex:/root/.codex",
             "-v", f"{self.snapshot_dir}/hermes:/root/.hermes",

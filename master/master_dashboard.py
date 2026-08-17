@@ -16,6 +16,7 @@ master_dashboard.py -- Master 总览面板后端 (HTTP + SSE, 纯 stdlib)。
 from __future__ import annotations
 
 import json
+import os
 import threading
 import time
 from http import HTTPStatus
@@ -153,9 +154,15 @@ def _make_handler(master):
                 self._json(HTTPStatus.OK if ok else HTTPStatus.NOT_FOUND,
                            {"stopped": ok})
             elif path == "/api/kill-all":
-                """Kill All: 停所有 solver (容器+平台靶机) + 清扫平台残留靶机。"""
+                """Kill All: 停所有 solver (容器+平台靶机) + 清扫平台残留，随后 master 进程退出。"""
                 killed = master.kill_all()
                 self._json(HTTPStatus.OK, killed)
+                # Kill All = 全死: 响应返回后 master 退出 (面板一起关)
+                import threading, time as _time
+                threading.Thread(
+                    target=lambda: (_time.sleep(0.5), os._exit(0)),
+                    daemon=True,
+                ).start()
             elif path == "/api/config":
                 try:
                     master.update_config(

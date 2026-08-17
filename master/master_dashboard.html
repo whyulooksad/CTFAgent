@@ -165,7 +165,7 @@
     <span class="msg" id="config-msg"></span>
   </div>
   <div class="inline-row" style="margin-top:8px">
-    <button class="btn" style="background:#da3633;border-color:#da3633" onclick="killAll()">Kill All（停全部 solver + 清理平台靶机）</button>
+    <button class="btn" style="background:#da3633;border-color:#da3633" onclick="killAll()">Kill All（停全部 + 退出 master）</button>
     <span class="msg" id="killall-msg"></span>
   </div>
 </div>
@@ -278,7 +278,7 @@ async function submitChallenges() {
 /* ── Kill All ── */
 async function killAll() {
   const msg = document.getElementById('killall-msg');
-  if (!confirm('确定 Kill All？将停掉所有 solver 容器并关闭平台上所有活跃靶机。')) return;
+  if (!confirm('确定 Kill All？将停掉所有 solver 容器、关闭平台上所有活跃靶机，并退出 master 面板。')) return;
   msg.className = 'msg'; msg.textContent = '清理中...';
   try {
     const r = await fetch('/api/kill-all', { method: 'POST' });
