@@ -1,4 +1,0 @@
-{"time": "2026-08-17T19:41:13", "cid": "d-02", "title": "d-02 · 某公司将部分业务以无服务器（云函数）方式部署在云上，并对外提供了一个管理门户。已", "type": "web", "source": "platform", "flag": "flag{fe5d1bb4-5624-4880-8229-481d112bd437}", "auto_submitted": true}
-{"time": "2026-08-17T19:42:03", "cid": "d-01", "title": "d-01 · 某企业将部分业务数据迁移到了云上，并对外提供了一个基于对象存储（S3 兼容）的静", "type": "web", "source": "platform", "flag": "flag{552be015-8c50-434a-b388-bd1d5b49c700}", "auto_submitted": true}
-{"time": "2026-08-17T19:44:13", "cid": "f1-04", "title": "f1-04 · 一个基于 TCP 行协议的响应构造服务，支持设置响应体、添加响应头并构建导出完整", "type": "binary", "source": "platform", "flag": "flag{64dd53cf-2313-4e6a-b7a0-981061ccac2e}", "auto_submitted": true}
-{"time": "2026-08-17T19:45:12", "cid": "a-10", "title": "a-10 · 双十一即将来临，电商平台\"极速购\"推出了限时秒杀活动！每位用户限领一张优惠券，可", "type": "web", "source": "platform", "flag": "flag{ba4e3bd3-f0c6-4efc-a88b-20a5443b677e}", "auto_submitted": true}

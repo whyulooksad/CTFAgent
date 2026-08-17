@@ -38,6 +38,9 @@ master.log
 master_logs/
 flags.jsonl
 flags*.jsonl
+# 备份/清理产物 (master_state.json.bak_* / flags.jsonl.bak_* / *.old 等)
+master_state*.json*
+flags*.jsonl*
 tests/master_flags_*.jsonl
 challenges/manual_*/
 challenges/attachments/
