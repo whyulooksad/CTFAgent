@@ -102,6 +102,9 @@ mkdir -p "$WORK_DIR/poc_scripts"
 # AGENTS.md 副本: Codex 从 work_dir (cwd) 加载，solver/AGENTS.md 不在向上查找路径上
 # (work_dir=challenges/<name>/ -> challenges/ -> 根，均无 AGENTS.md)，必须复制到 cwd
 cp "$SCRIPT_DIR/AGENTS.md" "$WORK_DIR/AGENTS.md"
+# branch.py 副本: AGENTS.md 的 subagent 规则用裸 `python3 branch.py ...` (cwd=work_dir)，
+# 脚本本体在 solver/，不复制则 Codex 找不到、subagent 能力失效
+cp "$SCRIPT_DIR/branch.py" "$WORK_DIR/branch.py"
 
 # crypto/misc: 复制附件到工作目录
 if [ -n "$ATTACHMENT" ]; then

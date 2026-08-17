@@ -237,7 +237,7 @@ rm challenges/manual_<name>/branch.sock
 
 可通过环境变量 `CODEX_CMD` 覆盖 codex 命令路径（默认 `codex`）。
 
-## Docker 封装（档3）
+## Docker 封装
 
 单题 Solver 整个打包成镜像 `ctf-solver:latest`（Ubuntu 24.04 + 工具链 + Codex + Hermes + 项目），供多题调度器拉起。
 
@@ -258,7 +258,7 @@ docker run --rm \
 - 凭据/配置/skills 由 `master/cred_snapshot.py` 生成快照挂载（含 hooks.json 路径重写），不烧进镜像
 - 镜像 ENTRYPOINT 焊死 run.sh，容器 = 跑一道题；覆盖入口需 `--entrypoint bash`
 
-## 多题调度 master（档4）
+## 多题调度 master
 
 多题调度器（参考 master-agent 分支实现，已适配 WSL + 我们的 hook 机制）。
 
