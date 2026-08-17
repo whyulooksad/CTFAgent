@@ -248,7 +248,7 @@ $OUTPUT
                         -t terminal,file,web,search,skills \
                         -s ctf-supervisor-knowledge \
                         --quiet 2>&1) || true
-                    HERMES_SESSION=$(echo "$RESP" | sed -n 's/.*session_id:[[:space:]]*\([^[:space:]]*\).*/\1/p' | head -1)
+                    HERMES_SESSION=$(echo "$RESP" | sed -n "s/.*session_id:[[:space:]]*\([^[:space:]]*\).*/\1/p" | head -1)
                     echo "$RESP" >> "$WORK_DIR/hermes.log"
                 else
                     # 后续触发：复用会话，简短 prompt 即可
@@ -367,14 +367,14 @@ while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
     FLAGS=$(awk '/^## *Flags Found/{f=1;next} /^##/{f=0} f' "$WORK_DIR/progress.md" \
         | grep -v '^(无)' | grep -v '^<!--' | grep -v '^$' \
         | grep -v ' ' \
-        | grep -v '[一-鿿]' \
+        | LC_ALL=C grep -v '[^ -~]' \
         | awk 'length($0) <= 128 && $0 !~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/' \
         | head -1 || true)
     # 多 flag 题: 统计已得 flag 数，拿满 FLAG_COUNT 个才算完成 (单 flag 行为不变)
     FLAGS_COUNT=$(awk '/^## *Flags Found/{f=1;next} /^##/{f=0} f' "$WORK_DIR/progress.md" \
         | grep -v '^(无)' | grep -v '^<!--' | grep -v '^$' \
         | grep -v ' ' \
-        | grep -v '[一-鿿]' \
+        | LC_ALL=C grep -v '[^ -~]' \
         | awk 'length($0) <= 128 && $0 !~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/' \
         | wc -l | tr -d ' ' || true)
     if [ -n "$FLAGS" ]; then

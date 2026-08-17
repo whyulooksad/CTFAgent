@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -128,23 +129,34 @@ class TSecAdapter(PlatformAdapter):
         )
 
     def start_challenge(self, cid: str) -> str:
+        """
+        启动靶机。409 max-active 时退避重试 —— close 到平台释放名额有传播延迟，
+        立即重试会连续撞 409 (实测 2026-08-17 a-14/a-17)。
+        """
         q = urllib.parse.quote(cid)
-        try:
-            data = self._request("POST", f"/openapi/v1/challenges/start?unique_code={q}")
-        except TSecError as e:
-            # 重试场景: 题可能已在跑 (invalid_state)，查列表复用现有地址
-            if e.status == 409:
-                for x in self._request("GET", "/openapi/v1/challenges"):
-                    if x.get("unique_code") == cid:
-                        addrs = x.get("container_addr") or []
-                        if x.get("container_status") == "available" and addrs:
-                            return f"http://{addrs[0]}"
-                        raise RuntimeError(f"start 409 且容器不可用: {e.message}") from None
-            raise
-        addrs = data.get("container_addr") or []
-        if not addrs:
-            raise RuntimeError(f"start 未返回 container_addr: {data}")
-        return f"http://{addrs[0]}"
+        last_err = ""
+        for wait in (0, 4, 8):
+            if wait:
+                time.sleep(wait)
+            try:
+                data = self._request("POST", f"/openapi/v1/challenges/start?unique_code={q}")
+            except TSecError as e:
+                last_err = e.message
+                if e.status == 409 and "max active" in e.message.lower():
+                    continue  # 等平台释放名额后重试
+                # 其他 409 (题已在跑等 invalid_state): 查列表复用现有地址
+                if e.status == 409:
+                    for x in self._request("GET", "/openapi/v1/challenges"):
+                        if x.get("unique_code") == cid:
+                            addrs = x.get("container_addr") or []
+                            if x.get("container_status") == "available" and addrs:
+                                return f"http://{addrs[0]}"
+                raise
+            addrs = data.get("container_addr") or []
+            if not addrs:
+                raise RuntimeError(f"start 未返回 container_addr: {data}")
+            return f"http://{addrs[0]}"
+        raise RuntimeError(f"start 409 且容器不可用: {last_err}")
 
     def stop_challenge(self, cid: str) -> None:
         q = urllib.parse.quote(cid)

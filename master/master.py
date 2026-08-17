@@ -207,10 +207,13 @@ class Master:
 
         try:
             while not self._stop.is_set():
+                # drain 必须在 fill 之前: flag 提交结果处理完、靶机 close 完成，
+                # 才允许分发新题 start 新靶机 (否则 3 靶机满员时 start 撞 409)；
+                # 暂停时 drain 照跑 (在途提交要闭环)
+                self._drain_results()
                 if not self.paused:
                     self._sync_challenges()
                     self._fill_slots()
-                self._drain_results()
                 self._monitor_solvers()
                 self.state.save()
                 self._log_status()
@@ -272,6 +275,10 @@ class Master:
         均不受上限限制 (手动加题是明确意图，不挤占平台名额)。
         """
         while len(self.running) < self.cfg.max_solvers:
+            # 平台靶机配额闸门: 活跃靶机 (含提交中未释放的) 满额时不 start 新题，
+            # 等下一轮 drain 释放后再分 —— 避免对平台撞 409 max-active
+            if len(self._started_targets) >= self.cfg.max_solvers:
+                break
             allow_new = self._platform_attempted() < self.cfg.max_challenges
             rec = self._next_candidate(allow_new=allow_new)
             if rec is None:

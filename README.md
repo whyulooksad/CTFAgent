@@ -297,7 +297,8 @@ Master 用 docker 后端时自动生成（也可手动 `python3 master/cred_snap
    | main 的文件 | 放到 | 方式 |
    |---|---|---|
    | branch.py / monitor.py / hermes_monitor.md / dashboard.py / dashboard.html | solver/ | 直接覆盖（main 独有优化） |
-   | run.sh / AGENTS.md | solver/ | **手工合并**（见第 2 步） |
+   | run.sh | solver/ | **手工合并**（见第 2 步） |
+   | AGENTS.md | **仓库根** | 手工合并（codex 从 work_dir 向上只找到仓库根级 AGENTS.md，放 solver/ 下不生效） |
    | TOOLS.md | **仓库根** | 直接覆盖（AGENTS.md 引用 `../../TOOLS.md`） |
 
    不同步：main 的 challenges/ 运行产物、README、设计文档。
