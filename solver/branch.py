@@ -36,7 +36,7 @@ from pathlib import Path
 from typing import Optional
 
 CODEX_CMD = os.environ.get("CODEX_CMD", "codex")
-DEFAULT_TIMEOUT = 900  # 单个 subagent 默认 15 分钟，xhigh 推理与大型源码审计需要更多时间
+DEFAULT_TIMEOUT = 900  # 单个 subagent 默认 15 分钟（与主进程同 reasoning effort，config.toml 的 high）
 SOCKET_BACKLOG = 8
 SELECT_TIMEOUT = 1.0  # select 轮询间隔 (秒)
 RECV_BUF = 1 << 20  # 1MB
@@ -355,7 +355,7 @@ class BranchDaemon:
             env = os.environ.copy()
             env["CODEX_ROLE"] = "subagent"
             proc = subprocess.Popen(
-                [CODEX_CMD, "exec", "--dangerously-bypass-approvals-and-sandbox", "--dangerously-bypass-hook-trust", "--ignore-rules", "--disable", "guardian_approval", "-c", "model_reasoning_effort=xhigh", full_prompt],
+                [CODEX_CMD, "exec", "--dangerously-bypass-approvals-and-sandbox", "--dangerously-bypass-hook-trust", "--ignore-rules", "--disable", "guardian_approval", full_prompt],
                 stdout=open(log_file, "w"),
                 stderr=subprocess.STDOUT,
                 cwd=str(self.work_dir),

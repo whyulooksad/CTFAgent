@@ -16,7 +16,7 @@ nmap -p- --min-rate 2000 target  # 快速全端口
 ```bash
 ffuf -u http://target/FUZZ -w /usr/share/wordlists/dirb/common.txt -mc 200,301,302,401,403
 ffuf -u http://target/api/v1/FUZZ -w /usr/share/wordlists/dirb/common.txt -mc all -fc 404
-ffuf -u "http://target/page?file=FUZZ" -w /usr/share/seclists/Discovery/Web-Content/raft-small-files.txt
+ffuf -u "http://target/page?file=FUZZ" -w /usr/share/wordlists/dirb/big.txt   # 文件 fuzz（seclists 未预装，需要时 sudo apt install -y seclists）
 ffuf -u http://target/FUZZ -w dict.txt -H "X-Forwarded-For: 127.0.0.1"  # 加头
 # 常用字典位置：
 #   /usr/share/wordlists/dirb/common.txt (small)

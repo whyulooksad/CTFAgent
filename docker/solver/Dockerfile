@@ -26,7 +26,9 @@ ARG APT_MIRROR=""
 ARG NPM_REGISTRY=""
 ARG PIP_INDEX_URL=""
 
-# ── 系统工具 + CTF 工具链 (与宿主机 apt 清单对齐；不装 sqlmap/gobuster/dirsearch/wfuzz/dirb) ──
+# ── 系统工具 + CTF 工具链 (与宿主机 apt 清单对齐；不装 sqlmap/gobuster/dirsearch/wfuzz) ──
+# dirb 仅取其 wordlists (/usr/share/wordlists/dirb/{common,big}.txt，TOOLS.md 承诺路径)
+# 注意: Ubuntu 24.04 无 wordlists 包 (rockyou 拿不到)，需密码字典时 sudo apt install seclists
 # 步骤: http 源(免证书) -> 装 ca-certificates -> 换 https 源 -> 装工具
 # apt 带重试: 镜像源偶发 502
 RUN set -eux; \
@@ -41,7 +43,7 @@ RUN set -eux; \
            bash git curl wget unzip zip file jq xxd \
            python3 python3-pip python3-venv \
            nmap netcat-openbsd \
-           ffuf \
+           ffuf dirb openssl sudo \
            binwalk steghide libimage-exiftool-perl \
            binutils gdb ltrace strace socat radare2 make cmake \
            tshark foremost \
@@ -87,7 +89,14 @@ RUN git -C /opt/ctf-agent init -q
 
 # 非 root 运行支持: DockerBackend 用 --user 1000:1000 (宿主 stw uid) 跑容器，
 # 使 work_dir 文件 owner=1000 (宿主可删)；/root 需可进入以读挂载快照
-RUN chmod 755 /root
+# sudo NOPASSWD: 容器内 codex (uid 1000) 可 sudo apt 装缺的工具（AGENTS.md 承诺）
+RUN chmod 755 /root && echo 'ubuntu ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
+
+# dirb wordlists 符号链接: Ubuntu 的 dirb 包把字典放 /usr/share/dirb/wordlists/
+# （Kali 布局是 /usr/share/wordlists/dirb/），建链接保持 TOOLS.md 承诺路径可用
+RUN mkdir -p /usr/share/wordlists/dirb \
+ && ln -sf /usr/share/dirb/wordlists/common.txt /usr/share/wordlists/dirb/common.txt \
+ && ln -sf /usr/share/dirb/wordlists/big.txt /usr/share/wordlists/dirb/big.txt
 
 WORKDIR /opt/ctf-agent
 ENTRYPOINT ["bash", "/opt/ctf-agent/docker/solver/entrypoint.sh"]

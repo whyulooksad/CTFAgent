@@ -367,6 +367,7 @@ async function refresh() {
     const last = c.last_submit_status || '-';
     let ops = '';
     if (c.is_running) ops += `<button class="btn btn-danger btn-mini" onclick="stopSolver('${esc(c.id)}')">终止</button> `;
+    if (!c.is_running && (c.status === 'failed' || c.status === 'manual_stop')) ops += `<button class="btn btn-mini" onclick="retrySolver('${esc(c.id)}')">重试</button> `;
     if (c.has_logs || c.is_running) ops += `<button class="btn btn-mini" onclick="openLogs('${esc(c.id)}')">日志</button>`;
     const err = c.error && !c.flag ? `<br><span class="err">${esc(c.error.slice(0, 80))}</span>` : '';
     return `<tr class="${c.is_running ? 'running-row' : ''}">
@@ -389,6 +390,16 @@ async function stopSolver(cid) {
     method: 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({ cid }),
   });
+  refresh();
+}
+
+async function retrySolver(cid) {
+  if (!confirm(`确定重试 ${cid}？将强制重新分发做题（复用已有进度，非从 0 开始）。`)) return;
+  const d = await fetch('/api/retry', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ cid }),
+  }).then(r => r.json());
+  if (!d.retried) alert(`重试失败: ${cid} 可能不存在或正在运行`);
   refresh();
 }
 

@@ -464,11 +464,12 @@ class Master:
                 self._finalize(cid, FAILED, "solver 已结束且无待定 flag")
                 continue
 
-            # 3. 超时检测
-            if rec.started_at and time.time() - rec.started_at > self.cfg.solver_timeout:
-                self.log.warning("%s 超时 (%ds)，终止", cid, self.cfg.solver_timeout)
+            # 3. 超时检测 (多 flag 题时间放大: 基础时间 × flag 数)
+            timeout = self.cfg.solver_timeout * max(1, int(getattr(rec, "flag_count", 1) or 1))
+            if rec.started_at and time.time() - rec.started_at > timeout:
+                self.log.warning("%s 超时 (%ds)，终止", cid, timeout)
                 self.backend.stop(handle)
-                self._finalize(cid, TIMEOUT, f"solver 超时 ({self.cfg.solver_timeout}s)")
+                self._finalize(cid, TIMEOUT, f"solver 超时 ({timeout}s)")
 
     def _drain_results(self) -> None:
         """处理提交结果。"""
@@ -899,6 +900,27 @@ class Master:
             return False
         self.backend.stop(handle)
         self._finalize(cid, MANUAL_STOP, "手动终止")
+        return True
+
+    def force_retry(self, cid: str) -> bool:
+        """面板手动重试: 失败/终止的题强制重新排队分发。
+
+        语义: 复用原 work_dir (run.sh 保留 board.md/progress.md/submit_results.jsonl),
+        Codex 新会话读 board.md 恢复状态继续, 非从 0 做。
+        attempts 清零 = 完全重来, 不消耗原尝试次数; 任何状态都重发 (用户明确要求)。
+        """
+        rec = self.state.get(cid)
+        if rec is None:
+            return False
+        if rec.status == RUNNING:
+            self.log.warning("面板手动重试: %s 正在运行, 先终止再重试", cid)
+            return False
+        rec.attempts = 0
+        rec.error = ""
+        rec.finished_at = 0.0
+        rec.next_eligible_at = 0.0
+        self.state.set_status(cid, QUEUED)
+        self.log.info("面板手动重试: %s 强制重新排队 (work_dir=%s)", cid, rec.work_dir)
         return True
 
     def kill_all(self) -> dict:

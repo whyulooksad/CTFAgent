@@ -4,7 +4,7 @@
   "max_solvers": 3,
   "max_challenges": 20,
   "solver_timeout": 3600,
-  "max_retries_per_challenge": 1,
+  "max_retries_per_challenge": 2,
   "retry_value_threshold": 0.6,
   "retry_rarity_threshold": 0.7,
   "poll_interval": 15,

@@ -153,6 +153,11 @@ def _make_handler(master):
                 ok = master.stop_solver(data.get("cid", ""))
                 self._json(HTTPStatus.OK if ok else HTTPStatus.NOT_FOUND,
                            {"stopped": ok})
+            elif path == "/api/retry":
+                """手动重试: 失败/终止的题强制重新排队分发 (复用 work_dir 按 board 恢复)。"""
+                ok = master.force_retry(data.get("cid", ""))
+                self._json(HTTPStatus.OK if ok else HTTPStatus.NOT_FOUND,
+                           {"retried": ok})
             elif path == "/api/kill-all":
                 """Kill All: 停所有 solver (容器+平台靶机) + 清扫平台残留，随后 master 进程退出。"""
                 killed = master.kill_all()

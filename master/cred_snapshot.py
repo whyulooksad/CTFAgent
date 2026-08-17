@@ -104,6 +104,22 @@ def _extra_provider_sections(src: Path) -> str:
                     lines.append(f"{k} = {'true' if v else 'false'}")
                 elif isinstance(v, (int, float)):
                     lines.append(f"{k} = {v}")
+    # features 段透传 (如 multi_agent_v2 关闭: 容器 codex 走 V1 通信)
+    features = data.get("features")
+    if isinstance(features, dict):
+        for fname, fval in features.items():
+            if isinstance(fval, dict):
+                lines.append(f"\n[features.{fname}]")
+                for k, v in fval.items():
+                    if isinstance(v, str):
+                        lines.append(f'{k} = "{v}"')
+                    elif isinstance(v, bool):
+                        lines.append(f"{k} = {'true' if v else 'false'}")
+                    elif isinstance(v, (int, float)):
+                        lines.append(f"{k} = {v}")
+            elif isinstance(fval, bool):
+                lines.append(f"\n[features]")
+                lines.append(f"{fname} = {'true' if fval else 'false'}")
     return ("\n".join(lines) + "\n") if lines else ""
 
 

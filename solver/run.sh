@@ -107,15 +107,22 @@ echo ""
 
 # ─── 初始化工作目录 ───
 
+# 续跑判定: progress.md 存在且含 Target 段 = 上一轮遗留（容器重启/重试）
+# 续跑时保留 progress.md/board.md 上下文，仅全新目录才初始化模板
+IS_RESUME=0
+if [ -s "$WORK_DIR/progress.md" ] && grep -q "^## Target" "$WORK_DIR/progress.md" 2>/dev/null; then
+    IS_RESUME=1
+fi
+
 # 清理上一次运行的残留状态（同一 URL 会复用工作目录）
 # branch.sock 实际在 /tmp/ctf-agent-<uid>/ 短路径下 (AF_UNIX 108 限制)，由 socket-path 查询
 BRANCH_SOCKET=$(python3 "$SCRIPT_DIR/branch.py" socket-path --work-dir "$WORK_DIR")
 rm -f "$WORK_DIR/branch_state.json" "$BRANCH_SOCKET"
 rm -f "$WORK_DIR/branch_result_"*.md
-rm -f "$WORK_DIR/codex.log" "$WORK_DIR/hermes.log" "$WORK_DIR/monitor_state.json"
-# 全新目录才清提交记录; 续跑 (progress.md 存在) 保留 submit_results.jsonl,
-# 让 master/Hermes 知道哪些 flag 已提交 correct (防重复提交/重复攻击)
-if [ ! -f "$WORK_DIR/progress.md" ]; then
+# 全新目录才删日志与提交记录; 续跑保留 hermes.log（Hermes 历史）+ codex.log 历史
+# + submit_results.jsonl（防重复提交/重复攻击）
+if [ "$IS_RESUME" = "0" ]; then
+    rm -f "$WORK_DIR/codex.log" "$WORK_DIR/hermes.log" "$WORK_DIR/monitor_state.json"
     rm -f "$WORK_DIR/submit_result.json" "$WORK_DIR/submit_results.jsonl"
 fi
 
@@ -134,7 +141,8 @@ if [ -n "$ATTACHMENT" ]; then
     ATTACHMENT_IN_WORKDIR="$WORK_DIR/$(basename "$ATTACHMENT")"
 fi
 
-# progress.md -- 按类型区分初始内容
+# progress.md / board.md -- 全新目录才初始化模板；续跑保留上轮上下文
+if [ "$IS_RESUME" = "0" ]; then
 case "$CHALLENGE_TYPE" in
     web)
         cat > "$WORK_DIR/progress.md" << EOF
@@ -218,6 +226,10 @@ cat > "$WORK_DIR/board.md" << 'EOF'
 |----|------|---------|--------|---------|
 EOF
 
+else
+    echo "[run.sh] 续跑模式: 保留 progress.md/board.md 上下文 ($WORK_DIR)"
+fi
+
 # 空文件
 touch "$WORK_DIR/guidance.md"
 touch "$WORK_DIR/dead_ends.md"
@@ -258,7 +270,11 @@ if [ -f "$SCRIPT_DIR/hermes_monitor.md" ]; then
         SCRIPT_DIR="'"$SCRIPT_DIR"'"
         WORK_DIR="'"$WORK_DIR"'"
         INTERVAL=10
+        # 复用 warmup 建立的 session（.hermes_session 由 warmup 写入），避免双 session 竞态
         HERMES_SESSION=""
+        if [ -f "$WORK_DIR/.hermes_session" ]; then
+            HERMES_SESSION=$(cat "$WORK_DIR/.hermes_session" 2>/dev/null || true)
+        fi
 
         while true; do
             OUTPUT=$(python3 "$SCRIPT_DIR/monitor.py" --work-dir "$WORK_DIR" 2>/dev/null)
@@ -267,7 +283,18 @@ if [ -f "$SCRIPT_DIR/hermes_monitor.md" ]; then
                 echo "=== [$(date "+%H:%M:%S")] Hermes agent 被触发 ===" >> "$WORK_DIR/hermes.log"
 
                 if [ -z "$HERMES_SESSION" ]; then
-                    # 第一次触发：新会话，给完整指令，捕获 session_id
+                    # warmup 尚未建立 session：等待它完成（最多 60s）
+                    for i in $(seq 1 20); do
+                        if [ -f "$WORK_DIR/.hermes_session" ]; then
+                            HERMES_SESSION=$(cat "$WORK_DIR/.hermes_session" 2>/dev/null || true)
+                            break
+                        fi
+                        sleep 3
+                    done
+                fi
+
+                if [ -z "$HERMES_SESSION" ]; then
+                    # warmup 超时/失败：自己建新会话，给完整指令，捕获 session_id
                     # -s 预加载 ctf-supervisor-knowledge (SKILL.md 注入上下文, references 按需 skill_view)
                     RESP=$(hermes chat -q "你是 CTF 监督者。以下是 monitor.py 收集的 Codex 最新进展:
 $OUTPUT
@@ -278,6 +305,9 @@ $OUTPUT
                         -s ctf-supervisor-knowledge \
                         --quiet 2>&1) || true
                     HERMES_SESSION=$(echo "$RESP" | grep -oP "session_id:\s*\K[^\s]+" | head -1)
+                    if [ -n "$HERMES_SESSION" ]; then
+                        printf "%s" "$HERMES_SESSION" > "$WORK_DIR/.hermes_session"
+                    fi
                     echo "$RESP" >> "$WORK_DIR/hermes.log"
                 else
                     # 后续触发：复用会话，简短 prompt 即可
@@ -298,6 +328,34 @@ $OUTPUT
     ' &
     MONITOR_LOOP_PID=$!
     echo "[run.sh] Hermes monitor loop started (PID: $MONITOR_LOOP_PID, 10s interval)"
+
+    # ─── Hermes 预热: 初始化/续跑 board.md (不等 codex 日志, 与 codex 第一轮并行) ───
+    # 解决 "codex 解完题 hermes 首次初始化(~3min)还没完成" 的时序问题
+    # 后台跑不阻塞主流程; 预热只初始化 board.md, 动态监督仍由 monitor 循环驱动
+    # 续跑模式: board.md 已有上下文 → 禁止重建，改为追加维护
+    if [ "$IS_RESUME" = "1" ]; then
+        WARMUP_MSG="你是 CTF 监督者。续跑模式：请读 $SCRIPT_DIR/hermes_monitor.md 了解职责，\
+读 board.md（已有完整上下文，禁止重建/覆盖，只允许追加维护）和 progress.md，\
+确认当前进展与失败记录后继续监督。回复简短摘要。"
+    else
+        WARMUP_MSG="你是 CTF 监督者。新任务开始，请读 $SCRIPT_DIR/hermes_monitor.md 了解职责，\
+读 progress.md（如存在）和题目背景，初始化 board.md 记录目标/URL/已知信息。回复简短摘要。"
+    fi
+    (
+        # 预热建立 Hermes session，session_id 写 .hermes_session 供 monitor loop 复用
+        # （避免 warmup 与 monitor 各建一个 session 并发写 board.md 的竞态）
+        RESP=$(hermes chat -q "$WARMUP_MSG" \
+            -t terminal,file,web,search,skills \
+            -s ctf-supervisor-knowledge \
+            --quiet 2>&1) || true
+        echo "$RESP" >> "$WORK_DIR/hermes.log"
+        SID=$(echo "$RESP" | grep -oP "session_id:\s*\K[^\s]+" | head -1)
+        if [ -n "$SID" ]; then
+            printf '%s' "$SID" > "$WORK_DIR/.hermes_session"
+        fi
+    ) &
+    HERMES_WARMUP_PID=$!
+    echo "[run.sh] Hermes warmup started (PID: $HERMES_WARMUP_PID)"
 else
     echo "[run.sh] WARNING: hermes_monitor.md not found, skipping monitor"
 fi
@@ -311,6 +369,10 @@ cleanup() {
     if [ -n "$MONITOR_LOOP_PID" ]; then
         kill $MONITOR_LOOP_PID 2>/dev/null || true
         echo "[run.sh] Hermes monitor loop stopped"
+    fi
+    if [ -n "${HERMES_WARMUP_PID:-}" ]; then
+        kill $HERMES_WARMUP_PID 2>/dev/null || true
+        echo "[run.sh] Hermes warmup stopped"
     fi
 
     python3 "$SCRIPT_DIR/branch.py" shutdown --work-dir "$WORK_DIR" 2>/dev/null || true
@@ -331,9 +393,8 @@ case "$CHALLENGE_TYPE" in
         CODEX_PROMPT="目标: $TARGET_URL
 背景: $HINT
 
-再读 board.md 了解当前 ideas 和 memory 状态。
-再读 progress.md 了解当前进度。
-然后继续解题。
+【第一步必做】先 cat board.md 和 progress.md 恢复上下文（board.md 含已知结论/失败记录/当前方向，progress.md 含当前进度）。
+未读完这两个文件前，禁止执行任何攻击命令。读完后再继续解题。
 每次工具调用后更新 progress.md。"
         ;;
     crypto|misc)
@@ -341,9 +402,8 @@ case "$CHALLENGE_TYPE" in
 背景: $HINT
 
 这是一个 $CHALLENGE_TYPE 题目。附件已复制到工作目录。
-再读 board.md 了解当前 ideas 和 memory 状态。
-再读 progress.md 了解当前进度。
-然后开始解题: 先解压/识别附件，分析文件内容，寻找 flag。
+【第一步必做】先 cat board.md 和 progress.md 恢复上下文（board.md 含已知结论/失败记录/当前方向，progress.md 含当前进度）。
+未读完这两个文件前，禁止执行任何攻击命令。读完后再开始解题: 先解压/识别附件，分析文件内容，寻找 flag。
 每次工具调用后更新 progress.md。"
         ;;
     binary)
@@ -352,9 +412,8 @@ case "$CHALLENGE_TYPE" in
 背景: $HINT
 
 这是一个二进制安全题目。远程服务: $TARGET_URL${ATTACHMENT_IN_WORKDIR:+，制品附件已复制到工作目录}。
-再读 board.md 了解当前 ideas 和 memory 状态。
-再读 progress.md 了解当前进度。
-然后开始解题: 先逆向分析附件/探测远程服务协议，定位内存安全缺陷或逻辑漏洞，
+【第一步必做】先 cat board.md 和 progress.md 恢复上下文（board.md 含已知结论/失败记录/当前方向，progress.md 含当前进度）。
+未读完这两个文件前，禁止执行任何攻击命令。读完后再开始解题: 先逆向分析附件/探测远程服务协议，定位内存安全缺陷或逻辑漏洞，
 编写 exploit (pwntools 可用) 从远程服务读取 flag。工具用法见 $SCRIPT_DIR/TOOLS.md。
 每次工具调用后更新 progress.md。"
         ;;
@@ -369,7 +428,10 @@ CODEX_PROMPT="$CODEX_PROMPT
   python3 branch.py status --work-dir .          # 查看所有 subagent 状态
   python3 branch.py results --work-dir . <id>    # 读已完成结果
   python3 branch.py kill --work-dir . <id>       # 终止不需要的方向
-spawn 后继续你的主攻方向，定期 status 查状态；某方向 FEASIBLE 就深入、INFEASIBLE 就 kill。"
+spawn 后继续你的主攻方向，定期 status 查状态；某方向 FEASIBLE 就深入、INFEASIBLE 就 kill。
+
+禁止联网搜索: 不要使用 web search / 上网搜答案 / 搜 CVE 或 WP。所有情报必须通过
+对靶机的实际探测获取 (curl/nmap/ffuf/python3 等)。这是硬性要求。"
 
 # 多 flag 题: prompt 声明总数量与续跑语义 (每轮 codex 都带上)
 if [ "$FLAG_COUNT" -gt 1 ] 2>/dev/null; then
@@ -383,15 +445,54 @@ Flags Found 段 (一行一个)。"
 fi
 
 RETRY=0
+
+# 全新目录: 等待 Hermes 预热完成 board.md 初始化（Codex 首轮启动前 board 必须有上下文）
+if [ "$IS_RESUME" = "0" ]; then
+    echo "[run.sh] 等待 Hermes 初始化 board.md (最长 90s)..."
+    for i in $(seq 1 30); do
+        if grep -q "^| M[0-9]" "$WORK_DIR/board.md" 2>/dev/null; then
+            echo "[run.sh] board.md 已就绪 ($(grep -c '^| M[0-9]' "$WORK_DIR/board.md") 条 Memory)"
+            break
+        fi
+        sleep 3
+    done
+    if ! grep -q "^| M[0-9]" "$WORK_DIR/board.md" 2>/dev/null; then
+        echo "[run.sh] WARNING: board.md 未就绪（Hermes 预热超时），Codex 将自行读 board 并继续"
+    fi
+fi
+
 while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
     echo ""
     echo "=== Codex round $((RETRY+1))/$MAX_RETRIES ==="
 
     cd "$WORK_DIR"
-    codex exec --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust \
-      --ignore-rules --disable guardian_approval -c model_reasoning_effort="xhigh" \
-      "$CODEX_PROMPT" \
-        < /dev/null > codex.log 2>&1 || true
+    # codex exec 带同轮快速重试: deepseek responses API 偶发 "No tool output found"
+    # (第三方模型工具往返 bug，V1 模式仍可能触发)。非 0 退出且日志含该错误时
+    # 原地重试同轮 (最多 3 次)，避免偶发错误直接丢掉一整轮。
+    EXEC_FAILED=0
+    for attempt in 1 2 3; do
+        codex exec --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust \
+          --ignore-rules --disable guardian_approval \
+          "$CODEX_PROMPT" \
+            < /dev/null > codex.log 2>&1
+        EXIT_CODE=$?
+        if [ $EXIT_CODE -eq 0 ]; then
+            EXEC_FAILED=0
+            break
+        fi
+        if [ $INTERRUPTED -eq 1 ]; then
+            break
+        fi
+        if grep -q "No tool output found" codex.log 2>/dev/null; then
+            echo "[run.sh] codex 工具往返偶发错误 (attempt $attempt/3)，快速重试同轮 (exit=$EXIT_CODE)"
+            sleep 5
+            EXEC_FAILED=1
+        else
+            echo "[run.sh] codex exec 退出码 $EXIT_CODE (非工具往返错误)，进入收工检查"
+            EXEC_FAILED=1
+            break
+        fi
+    done
 
     # Ctrl+C 被按下 -> 不续跑，直接退出
     if [ $INTERRUPTED -eq 1 ]; then
