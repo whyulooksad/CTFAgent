@@ -514,6 +514,26 @@ class Master:
                 self.log.warning("%s flag 提交错误: %s (solver 继续跑)", cid, flag)
             else:  # error / skipped
                 self.log.error("%s 提交未成功 (%s): %s", cid, status, res.get("message", ""))
+            # 回写平台判定到 work_dir (run.sh 收工确认制: solver 据此决定收工还是继续)
+            self._write_submit_result(rec, flag, status, res.get("message", ""))
+
+    def _write_submit_result(self, rec, flag: str, status: str, message: str) -> None:
+        """把平台判定追加写回 work_dir/submit_results.jsonl，run.sh 据此纠错/收工。
+        追加式 (jsonl) 而非单文件覆盖: 多 flag 题多次提交不丢结果。"""
+        wd = getattr(rec, "work_dir", None)
+        if not wd:
+            return
+        try:
+            path = Path(wd) / "submit_results.jsonl"
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(json.dumps({
+                    "flag": flag,
+                    "status": status,
+                    "message": message[:200],
+                    "time": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                }, ensure_ascii=False) + "\n")
+        except OSError:
+            pass
 
     def _recycle_for_next_flag(self, rec) -> None:
         """
@@ -856,6 +876,15 @@ class Master:
             from adapters.live import LiveAdapter
             candidate = LiveAdapter(base_url, token)
         metas = candidate.list_challenges()  # 连通性验证，失败抛异常
+        # 接入成功即清扫平台残留靶机 (面板模式启动时 adapter 为空，启动清扫不生效，补这里)
+        closer = getattr(candidate, "close_all_active", None)
+        if closer:
+            try:
+                n = int(closer() or 0)
+                if n:
+                    self.log.info("平台接入清扫: 关闭 %d 个残留活跃靶机", n)
+            except Exception as e:
+                self.log.warning("平台接入清扫失败: %s", e)
         self.adapter = candidate
         self.platform_connected = True
         self.platform_info = {"base_url": base_url, "token": "***" if token else ""}

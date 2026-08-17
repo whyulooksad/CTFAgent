@@ -1,7 +1,7 @@
 {
   "adapter": "none",
   "backend": "process",
-  "max_solvers": 5,
+  "max_solvers": 3,
   "max_challenges": 20,
   "solver_timeout": 3600,
   "max_retries_per_challenge": 1,

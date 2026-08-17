@@ -96,6 +96,7 @@ BRANCH_SOCKET=$(python3 "$SCRIPT_DIR/branch.py" socket-path --work-dir "$WORK_DI
 rm -f "$WORK_DIR/branch_state.json" "$BRANCH_SOCKET"
 rm -f "$WORK_DIR/branch_result_"*.md
 rm -f "$WORK_DIR/codex.log" "$WORK_DIR/hermes.log" "$WORK_DIR/monitor_state.json"
+rm -f "$WORK_DIR/submit_result.json" "$WORK_DIR/submit_results.jsonl"
 
 mkdir -p "$WORK_DIR/poc_scripts"
 
@@ -365,34 +366,127 @@ while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
         break
     fi
 
-    # 检查 progress.md 的 Flags Found 段 (Codex 主动声明的，不碰 codex.log)
-    # 注意: grep 无匹配时返回 1，不能用 set -e 让它退出整个脚本
-    # 注意: 过滤 HTML 注释 (Codex/branch 会写 <!-- --> 进度笔记到 Flags Found 段)
-    # 注意: 模型偶尔会把进度笔记写进该段 (如 "- 2026-08-15: 已读取xx，准备继续侦察")，
-    #       所以加"像 flag"过滤: 含空格/中文/日期前缀、超长的行都是笔记，不算 flag
-    #       (与 master/challenge_state.py 的 _looks_like_flag 一致)
-    #       中文过滤用 python3 而非 grep '[一-鿿]'——后者依赖 locale collation，
-    #       C.UTF-8 下会报 "Invalid collation character" (WSL 实测)
-    FLAGS=$(awk '/^## *Flags Found/{f=1;next} /^##/{f=0} f' "$WORK_DIR/progress.md" \
+    # ── 收工确认制 (每轮先纠错，再判定通关) ──
+    # 1. 纠错: 从 submit_results.jsonl 找平台判定 wrong 的 flag → 清 progress.md + 写 dead_ends。
+    #    与"是否拿满"解耦: 多 flag 中途的假 flag 也当场纠错，Codex 下轮绕开。
+    python3 - "$WORK_DIR" << 'PYEOF' || true
+import sys, os, json
+work_dir = sys.argv[1]
+pp = os.path.join(work_dir, "progress.md")
+jr = os.path.join(work_dir, "submit_results.jsonl")
+de = os.path.join(work_dir, "dead_ends.md")
+if not os.path.exists(jr):
+    sys.exit(0)
+try:
+    records = [json.loads(l) for l in open(jr, encoding="utf-8") if l.strip()]
+    bad = list(dict.fromkeys(r["flag"] for r in records if r.get("status") == "wrong"))
+except Exception:
+    sys.exit(0)
+if not bad:
+    sys.exit(0)
+try:
+    lines = open(pp, encoding="utf-8").read().splitlines(keepends=True)
+    in_flags = False
+    out = []
+    for ln in lines:
+        if ln.startswith("## Flags Found"):
+            in_flags = True
+            out.append(ln)
+            continue
+        if in_flags and ln.startswith("## "):
+            in_flags = False
+        if in_flags and any(b in ln for b in bad):
+            continue  # 移除假 flag 行
+        out.append(ln)
+    open(pp, "w", encoding="utf-8").writelines(out)
+except Exception:
+    pass
+try:
+    existing = open(de, encoding="utf-8").read() if os.path.exists(de) else ""
+    with open(de, "a", encoding="utf-8") as f:
+        for b in bad:
+            if b not in existing:
+                f.write(f"\n🚫 平台判定错误: {b} —— 假 flag/诱饵 (已提交被平台拒绝)，禁止再提交；"
+                        f"继续挖掘其他攻击面/凭据/文件。\n")
+except Exception:
+    pass
+PYEOF
+
+    # 2. 检测 progress.md 的 Flags Found 段 (Codex 主动声明的，不碰 codex.log)
+    #    注意: 过滤 HTML 注释 / 进度笔记 (与 master/challenge_state.py 的 _looks_like_flag 一致)
+    FLAGS_ALL=$(awk '/^## *Flags Found/{f=1;next} /^##/{f=0} f' "$WORK_DIR/progress.md" \
         | grep -v '^(无)' | grep -v '^<!--' | grep -v '^$' \
         | grep -v ' ' \
         | python3 -c "import sys; [print(l.rstrip()) for l in sys.stdin if not any('\u4e00' <= c <= '\u9fff' for c in l)]" \
-        | awk 'length($0) <= 128 && $0 !~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/' \
-        | head -1 || true)
-    # 多 flag 题: 统计已得 flag 数，拿满 FLAG_COUNT 个才算完成 (单 flag 行为不变)
-    FLAGS_COUNT=$(awk '/^## *Flags Found/{f=1;next} /^##/{f=0} f' "$WORK_DIR/progress.md" \
-        | grep -v '^(无)' | grep -v '^<!--' | grep -v '^$' \
-        | grep -v ' ' \
-        | python3 -c "import sys; [print(l.rstrip()) for l in sys.stdin if not any('\u4e00' <= c <= '\u9fff' for c in l)]" \
-        | awk 'length($0) <= 128 && $0 !~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/' \
-        | wc -l | tr -d ' ' || true)
-    if [ -n "$FLAGS" ]; then
+        | awk 'length($0) <= 128 && $0 !~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/' || true)
+    FLAGS_COUNT=$(echo "$FLAGS_ALL" | grep -c . 2>/dev/null | tr -d ' ' || true)
+    FIRST_FLAG=$(echo "$FLAGS_ALL" | head -1)
+    if [ -n "$FIRST_FLAG" ]; then
         if [ "$FLAGS_COUNT" -ge "$FLAG_COUNT" ] 2>/dev/null || [ "$FLAG_COUNT" = "1" ]; then
             echo ""
             echo "=== FLAG FOUND! (${FLAGS_COUNT}/${FLAG_COUNT} 全部拿到) ==="
-            echo "$FLAGS"
-            echo "=== Check codex.log for details ==="
-            break
+            echo "$FLAGS_ALL"
+            # 3. 收工确认: 等所有有效 flag 都有平台判定 (submit_results.jsonl 追加记录)。
+            #    全 correct → 收工; 有 wrong → 下轮开头纠错后继续; 超时/无 master → 原行为收工
+            echo "=== 等待平台确认 (最长 120s) ==="
+            CONFIRMED=""
+            for i in $(seq 1 24); do
+                RESULT=$(python3 - "$WORK_DIR" << 'PYEOF' || true
+import sys, os, json, re
+work_dir = sys.argv[1]
+jr = os.path.join(work_dir, "submit_results.jsonl")
+if not os.path.exists(jr):
+    print("PENDING"); sys.exit(0)
+try:
+    records = [json.loads(l) for l in open(jr, encoding="utf-8") if l.strip()]
+    statuses = {r["flag"]: r["status"] for r in records}
+except Exception:
+    print("PENDING"); sys.exit(0)
+# 当前 progress.md 的有效 flag (与 run.sh 过滤同规则)
+try:
+    text = open(os.path.join(work_dir, "progress.md"), encoding="utf-8").read()
+    seg = re.split(r"^## *Flags Found\b", text, flags=re.M)[1]
+    seg = re.split(r"^## ", seg, flags=re.M)[0]
+    flags = []
+    for ln in seg.splitlines():
+        ln = ln.strip()
+        if not ln or ln == "(无)" or ln.startswith("<!--") or " " in ln:
+            continue
+        if any("\u4e00" <= c <= "\u9fff" for c in ln) or len(ln) > 128:
+            continue
+        flags.append(ln)
+except Exception:
+    flags = []
+if not flags:
+    print("PENDING"); sys.exit(0)
+missing = [f for f in flags if f not in statuses]
+if missing:
+    print("PENDING"); sys.exit(0)
+if all(statuses[f] == "correct" for f in flags):
+    print("CORRECT")
+else:
+    print("WRONG")
+PYEOF
+)
+                if [ "$RESULT" = "CORRECT" ]; then
+                    CONFIRMED=correct
+                    break
+                elif [ "$RESULT" = "WRONG" ]; then
+                    CONFIRMED=wrong
+                    break
+                fi
+                sleep 5
+            done
+            if [ "$CONFIRMED" = "correct" ]; then
+                echo "=== 平台确认 FLAG ACCEPTED! ==="
+                break
+            elif [ "$CONFIRMED" = "wrong" ]; then
+                echo "=== 部分 flag 平台判定错误，已记录纠错，继续挖 ==="
+                # 不 break: 下一轮开头纠错 python 会清假 flag + 写 dead_ends
+            else
+                echo "[run.sh] 未收到平台确认 (超时/无 master)，按原行为收工"
+                break
+            fi
         fi
         echo ""
         echo "=== FLAG FOUND (${FLAGS_COUNT}/${FLAG_COUNT})，多 flag 未拿满，继续攻剩余 ==="
