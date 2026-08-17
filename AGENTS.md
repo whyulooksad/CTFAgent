@@ -83,6 +83,9 @@
 
 遇到分岔路口 (2+ 可行方向需要验证) 时，使用 branch.py daemon 异步管理 subagent：
 
+说明：工作目录里有一个 `branch.py` 转发 stub，下列相对路径命令可直接用；
+若 stub 不可用，改绝对路径 `python3 ../../solver/branch.py ...`。
+
 ```bash
 # 1. spawn: 启动一个试探 subagent (立即返回，不阻塞)
 python3 branch.py spawn --work-dir . --name "方向名" --prompt "..."

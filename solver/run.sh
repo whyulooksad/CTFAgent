@@ -101,6 +101,20 @@ rm -f "$WORK_DIR/codex.log" "$WORK_DIR/hermes.log" "$WORK_DIR/monitor_state.json
 
 mkdir -p "$WORK_DIR/poc_scripts"
 
+# branch.py 转发 stub: AGENTS.md 教 codex 在 work_dir 里用相对路径调 branch.py，
+# 但真实文件在 <REPO_ROOT>/solver/branch.py (重组后不在 work_dir 同级)。
+# stub 让 `python3 branch.py ...` 直接可用 (进程/docker 两种后端路径都对)。
+cat > "$WORK_DIR/branch.py" << 'PYEOF'
+#!/usr/bin/env python3
+"""转发到 solver/branch.py (work_dir 相对路径兼容 stub)。"""
+import os
+import sys
+
+real = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                    "..", "..", "solver", "branch.py")
+os.execv(sys.executable, [sys.executable, real] + sys.argv[1:])
+PYEOF
+
 # crypto/misc: 复制附件到工作目录
 if [ -n "$ATTACHMENT" ]; then
     cp "$ATTACHMENT" "$WORK_DIR/"
