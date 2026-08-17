@@ -144,6 +144,10 @@
 <div class="section">
   <div class="sec-title">平台接入<div style="font-size:10px;color:#484f58">赛方 API</div></div>
   <div class="inline-row">
+    <select id="in-adapter" class="in-api" style="width:110px">
+      <option value="live">通用 API</option>
+      <option value="tsec">腾讯 TSec</option>
+    </select>
     <input type="text" class="in-api" id="in-api" placeholder="API 地址，如 http://host:port">
     <input type="password" class="in-token" id="in-token" placeholder="Token (可选)">
     <button class="btn" onclick="connectPlatform()">接入</button>
@@ -269,6 +273,7 @@ async function submitChallenges() {
 
 /* ── 平台接入 ── */
 async function connectPlatform() {
+  const adapter_type = document.getElementById('in-adapter').value;
   const base_url = document.getElementById('in-api').value.trim();
   const token = document.getElementById('in-token').value.trim();
   const msg = document.getElementById('plat-msg');
@@ -277,7 +282,7 @@ async function connectPlatform() {
   try {
     const r = await fetch('/api/connect-platform', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ base_url, token }),
+      body: JSON.stringify({ adapter_type, base_url, token }),
     });
     const d = await r.json();
     if (r.ok) { msg.className = 'msg ok'; msg.textContent = `✓ 已接入，拉到 ${d.challenges} 道题`; }

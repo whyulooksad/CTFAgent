@@ -180,11 +180,12 @@ def _make_handler(master):
                 """平台接入: 手动输入赛方 API 地址 + Token，热切换并拉题。"""
                 base_url = data.get("base_url", "")
                 token = data.get("token", "")
+                adapter_type = data.get("adapter_type", "live")
                 if not base_url:
                     self._json(HTTPStatus.BAD_REQUEST, {"error": "base_url 不能为空"})
                     return
                 try:
-                    info = master.connect_platform(base_url, token)
+                    info = master.connect_platform(base_url, token, adapter_type)
                 except ValueError as e:
                     self._json(HTTPStatus.BAD_REQUEST, {"error": str(e)})
                     return

@@ -821,24 +821,31 @@ class Master:
             source="manual",
         )
 
-    def connect_platform(self, base_url: str, token: str = "") -> dict:
+    def connect_platform(self, base_url: str, token: str = "", adapter_type: str = "live") -> dict:
         """
-        面板「平台接入」: 热切换到真实赛方 API (LiveAdapter) 并立即拉题。
+        面板「平台接入」: 热切换到真实赛方 API 并立即拉题。
+        adapter_type: live(通用赛方 API) / tsec(腾讯 TSec openapi)。
         base_url/token 由用户在面板手动输入 (参考赛方提供的接入信息)。
         """
         base_url = base_url.strip()
         if not base_url.startswith(("http://", "https://")):
             raise ValueError("API 地址必须以 http:// 或 https:// 开头")
-        from adapters.live import LiveAdapter
-        candidate = LiveAdapter(base_url, token)
+        if adapter_type == "tsec":
+            from adapters.tsec import TSecAdapter
+            if not token:
+                raise ValueError("TSec 接入需要 Token (BENCHMARK_TOKEN)")
+            candidate = TSecAdapter(base_url, token)
+        else:
+            from adapters.live import LiveAdapter
+            candidate = LiveAdapter(base_url, token)
         metas = candidate.list_challenges()  # 连通性验证，失败抛异常
         self.adapter = candidate
         self.platform_connected = True
         self.platform_info = {"base_url": base_url, "token": "***" if token else ""}
         for meta in metas:
             self.state.sync_challenge(meta)
-        self.log.info("平台已接入: %s，拉到 %d 道题", base_url, len(metas))
-        return {"base_url": base_url, "challenges": len(metas)}
+        self.log.info("平台已接入(%s): %s，拉到 %d 道题", adapter_type, base_url, len(metas))
+        return {"base_url": base_url, "adapter": adapter_type, "challenges": len(metas)}
 
     def stop_solver(self, cid: str) -> bool:
         handle = self.running.get(cid)
