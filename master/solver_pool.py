@@ -127,14 +127,12 @@ class ProcessBackend(SolverBackend):
 
     @staticmethod
     def _predict_work_dir(ch: Challenge) -> Path:
-        # binary: url 决定 work_dir (附件可选)，与 run.sh 的 binary 分支一致
-        if ch.type == "web" or (ch.type == "binary" and ch.url):
-            digest = hashlib.md5(ch.url.encode()).hexdigest()[:12]
-            name = f"manual_{ch.type}_{digest}"
-        else:
-            digest = hashlib.md5(str(ch.attachment_path).encode()).hexdigest()[:12]
-            name = f"manual_{ch.type}_{digest}"
-        return CHALLENGES_DIR / name
+        # work_dir 按 challenge id 生成。
+        # 不能按 url 哈希: 平台并发实例 IP 会复用 (并发上限 3 只有 3 个 IP)，
+        # 不同题在不同时间 start 可能拿到相同 url -> 目录撞车 -> 互相踩踏清空。
+        # 用 id: 同题重试一定同目录 (续跑语义保持)，不同题一定不同目录。
+        digest = hashlib.md5(ch.id.encode()).hexdigest()[:12]
+        return CHALLENGES_DIR / f"manual_{ch.type}_{digest}"
 
     def is_alive(self, handle: SolverHandle) -> bool:
         return handle.proc is not None and handle.proc.poll() is None
