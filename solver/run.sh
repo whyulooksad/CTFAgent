@@ -91,7 +91,9 @@ case "$CHALLENGE_TYPE" in
         ;;
 esac
 
-MAX_RETRIES=10
+# 多 flag 题需要更多轮次: 基线 10 轮 × flag 数 (每 flag 可能要好几轮 codex)
+# 单 flag 题保持 10 轮。避免 b 系列多 flag 题 1/4 就被轮次耗尽掐断。
+MAX_RETRIES=$(( 10 * FLAG_COUNT ))
 WORK_DIR="$REPO_ROOT/challenges/$WORK_DIR_NAME"
 
 echo "=== CTF Agent 启动 ==="
@@ -111,7 +113,11 @@ BRANCH_SOCKET=$(python3 "$SCRIPT_DIR/branch.py" socket-path --work-dir "$WORK_DI
 rm -f "$WORK_DIR/branch_state.json" "$BRANCH_SOCKET"
 rm -f "$WORK_DIR/branch_result_"*.md
 rm -f "$WORK_DIR/codex.log" "$WORK_DIR/hermes.log" "$WORK_DIR/monitor_state.json"
-rm -f "$WORK_DIR/submit_result.json" "$WORK_DIR/submit_results.jsonl"
+# 全新目录才清提交记录; 续跑 (progress.md 存在) 保留 submit_results.jsonl,
+# 让 master/Hermes 知道哪些 flag 已提交 correct (防重复提交/重复攻击)
+if [ ! -f "$WORK_DIR/progress.md" ]; then
+    rm -f "$WORK_DIR/submit_result.json" "$WORK_DIR/submit_results.jsonl"
+fi
 
 mkdir -p "$WORK_DIR/poc_scripts"
 

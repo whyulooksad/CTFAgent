@@ -61,6 +61,14 @@
   并给出具体的 spawn 命令示例（python3 branch.py spawn --work-dir . --name ... --prompt ...）。
   这是高优先级介入——subagent 并行是解题效率关键，deepseek 等模型常忘记用，你要主动提醒。
 
+### 0.5 Codex 重启/续跑时，先确认哪些 flag 已拿到吗？
+如果日志显示 Codex 刚重启/续跑（重新读 board.md / progress.md，或 codex.log 出现新 session 头）：
+- 先读 `submit_results.jsonl`（续跑时 run.sh 会保留它），提取 status=correct 的 flag
+- 再读 progress.md 和 board.md，确认这些 flag 是否已记录
+- **已拿 flag 必须写进 board.md 的 Memory**（如 "flag1 = flag{xxx} 已提交 correct，勿重复攻击其入口/勿重复提交"）
+- 如果发现 Codex 在重复攻击已拿 flag 的入口，写 guidance.md 或 dead_ends.md 拦住
+- 这是防重复提交的关键——多 flag 题重试/续跑时最容易犯
+
 ### 1. Codex 发现了新线索吗？
 比如日志里出现了新技术栈、新端口、新入口点、新漏洞类型。
 - 是 -> 这是你帮 Codex 找新路的机会。把你想到的思路写进 guidance.md。

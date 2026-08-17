@@ -47,7 +47,7 @@ def rule_order(records: Sequence) -> list:
     def key(r):
         ease = r.solve_count / max_solves
         value = r.score / max_score
-        base = 0.5 * ease + 0.5 * value
+        base = 0.7 * ease + 0.3 * value
         return (-base, -r.solve_count, -r.score)
 
     return sorted(items, key=key)
