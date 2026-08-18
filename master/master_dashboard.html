@@ -164,14 +164,11 @@
     <label style="color:#8b949e">引擎
       <select id="sel-agent-cli" style="background:#161b22;color:#c9d1d9;border:1px solid #30363d;border-radius:4px;padding:2px 6px">
         <option value="codex">codex</option>
-        <option value="claude">claude (CC)</option>
+        <option value="claude">claude</option>
       </select>
     </label>
     <button class="btn" onclick="applyConfig()">应用</button>
     <span class="msg" id="config-msg"></span>
-  </div>
-  <div class="inline-row" style="margin-top:8px;font-size:11px;color:#8b949e">
-    引擎切换对新容器生效，运行中的容器保持原引擎（需 Kill All 或等终态后重分发生效）
   </div>
   <div class="inline-row" style="margin-top:8px">
     <button class="btn" style="background:#da3633;border-color:#da3633" onclick="killAll()">Kill All（停全部 + 退出 master）</button>

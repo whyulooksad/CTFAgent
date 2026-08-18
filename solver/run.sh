@@ -36,15 +36,9 @@ case "$AGENT_CLI" in
 esac
 echo "[run.sh] 引擎: $AGENT_CLI"
 
-# Hermes 监督指令文件: 按引擎选 (codex 用原名 "Codex" 称呼, claude 用中性化版)
-# hermes_monitor.claude.md 是 hermes_monitor.md 的称呼中性化副本, 机制完全一致
-if [ "$AGENT_CLI" = "claude" ] && [ -f "$SCRIPT_DIR/hermes_monitor.claude.md" ]; then
-    HERMES_MONITOR="$SCRIPT_DIR/hermes_monitor.claude.md"
-    AGENT_NAME="主解题 Agent"
-else
-    HERMES_MONITOR="$SCRIPT_DIR/hermes_monitor.md"
-    AGENT_NAME="Codex"
-fi
+# Hermes 监督指令文件 (称呼中性化, 双引擎通用)
+HERMES_MONITOR="$SCRIPT_DIR/hermes_monitor.md"
+AGENT_NAME="主解题 Agent"
 
 # ─── 参数解析 ───
 
@@ -158,21 +152,17 @@ fi
 # 全新目录才删日志与提交记录; 续跑保留 hermes.log（Hermes 历史）+ codex.log 历史
 # + submit_results.jsonl（防重复提交/重复攻击）
 if [ "$IS_RESUME" = "0" ]; then
-    rm -f "$WORK_DIR/codex.log"
+    rm -f "$WORK_DIR/codex.log" "$WORK_DIR/codex.raw.log"
     rm -f "$WORK_DIR/hermes.log" "$WORK_DIR/monitor_state.json"
     rm -f "$WORK_DIR/submit_result.json" "$WORK_DIR/submit_results.jsonl"
 fi
 
 mkdir -p "$WORK_DIR/poc_scripts"
 
-# AGENTS.md 副本: Codex/Claude 从 work_dir (cwd) 加载，solver/ 下的 AGENTS 不在向上查找路径上
+# AGENTS.md 副本: 主解题 Agent 从 work_dir (cwd) 加载，solver/ 下的 AGENTS 不在向上查找路径上
 # (work_dir=challenges/<name>/ -> challenges/ -> 根，均无 AGENTS.md)，必须复制到 cwd
-# 按引擎选版本: claude 用 AGENTS.claude.md (角色中性 + subagent 协议强调)
-if [ "$AGENT_CLI" = "claude" ] && [ -f "$SCRIPT_DIR/AGENTS.claude.md" ]; then
-    cp "$SCRIPT_DIR/AGENTS.claude.md" "$WORK_DIR/AGENTS.md"
-else
-    cp "$SCRIPT_DIR/AGENTS.md" "$WORK_DIR/AGENTS.md"
-fi
+# 中性化版本双引擎通用 (codex/claude 均读同一份)
+cp "$SCRIPT_DIR/AGENTS.md" "$WORK_DIR/AGENTS.md"
 # branch.py 副本: AGENTS.md 的 subagent 规则用裸 `python3 branch.py ...` (cwd=work_dir)，
 # 脚本本体在 solver/，不复制则 Codex 找不到、subagent 能力失效
 cp "$SCRIPT_DIR/branch.py" "$WORK_DIR/branch.py"
@@ -593,10 +583,13 @@ while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
         EXIT_CODE=0
         if [ "$AGENT_CLI" = "claude" ]; then
             # claude -p 非交互: [flags] [--resume <sid>] <prompt>
+            # stream-json 输出含大量 thinking_tokens 思维链计数噪音 → 写文件前过滤
             claude -p "${AGENT_EXEC_EXTRA[@]}" \
               ${RESUME_ARGS[@]+"${RESUME_ARGS[@]}"} \
               "$CODEX_PROMPT" \
-                < /dev/null > codex.log 2>&1 || EXIT_CODE=$?
+                < /dev/null > codex.raw.log 2>&1 || EXIT_CODE=$?
+            grep -v '"subtype":"thinking_tokens"' codex.raw.log > codex.log || true
+            rm -f codex.raw.log
         else
             # codex exec: [flags] [resume <sid>] <prompt>
             codex exec "${AGENT_EXEC_EXTRA[@]}" \

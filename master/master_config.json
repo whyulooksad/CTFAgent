@@ -14,7 +14,7 @@
  "max_submit_per_challenge": 3,
  "dashboard_port": 8081,
  "docker_image": "ctf-solver:latest",
- "agent_cli": "codex",
+ "agent_cli": "claude",
  "resident": true,
  "state_file": "master_state.json",
  "log_file": "master.log"

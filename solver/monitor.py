@@ -94,7 +94,12 @@ def parse_board(path: Path) -> dict:
 
 
 def read_log_increment(path: Path, state: MonitorState) -> str:
-    """读取 codex.log 的增量内容 (从上次位置到现在)。"""
+    """读取 codex.log 的增量内容 (从上次位置到现在)。
+
+    claude 引擎下 codex.log 是 stream-json JSONL，deepseek 思维链会产生大量
+    thinking_tokens 计数消息 (每 1-2 token 一条) —— 纯噪音且撑大日志。
+    这里过滤掉它们，只留 assistant/tool 等有效消息给 Hermes 判断。
+    """
     if not path.exists():
         return ""
     size = path.stat().st_size
@@ -106,8 +111,15 @@ def read_log_increment(path: Path, state: MonitorState) -> str:
     if size > offset:
         with open(path, "r", errors="replace") as f:
             f.seek(offset)
-            increment = f.read()
+            raw = f.read()
         state.last_log_offset = size
+        # 过滤 thinking_tokens 噪音行 (JSONL 单行 JSON 直接按行过滤)
+        lines = []
+        for ln in raw.splitlines():
+            if '"subtype":"thinking_tokens"' in ln or '"subtype":"thinking_delta"' in ln:
+                continue
+            lines.append(ln)
+        increment = "\n".join(lines)
     return increment
 
 
