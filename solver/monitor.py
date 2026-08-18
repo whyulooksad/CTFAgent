@@ -2,11 +2,11 @@
 """
 monitor.py -- Hermes 的眼睛。
 
-持续 tail codex.log，每次把最新日志增量 + progress.md 状态输出给 Hermes agent。
+持续 tail agent.log，每次把最新日志增量 + progress.md 状态输出给 Hermes agent。
 Hermes agent 看到这些信息后，自己判断该不该给建议(guidance.md)、该不该搜(CTF WP/CVE)、该不该拦(dead_ends.md)。
 
 有新日志 -> 输出 JSON (触发 Hermes agent 介入)
-无新日志但日志停滞 >5min -> 输出 stale 信号 (Codex 可能卡住)
+无新日志但日志停滞 >5min -> 输出 stale 信号 (解题 Agent 可能卡住)
 无新日志且正常 -> 静默 (不触发 agent, 省 token)
 
 Usage:
@@ -38,7 +38,7 @@ FLAG_PATTERN = re.compile(r"(?:flag|ctf)\{[^}]+\}", re.IGNORECASE)
 @dataclass
 class MonitorState:
     """跨轮次持久化的状态。"""
-    last_log_offset: int = 0  # 上次读到的 codex.log 位置
+    last_log_offset: int = 0  # 上次读到的 agent.log 位置
     start_time: float = 0.0
 
     def to_dict(self) -> dict:
@@ -78,11 +78,11 @@ def parse_progress(path: Path) -> dict:
 
 
 def read_log_increment(path: Path, state: MonitorState) -> str:
-    """读取 codex.log 的增量内容 (从上次位置到现在)。"""
+    """读取 agent.log 的增量内容 (从上次位置到现在)。"""
     if not path.exists():
         return ""
     size = path.stat().st_size
-    # 日志被截断或重置 (新轮次 codex.log 被覆盖)
+    # 日志被截断或重置 (新轮次 agent.log 被覆盖)
     if size < state.last_log_offset:
         state.last_log_offset = 0
     offset = state.last_log_offset
@@ -138,7 +138,7 @@ def run_monitor(work_dir: Path) -> Optional[dict]:
         state.start_time = time.time()
 
     progress = parse_progress(work_dir / "progress.md")
-    log_path = work_dir / "codex.log"
+    log_path = work_dir / "agent.log"
 
     # 读日志增量
     log_increment = read_log_increment(log_path, state)
@@ -188,7 +188,7 @@ def run_monitor(work_dir: Path) -> Optional[dict]:
             "url": progress.get("url", ""),
         },
         "log_increment_lines": log_line_count,
-        "log_increment_hint": "(有新日志，请自行 tail codex.log 读取)" if log_line_count > 0 else "(无新日志)",
+        "log_increment_hint": "(有新日志，请自行 tail agent.log 读取)" if log_line_count > 0 else "(无新日志)",
         "human_guidance": "有新的待处理人工指导，请读 human_guidance.md" if has_human_guidance else None,
         "flag_found": flag,
         "is_stale": is_stale,

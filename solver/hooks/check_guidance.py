@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-PostToolUse hook: 检查 guidance.md / dead_ends.md，有新内容则注入给 Codex。
+PostToolUse hook: 检查 guidance.md / dead_ends.md，有新内容则注入给解题 Agent (claude code)。
 
 机制（借鉴 CHYing）：
 - Hermes 随时往 guidance.md / dead_ends.md 追加内容
-- 每次 Codex 工具调用后，本 hook 检查这两个文件
+- 每次解题 Agent 工具调用后，本 hook 检查这两个文件
 - 有内容 -> 通过 additionalContext 注入给模型 -> 清空文件（读后清空）
 - 无内容 -> 静默退出，不占上下文
 

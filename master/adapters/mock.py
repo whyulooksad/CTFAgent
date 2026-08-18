@@ -125,6 +125,7 @@ class MockAdapter(PlatformAdapter):
                 type="misc",
                 score=100,
                 solve_count=200,
+                difficulty="easy",
                 description="misc 签到题。附件是一个压缩包，解压后看看文件内容是什么。",
                 attachment_url="mock://easy_misc.zip",
             ),
@@ -134,6 +135,7 @@ class MockAdapter(PlatformAdapter):
                 type="crypto",
                 score=300,
                 solve_count=50,
+                difficulty="medium",
                 description="crypto 题。给了加密脚本和输出文件，恢复明文拿到 flag。",
                 attachment_url="mock://mid_crypto.zip",
             ),
@@ -143,6 +145,7 @@ class MockAdapter(PlatformAdapter):
                 type="web",
                 score=400,
                 solve_count=30,
+                difficulty="medium",
                 description="web 题。一个登录页面，flag 就藏在某个不起眼的地方。",
             ),
         ]

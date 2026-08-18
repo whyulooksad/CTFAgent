@@ -7,7 +7,7 @@ master_dashboard.py -- Master 总览面板后端 (HTTP + SSE, 纯 stdlib)。
 
 - GET  /                          总览页 (master_dashboard.html)
 - GET  /api/overview              全部题目状态 + 槽位/得分汇总
-- GET  /api/logs/<cid>/<which>    SSE: 该题 work_dir 的 codex.log / hermes.log 增量
+- GET  /api/logs/<cid>/<which>    SSE: 该题 work_dir 的 agent.log / hermes.log 增量
 - POST /api/pause | /api/resume   暂停/恢复调度 (不发新题，运行中的不动)
 - POST /api/stop-solver           手动终止某 solver {"cid": ...}
 - POST /api/config                运行时改 max_solvers / max_challenges
@@ -16,6 +16,7 @@ master_dashboard.py -- Master 总览面板后端 (HTTP + SSE, 纯 stdlib)。
 from __future__ import annotations
 
 import json
+import sys
 import threading
 import time
 from http import HTTPStatus
@@ -26,6 +27,7 @@ from typing import Optional
 from urllib.parse import unquote, urlparse
 
 from challenge_state import SUBMITTED_CORRECT
+import llm_config
 
 SCRIPT_DIR = Path(__file__).resolve().parent          # master/
 FRONTEND_FILE = SCRIPT_DIR / "master_dashboard.html"
@@ -85,7 +87,7 @@ def build_overview(master) -> dict:
         if r.id in master.running and r.started_at:
             item["elapsed"] = int(now - r.started_at)
         if r.work_dir:
-            item["has_logs"] = (Path(r.work_dir) / "codex.log").exists()
+            item["has_logs"] = (Path(r.work_dir) / "agent.log").exists()
         challenges.append(item)
 
     # 运行中在前，其余按状态字母序
@@ -94,6 +96,7 @@ def build_overview(master) -> dict:
     solved = [r for r in records if r.status == SUBMITTED_CORRECT]
     return {
         "paused": master.paused,
+        "standby": getattr(master, "standby", False),
         "running": len(master.running),
         "max_solvers": master.cfg.max_solvers,
         "attempted": master.state.distinct_attempted(),
@@ -101,7 +104,10 @@ def build_overview(master) -> dict:
         "solved": len(solved),
         "score_earned": sum(r.score for r in solved),
         "platform_connected": master.platform_connected,
+        "platform_name": getattr(master, "platform_info", {}).get("platform", ""),
         "platform_base_url": getattr(master, "platform_info", {}).get("base_url", ""),
+        # 引擎模型状态 (llm.yaml 文件级配置；api_key 只有掩码)
+        "llm": llm_config.status(getattr(master, "llm", None)),
         "challenges": challenges,
     }
 
@@ -177,14 +183,15 @@ def _make_handler(master):
                     {"added": added, "failed": len(items) - len(added)},
                 )
             elif path == "/api/connect-platform":
-                """平台接入: 手动输入赛方 API 地址 + Token，热切换并拉题。"""
+                """赛方题目平台接入: 名称/base_url/api_key(掩码)，热切换并拉题、解除待命。"""
+                platform = data.get("platform", "")
                 base_url = data.get("base_url", "")
-                token = data.get("token", "")
+                api_key = data.get("api_key", "")
                 if not base_url:
                     self._json(HTTPStatus.BAD_REQUEST, {"error": "base_url 不能为空"})
                     return
                 try:
-                    info = master.connect_platform(base_url, token)
+                    info = master.connect_platform(platform, base_url, api_key)
                 except ValueError as e:
                     self._json(HTTPStatus.BAD_REQUEST, {"error": str(e)})
                     return
@@ -212,9 +219,9 @@ def _make_handler(master):
                 self._json(HTTPStatus.NOT_FOUND, {"error": "master_dashboard.html not found"})
 
         def _handle_sse(self, path: str) -> None:
-            # /api/logs/<cid>/<codex|hermes>
+            # /api/logs/<cid>/<agent|hermes>
             parts = path.strip("/").split("/")
-            if len(parts) != 4 or parts[3] not in ("codex", "hermes"):
+            if len(parts) != 4 or parts[3] not in ("agent", "hermes"):
                 self._json(HTTPStatus.NOT_FOUND, {"error": "bad log path"})
                 return
             cid = unquote(parts[2])
@@ -266,6 +273,13 @@ def _make_handler(master):
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     daemon_threads = True
+
+    def handle_error(self, request, client_address):
+        """客户端断连 (浏览器刷新/关页/SSE 重连) 的连接重置是正常噪音，不刷 traceback。"""
+        exc = sys.exc_info()[1]
+        if isinstance(exc, (ConnectionResetError, BrokenPipeError)):
+            return
+        super().handle_error(request, client_address)
 
 
 def start_dashboard(master, port: int) -> tuple[ThreadedHTTPServer, int]:

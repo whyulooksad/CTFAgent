@@ -5,7 +5,7 @@ dashboard.py -- CTF Agent 实时监控面板。
 HTTP 服务器 + SSE 推流，零第三方依赖。
 - GET  /                    -> 前端页面
 - GET  /api/status          -> 当前状态 JSON
-- GET  /api/logs/codex      -> SSE 流 (codex.log 增量)
+- GET  /api/logs/agent      -> SSE 流 (agent.log 增量)
 - GET  /api/logs/hermes     -> SSE 流 (hermes.log 增量)
 - POST /api/start           -> 启动挑战
 - POST /api/stop            -> 停止挑战
@@ -119,20 +119,10 @@ def parse_progress(path: Path) -> dict:
 
 
 def get_branch_status(work_dir: Path) -> list:
-    """查 branch.py subagent 状态。"""
-    sock = work_dir / "branch.sock"
-    if not sock.exists():
-        return []
-    try:
-        result = subprocess.run(
-            ["python3", str(SCRIPT_DIR / "branch.py"), "status", "--work-dir", str(work_dir)],
-            capture_output=True, text=True, timeout=5,
-        )
-        if result.returncode == 0:
-            data = json.loads(result.stdout)
-            return data.get("subagents", [])
-    except Exception:
-        pass
+    """
+    subagent 状态 (引擎切换 claude code 后由原生 Task 工具管理，无独立 daemon)。
+    保留函数名兼容前端 API；scout subagent 状态在 agent.log 事件流里。
+    """
     return []
 
 
@@ -156,7 +146,7 @@ def kill_all_ctf_processes() -> list[str]:
             pass
     STATE.clear()
     # 再用 pkill 清理所有残留
-    patterns = ["run.sh", "branch.py", "monitor.py", "codex exec", "hermes chat"]
+    patterns = ["run.sh", "claude -p", "monitor.py", "hermes chat"]
     for pat in patterns:
         r = subprocess.run(["pkill", "-f", pat], capture_output=True)
         if r.returncode == 0:
@@ -204,8 +194,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._serve_frontend()
         elif self.path == "/api/status":
             self._handle_status()
-        elif self.path == "/api/logs/codex":
-            self._handle_sse("codex.log")
+        elif self.path == "/api/logs/agent":
+            self._handle_sse("agent.log")
         elif self.path == "/api/logs/hermes":
             self._handle_sse("hermes.log")
         else:
@@ -262,10 +252,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
         # 检查 round 信息
         round_info = ""
-        codex_log = work_dir / "codex.log"
-        if codex_log.exists():
-            text = codex_log.read_text(errors="replace")
-            m = re.search(r"Codex round (\d+)/(\d+)", text)
+        agent_log = work_dir / "agent.log"
+        if agent_log.exists():
+            text = agent_log.read_text(errors="replace")
+            m = re.search(r"claude round (\d+)/(\d+)", text)
             if m:
                 round_info = f"{m.group(1)}/{m.group(2)}"
 
@@ -392,7 +382,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         """接收人在 dashboard 发的人工指导，写入 human_guidance.md。
 
         流程：人发消息 -> 追加写 human_guidance.md -> monitor.py 检测到非空触发
-        Hermes -> Hermes 读全文、判断、转达给 Codex 或回复人 -> 清空。
+        Hermes -> Hermes 读全文、判断、转达给解题 Agent 或回复人 -> 清空。
         同时把消息同步追加到 hermes.log，前端 SSE 能看到（对话历史）。
         """
         message = (data.get("message") or "").strip()
@@ -435,6 +425,13 @@ class DashboardHandler(BaseHTTPRequestHandler):
 
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     daemon_threads = True
+
+    def handle_error(self, request, client_address):
+        """客户端断连 (浏览器刷新/关页/SSE 重连) 的连接重置是正常噪音，不刷 traceback。"""
+        exc = sys.exc_info()[1]
+        if isinstance(exc, (ConnectionResetError, BrokenPipeError)):
+            return
+        super().handle_error(request, client_address)
 
 
 def main() -> int:

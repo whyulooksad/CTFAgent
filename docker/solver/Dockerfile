@@ -3,14 +3,13 @@
 # 构建: docker/solver/build.sh (会先把宿主机 hermes 源码同步到 hermes-src/)
 # 内容:
 #   - Python 3.11 + CTF 工具链 (nmap/sqlmap/ffuf/gobuster/dirsearch/wfuzz/binwalk/steghide/exiftool...)
-#   - Codex CLI 锁定 0.147.0 (--profile ctf 的 ctf.config.toml 覆盖机制依赖该版本行为)
+#   - Claude Code CLI 锁定版本 (解题引擎；通过环境变量接入赛方大模型平台，无凭据快照)
 #   - Hermes Agent 源码原生安装 (Linux venv，宿主机 venv 是 macOS 二进制不能拷贝)
-#   - 本项目 COPY 进 /opt/ctf-agent 并 git init (hook 的 git rev-parse 双保险；
-#     实际 hook 命令已在精制快照中重写为绝对路径)
+#   - 本项目 COPY 进 /opt/ctf-agent 并 git init
 # 运行时由 DockerBackend 挂载:
 #   -v challenges:/opt/ctf-agent/challenges   # 题目现场 (宿主机可见，删容器不删数据)
-#   -v <snapshot>/codex:/root/.codex          # 精制快照 (cred_snapshot.py 生成)
-#   -v <snapshot>/hermes:/root/.hermes
+#   -v <snapshot>/hermes:/root/.hermes        # hermes 精制快照 (cred_snapshot.py 生成)
+#   -v llm.yaml:/opt/ctf-agent/llm.yaml:ro    # 赛方大模型平台接入 (存在才挂，含 api_key 不进镜像)
 #
 # 注意: 镜像架构跟随构建机 (Apple Silicon 构建 = linux/arm64，WSL x86 机器需
 # 在 WSL 上用 build.sh 重新构建 = linux/amd64)。
@@ -46,11 +45,18 @@ RUN set -eux; \
     [ "$ok" = "1" ]; \
     rm -rf /var/lib/apt/lists/*
 
-# ── Codex CLI (版本锁定，与宿主机一致) ──
-ARG CODEX_VERSION=0.147.0
+# ── Claude Code CLI (解题引擎，版本锁定与宿主机一致) ──
+# claude code 用环境变量接入赛方大模型平台 (ANTHROPIC_BASE_URL/AUTH_TOKEN/MODEL，
+# 由挂载的 llm.yaml 在 run.sh 里导出)，镜像本身不带任何凭据
+ARG CLAUDE_VERSION=2.1.220
 RUN set -eux; \
     if [ -n "$NPM_REGISTRY" ]; then npm config set registry "$NPM_REGISTRY"; fi; \
-    npm install -g --omit=dev @openai/codex@${CODEX_VERSION}
+    npm install -g --omit=dev @anthropic-ai/claude-code@${CLAUDE_VERSION}
+
+# root 容器内允许 --dangerously-skip-permissions (claude code 的 root 保护绕行)，
+# 并关掉非必要外联 (遥测等)
+ENV IS_SANDBOX=1 \
+    CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 
 # ── 解题 Python 库: pwntools(二进制) + z3/pycryptodome/Pillow/requests (TOOLS.md 承诺的环境) ──
 # pip 带重试: 镜像源对个别包偶发 403 (实测 TUNA openai wheel 瞬时限流)

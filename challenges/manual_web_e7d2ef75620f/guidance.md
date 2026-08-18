@@ -1,1 +1,0 @@
-新线索：`list.php` 的 PHP warning 泄露了绝对路径 `/var/www/html/list.php`，供参考。静态目录与 `/xml/` 已存在，优先核对目录索引是否暴露 xml 文件名；对 `result.php?f` 可做有限的规范化差异检查（`../`、双重编码、绝对路径、NUL 截断仅在旧 PHP 语义允许时），并观察错误是否泄露 include/DOMDocument/simplexml 调用及真实拼接规则。源代码候选未命中可暂不重复大词表扫描。

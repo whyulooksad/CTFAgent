@@ -45,7 +45,7 @@
   .log-panel + .log-panel { border-left: 1px solid #30363d; }
   .log-header { padding: 6px 12px; font-size: 12px; font-weight: bold; color: #8b949e; background: #161b22; border-bottom: 1px solid #30363d; display: flex; justify-content: space-between; align-items: center; }
   .log-header .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
-  .dot-codex { background: #58a6ff; }
+  .dot-agent { background: #58a6ff; }
   .dot-hermes { background: #bc8cff; }
   .log-body { flex: 1; overflow-y: auto; padding: 8px 12px; font-size: 12px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; }
   .log-body::-webkit-scrollbar { width: 6px; }
@@ -89,7 +89,7 @@
 <!-- Human Guidance -->
 <div class="setup" id="humanPanel">
   <label style="color:#bc8cff">👨 人工指导</label>
-  <input type="text" id="humanInput" placeholder="给 Hermes 发消息，商量后它会转达给 Codex（回车发送）" />
+  <input type="text" id="humanInput" placeholder="给 Hermes 发消息，商量后它会转达给解题 Agent（回车发送）" />
   <button class="btn" id="btnHumanSend" onclick="sendHumanGuidance()" style="background:#6e40c9;border-color:#6e40c9;color:#fff" disabled>发送</button>
 </div>
 
@@ -105,10 +105,10 @@
 <div class="logs">
   <div class="log-panel">
     <div class="log-header">
-      <span><span class="dot dot-codex"></span>Codex 实时日志</span>
-      <span class="auto-scroll" id="codexAutoScroll" onclick="toggleAutoScroll('codex')">⏸ 自动滚动</span>
+      <span><span class="dot dot-agent"></span>Claude 实时日志</span>
+      <span class="auto-scroll" id="agentAutoScroll" onclick="toggleAutoScroll('agent')">⏸ 自动滚动</span>
     </div>
-    <div class="log-body" id="codexLog"></div>
+    <div class="log-body" id="agentLog"></div>
   </div>
   <div class="log-panel">
     <div class="log-header">
@@ -121,8 +121,8 @@
 
 <script>
 // ─── State ───
-let autoScroll = { codex: true, hermes: true };
-let codexES = null, hermesES = null, statusTimer = null;
+let autoScroll = { agent: true, hermes: true };
+let agentES = null, hermesES = null, statusTimer = null;
 
 // ─── Type Switch ───
 function onTypeChange() {
@@ -145,7 +145,7 @@ async function startChallenge() {
   else body.attachment = attachment;
 
   // 清空日志
-  document.getElementById('codexLog').textContent = '';
+  document.getElementById('agentLog').textContent = '';
   document.getElementById('hermesLog').textContent = '';
 
   const resp = await fetch('/api/start', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
@@ -175,7 +175,7 @@ function onChallengeEnded() {
   document.getElementById('btnStop').disabled = true;
   document.getElementById('statusBadge').textContent = 'IDLE';
   document.getElementById('statusBadge').className = 'status-badge status-idle';
-  if (codexES) { codexES.close(); codexES = null; }
+  if (agentES) { agentES.close(); agentES = null; }
   if (hermesES) { hermesES.close(); hermesES = null; }
   if (statusTimer) { clearInterval(statusTimer); statusTimer = null; }
   updateHumanPanel();
@@ -202,20 +202,20 @@ async function killAll() {
   const resp = await fetch('/api/killall', { method: 'POST' });
   const data = await resp.json();
   onChallengeEnded();
-  document.getElementById('codexLog').textContent = '';
+  document.getElementById('agentLog').textContent = '';
   document.getElementById('hermesLog').textContent = '';
   alert('已清理: ' + (data.killed || []).join(', '));
 }
 
 // ─── SSE ───
 function connectSSE() {
-  if (codexES) codexES.close();
+  if (agentES) agentES.close();
   if (hermesES) hermesES.close();
 
-  codexES = new EventSource('/api/logs/codex');
-  codexES.addEventListener('append', e => appendLog('codex', e.data));
-  codexES.addEventListener('error', e => {
-    if (codexES.readyState === 2 && !document.getElementById('btnStart').disabled) {
+  agentES = new EventSource('/api/logs/agent');
+  agentES.addEventListener('append', e => appendLog('agent', e.data));
+  agentES.addEventListener('error', e => {
+    if (agentES.readyState === 2 && !document.getElementById('btnStart').disabled) {
       setTimeout(() => { if (!document.getElementById('btnStart').disabled) reconnectSSE(); }, 2000);
     }
   });
@@ -230,8 +230,8 @@ function connectSSE() {
 }
 
 function reconnectSSE() {
-  codexES = new EventSource('/api/logs/codex');
-  codexES.addEventListener('append', e => appendLog('codex', e.data));
+  agentES = new EventSource('/api/logs/agent');
+  agentES.addEventListener('append', e => appendLog('agent', e.data));
   hermesES = new EventSource('/api/logs/hermes');
   hermesES.addEventListener('append', e => appendLog('hermes', e.data));
 }

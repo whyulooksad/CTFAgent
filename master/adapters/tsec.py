@@ -108,13 +108,9 @@ class TSecAdapter(PlatformAdapter):
     def _to_challenge(x: dict) -> Challenge:
         running = x.get("container_status") == "available"
         addrs = x.get("container_addr") or []
-        # 难度映射成 solve_count 参与"容易优先"排序 (easy > medium > hard);
-        # 多 flag 题 (b 系列 killchain) 排序降权: 单 flag 回收快，先拿确定的分
-        difficulty_rank = {"easy": 300, "medium": 200, "hard": 100}
-        flag_count = int(x.get("flag_count") or 1)
-        priority_rank = difficulty_rank.get(str(x.get("difficulty") or ""), 100)
-        if flag_count > 1:
-            priority_rank = priority_rank // 4   # 4/6-flag 多阶段题显著靠后
+        # 真实字段透传: 难度/动态分值/flag 数交给规则层效用分模型排序
+        # (score 是平台动态分——解出人数越多分越低、底 80%，天然编码热度，
+        #  不再用 solve_count 造假数；solve_count 仅当平台真给时透传，用于展示)
         cid = str(x["unique_code"])
         prefix = cid.split("-")[0]
         return Challenge(
@@ -122,10 +118,11 @@ class TSecAdapter(PlatformAdapter):
             title=f"{cid} · {(x.get('description') or '')[:40]}",
             type=TSecAdapter._TYPE_BY_PREFIX.get(prefix, "web"),
             score=int(x.get("total_score") or 0),
-            solve_count=priority_rank,
+            solve_count=int(x.get("solve_count") or 0),
+            difficulty=str(x.get("difficulty") or "").strip().lower(),
             description=str(x.get("description") or ""),
             url=(f"http://{addrs[0]}" if running and addrs else None),
-            flag_count=flag_count,
+            flag_count=int(x.get("flag_count") or 1),
         )
 
     def start_challenge(self, cid: str) -> str:

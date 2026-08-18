@@ -11,7 +11,7 @@ challenge_state.py -- Master 的题目状态机与持久化。
                                                 └→ manual_stop ✓
 
 - submitted_correct / manual_stop / 不再重试的 timeout / failed 为终态
-- 重试规则: 最多重试 1 次，且仅限高价值题 (分数高 / 解出人数少)，见 retry_eligible()
+- 重试规则: 最多重试 1 次，仅限高价值题 (分值高 / 多 flag 有部分进度)，见 retry_eligible()
 - 状态由 Master 主循环 + Submitter 线程两个线程读写，MasterState 加锁保护
 """
 
@@ -130,16 +130,22 @@ def retry_eligible(
     rarity_threshold: float = 0.7,
 ) -> bool:
     """
-    高价值题重试判定 (master-agent-spec.md §4.2):
-      value  = score / max(score)                分数高
-      rarity = 1 - solve_count / max(solve_count) 解出人数少
-      可重试 ⇔ value >= value_threshold 或 rarity >= rarity_threshold
+    高价值题重试判定 v2 (2026-08-18 规则层重构):
+      ① 分值高: score >= value_threshold × 本轮最高分
+         (平台动态分值已编码"解出人数越多分越低、底 80%"，无需独立热度公式)
+      ② 多 flag 有部分进度: flag_count>1 且 flags_correct>=1
+         (已证明啃得动、分数已部分落袋，kill 后续攻性价比高)
+    旧 rarity 公式废弃: solve_count 曾被 tsec 适配器造假污染 (easy=300/hard=100)，
+    hard 题 rarity≈0.67 恰好踩中阈值变成"几乎必重试"。rarity_threshold 参数仅保留
+    调用兼容，不再参与判定。
     """
     max_score = max((r.score for r in records), default=0)
-    max_solves = max((r.solve_count for r in records), default=0)
-    value = (rec.score / max_score) if max_score else 0.0
-    rarity = (1 - rec.solve_count / max_solves) if max_solves else 1.0
-    return value >= value_threshold or rarity >= rarity_threshold
+    if max_score and rec.score >= value_threshold * max_score:
+        return True
+    if int(getattr(rec, "flag_count", 1) or 1) > 1 and \
+            int(getattr(rec, "flags_correct", 0) or 0) >= 1:
+        return True
+    return False
 
 
 # ─── 题目记录 ───
@@ -155,6 +161,7 @@ class ChallengeRecord:
     type: str                          # web | crypto | misc
     score: int = 0
     solve_count: int = 0
+    difficulty: str = ""               # easy | medium | hard | "" 未知 (规则层排序与分层超时用)
     description: str = ""
     attachment_url: Optional[str] = None
     source: str = "platform"           # platform (adapter 拉取) | manual (面板手动加入)
@@ -231,9 +238,11 @@ class MasterState:
                     type=meta.type,
                     score=meta.score,
                     solve_count=meta.solve_count,
+                    difficulty=getattr(meta, "difficulty", "") or "",
                     description=meta.description,
                     attachment_url=meta.attachment_url,
                     source=getattr(meta, "source", "platform"),
+                    flag_count=int(getattr(meta, "flag_count", 1) or 1),
                     status=QUEUED,
                 )
                 self.records[meta.id] = rec
@@ -241,6 +250,8 @@ class MasterState:
                 rec.title = meta.title
                 rec.score = meta.score
                 rec.solve_count = meta.solve_count
+                if getattr(meta, "difficulty", ""):
+                    rec.difficulty = meta.difficulty
                 if meta.description:
                     # 保留 master 注入的多 flag 进度提示 (sync 每轮都会跑，不能覆盖)
                     tail = ""
@@ -308,7 +319,15 @@ class MasterState:
     def can_submit(self, cid: str) -> bool:
         with self._lock:
             rec = self.records.get(cid)
-            return rec is not None and rec.submit_count < self.max_submit_per_challenge
+            if rec is None:
+                return False
+            # flag 感知上限: 多 flag 题至少允许 全部 flag + 2 次试错余量
+            # (单 flag 题即配置值 3，行为不变; 固定上限 3 会卡死 4-6 flag 题的最后
+            #  一个 flag——解出来了也提交不了，通关判定永远到不了，solver 空转到
+            #  超时; 实测 2026-08-18 b-01 3/4)
+            fc = int(getattr(rec, "flag_count", 1) or 1)
+            cap = max(self.max_submit_per_challenge, fc + 2)
+            return rec.submit_count < cap
 
     def record_submit(self, cid: str, flag: str, status: str) -> None:
         """Submitter 线程在真正发起提交前调用 (占用一次提交配额)。"""

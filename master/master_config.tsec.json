@@ -14,6 +14,7 @@
   "dashboard_port": 8081,
   "docker_image": "ctf-solver:latest",
   "resident": false,
+  "standby_start": true,
   "state_file": "master_state_tsec.json",
   "log_file": "master_tsec.log",
   "flags_file": "flags_tsec.jsonl"

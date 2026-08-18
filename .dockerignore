@@ -17,3 +17,6 @@ master_logs/
 att/
 docs/
 tests/
+
+# 赛方大模型接入配置 (含 api_key，绝不烘焙进镜像；由 DockerBackend 运行时挂载)
+llm.yaml

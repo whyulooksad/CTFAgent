@@ -9,7 +9,7 @@ master.py -- CTF 多题并行调度主进程 (master-agent-spec.md)。
   4. flag 经 Submitter 自动提交 (频控)，correct 后回收槽位
   5. 失败题按高价值规则重试一次；达到 max_challenges 或队列耗尽后收尾
 
-Master 不解题、不监督解题 (那是 Solver 容器内 Codex/Hermes 的事)。
+Master 不解题、不监督解题 (那是 Solver 容器内 Claude/Hermes 的事)。
 
 Usage:
   python3 master.py [--config master_config.json]
@@ -18,9 +18,11 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
 import os
+import re
 import signal
 import sys
 import threading
@@ -30,6 +32,8 @@ from pathlib import Path
 from typing import Optional
 
 import prioritizer
+import llm_config
+from prioritizer import TIME_MIN as _DIFF_TIME_MIN
 from adapters.base import Challenge
 from adapters.mock import MockAdapter
 from adapters.manual import ManualAdapter, NoPlatformAdapter
@@ -59,6 +63,21 @@ DISPATCH_COOLDOWN = 30.0
 # 失败重试重新入队前的冷却
 RETRY_COOLDOWN = 5.0
 
+# progress.md 的 Flags Found 段头 (与 challenge_state.py 的提取逻辑同源)
+_FLAGS_HEADER_RE = re.compile(r"^##\s*Flags Found\b")
+
+
+def _scope_suffix(platform: str, token: str) -> str:
+    """
+    状态文件作用域后缀: <平台名>_<token标识>。
+
+    token (面板填的赛方 api_key) 是本轮测试的身份: 同 key 续跑进度、换 key 全新进度。
+    文件名里放 sha256(key)[:8] 而不是明文片段——key 是密钥，不落文件名/截图。
+    """
+    plat = re.sub(r"[^A-Za-z0-9_-]+", "", platform.strip()) or "platform"
+    digest = hashlib.sha256(token.encode()).hexdigest()[:8]
+    return f"{plat}_{digest}"
+
 
 # ───────────────────────── Config ─────────────────────────
 
@@ -74,7 +93,9 @@ class Config:
     retry_value_threshold: float = 0.6       # 高价值判定: 分数归一化阈值
     retry_rarity_threshold: float = 0.7      # 高价值判定: 解出稀有度阈值
     poll_interval: int = 15                  # 主循环间隔 (秒)
-    llm_priority: bool = True                # LLM 软修正开关 (Phase 3 生效)
+    llm_priority: bool = False               # LLM 软修正开关 (默认关: 2026-08-18 真机实测
+                                              # deepseek 重排把多 flag 题排前 + 每次分发多
+                                              # 30-60s 延迟，规则层单干又快又稳)
     llm_priority_effort: str = "low"
     submit_min_interval: int = 10            # 提交频控: 最小间隔 (秒)
     max_submit_per_challenge: int = 3        # 单题提交上限
@@ -84,6 +105,7 @@ class Config:
     log_file: str = "master.log"
     flags_file: str = "flags.jsonl"           # 已解出 flag 的落盘文件 (面板数据源)
     resident: bool = False              # 常驻模式: 不退出，面板永远在线 (手动加题/平台接入)
+    standby_start: bool = False         # 待命启动: 先只起面板不调度，面板「接入」赛方题目平台后才开始
 
     @classmethod
     def load(cls, path: Path) -> "Config":
@@ -126,7 +148,7 @@ def make_backend(name: str, cfg: Optional[Config] = None) -> SolverBackend:
         return DockerBackend(image=cfg.docker_image if cfg else "ctf-solver:latest",
                              snapshot_dir=snap)
     if name == "fake":
-        # 零成本手动调试用: 不起 codex，秒级"解出"题目 (mock 平台下直接判对)
+        # 零成本手动调试用: 不起 claude，秒级"解出"题目 (mock 平台下直接判对)
         from adapters.mock import MOCK_FLAGS
         lookup = MOCK_FLAGS.get if (cfg and cfg.adapter == "mock") else None
         return FakeBackend(flag_lookup=lookup)
@@ -154,6 +176,10 @@ class Master:
 
     def __init__(self, cfg: Config, adapter=None, backend: Optional[SolverBackend] = None):
         self.cfg = cfg
+        # 赛方大模型平台接入 (llm.yaml -> ANTHROPIC_* 环境变量):
+        # prioritizer 的 claude -p 子进程继承这些变量
+        self.llm = llm_config.load()
+        llm_config.apply_env(self.llm)
         state_path = Path(cfg.state_file)
         if not state_path.is_absolute():
             state_path = REPO_DIR / state_path
@@ -176,7 +202,10 @@ class Master:
         self._stop = threading.Event()
         self._interrupted = False
         self.paused = False
+        # 待命启动: 面板先上线，拉题/分发等用户在面板「接入」赛方题目平台 (拉题 API) 后再开始。
+        # 平台已预连接 (如 TSEC_TOKEN 环境变量直接起 adapter) 时不存在"等接入"，自动开始
         self.platform_connected = not isinstance(self.adapter, NoPlatformAdapter)
+        self.standby = bool(getattr(cfg, "standby_start", False)) and not self.platform_connected
         self.platform_info: dict = {"base_url": "", "token": ""}
         self.log = logging.getLogger("master")
 
@@ -189,10 +218,13 @@ class Master:
         except ValueError:
             pass  # 非主线程 (测试嵌入)，无信号处理
 
-        restored = self.state.load()
-        if restored:
-            self.log.info("恢复状态: %d 条题目记录", len(self.state.all_records()))
-            self._recover()
+        # 待命模式不加载默认状态文件——面板必须干净 (接入时按 api_key 定向加载对应进度)
+        restored = False
+        if not self.standby:
+            restored = self.state.load()
+            if restored:
+                self.log.info("恢复状态: %d 条题目记录", len(self.state.all_records()))
+                self._recover()
         self.submitter.start()
 
         # Phase 3: 总览面板 (失败不影响调度)
@@ -211,11 +243,13 @@ class Master:
                 # 才允许分发新题 start 新靶机 (否则 3 靶机满员时 start 撞 409)；
                 # 暂停时 drain 照跑 (在途提交要闭环)
                 self._drain_results()
-                if not self.paused:
+                # 待命启动: 面板「接入」赛方题目平台前不拉题不分发
+                if not self.paused and not self.standby:
                     self._sync_challenges()
                     self._fill_slots()
                 self._monitor_solvers()
-                self.state.save()
+                if not self.standby:
+                    self.state.save()  # 待命期不落盘: 不覆盖默认文件，保持面板干净
                 self._log_status()
                 if self._should_exit():
                     self.log.info("调度完成，退出")
@@ -296,7 +330,8 @@ class Master:
         ]
         if not queued:
             return None
-        ordered = prioritizer.rule_order(queued)
+        # 全量记录喂给规则层做系列历史修正 (a 系连败 -> 该系降权)
+        ordered = prioritizer.rule_order(queued, all_records=self.state.all_records())
         if self.cfg.llm_priority:
             ordered = prioritizer.llm_order(ordered)
         return ordered[0]
@@ -387,6 +422,24 @@ class Master:
         )
         return handle
 
+    def _solver_timeout_for(self, rec) -> int:
+        """
+        分层超时 (规则层 v2): 按难度×flag 数给预算，clamp [20, 75] 分钟。
+
+            timeout = T(难度) × (1 + 0.4×(flag_count-1)) × 1.5
+            easy 单 flag ≈ 22min / medium ≈ 45 / hard ≈ 75 (封顶)
+            medium 4-flag ≈ 99 -> 75min 封顶
+
+        难度未知 (手动题/mock/旧状态文件) 用 cfg.solver_timeout 全局值，行为不变。
+        """
+        diff = (getattr(rec, "difficulty", "") or "").strip().lower()
+        if diff not in _DIFF_TIME_MIN:
+            return self.cfg.solver_timeout
+        t = _DIFF_TIME_MIN[diff]
+        fc = max(1, int(getattr(rec, "flag_count", 1) or 1))
+        minutes = t * (1 + 0.4 * (fc - 1)) * 1.5
+        return int(min(75.0, max(20.0, minutes)) * 60)
+
     @staticmethod
     def _target_alive(url: str) -> bool:
         """
@@ -430,17 +483,22 @@ class Master:
             for flag in self._read_flags(handle):
                 if self.state.mark_flag_seen(cid, flag):
                     self.log.info("检测到 flag: %s -> %s", cid, flag)
-                    if rec.source == "manual":
-                        # 手动调试模式: 只记录展示，不提交 (用户自行到目标平台提交)
-                        self._accept_manual_flag(rec, flag, handle)
-                        manual_accepted = True
-                        break
-                    if self.state.can_submit(cid):
-                        self.submitter.submit(cid, flag)
-                    else:
-                        self.log.warning("%s 达到提交上限，不再提交: %s", cid, flag)
-                    if rec.status == RUNNING:
-                        self.state.set_status(cid, FLAG_FOUND)
+                # 已提交过 (correct/wrong/duplicate) 的不再提交；
+                # 曾因提交上限被拦下的 flag，上限放开后补提交 (b-01 3/4 事故:
+                # flag 已进 flags_seen 去重表，若只认"首次出现"会永远卡住)
+                if flag in rec.flags_submitted:
+                    continue
+                if rec.source == "manual":
+                    # 手动调试模式: 只记录展示，不提交 (用户自行到目标平台提交)
+                    self._accept_manual_flag(rec, flag)
+                    manual_accepted = True
+                    break
+                if self.state.can_submit(cid):
+                    self.submitter.submit(cid, flag)
+                else:
+                    self.log.warning("%s 达到提交上限，不再提交: %s", cid, flag)
+                if rec.status == RUNNING:
+                    self.state.set_status(cid, FLAG_FOUND)
             if manual_accepted:
                 continue
 
@@ -449,16 +507,21 @@ class Master:
                 if self.state.pending_submits(cid) > 0:
                     continue  # 等提交结果，下轮再判定
                 if rec.status == SUBMITTED_CORRECT:
-                    self._release(cid)
+                    # 通关后自然退出 (managed 模式 run.sh 看到 STOP 自行收工)
+                    self.running.pop(cid, None)
+                    self._release_target(rec)
                     continue
                 self._finalize(cid, FAILED, "solver 已结束且无待定 flag")
                 continue
 
-            # 3. 超时检测
-            if rec.started_at and time.time() - rec.started_at > self.cfg.solver_timeout:
-                self.log.warning("%s 超时 (%ds)，终止", cid, self.cfg.solver_timeout)
-                self.backend.stop(handle)
-                self._finalize(cid, TIMEOUT, f"solver 超时 ({self.cfg.solver_timeout}s)")
+            # 3. 超时检测 (分层超时: 难度×flag数给预算，未知难度用全局值)
+            timeout = self._solver_timeout_for(rec)
+            if rec.started_at and time.time() - rec.started_at > timeout:
+                self.log.warning(
+                    "%s 超时 (%ds, 难度=%s flag=%d)，终止",
+                    cid, timeout, rec.difficulty or "-", int(getattr(rec, "flag_count", 1)),
+                )
+                self._finalize(cid, TIMEOUT, f"solver 超时 ({timeout}s)")
 
     def _drain_results(self) -> None:
         """处理提交结果。"""
@@ -485,12 +548,12 @@ class Master:
                 if all_done:
                     self.log.info("=== FLAG ACCEPTED: %s %s (通关 %d/%d) ===",
                                   cid, flag, done_cnt, total)
-                    handle = self.running.pop(cid, None)
-                    if handle:
-                        self.backend.stop(handle)  # run.sh 找到 flag 后通常已自行退出
-                    self._release_target(rec)
+                    # 双死门: claude + hermes (run.sh 进程组) 死透才关靶机/释放槽位
+                    if self._terminate(cid, "通关，收工"):
+                        self._release_target(rec)
+                    # 未死透则保持 running，下一轮 _monitor_solvers 再确认
                 else:
-                    # 多 flag 未通关: solver 活着就不动它 (同一 codex 会话继续攻剩余
+                    # 多 flag 未通关: solver 活着就不动它 (同一解题会话继续攻剩余
                     # flag，run.sh 在拿满前不退出)；死了才回队列重跑
                     self.log.info("=== FLAG ACCEPTED: %s %s (%d/%d，未通关继续) ===",
                                   cid, flag, done_cnt, total)
@@ -501,7 +564,11 @@ class Master:
                     else:
                         self._recycle_for_next_flag(rec)
             elif status == "wrong":
-                self.log.warning("%s flag 提交错误: %s (solver 继续跑)", cid, flag)
+                self.log.warning(
+                    "%s 假 flag 提交错误: %s (当场清除 + 通知 hermes 写 dead_ends，下一轮绕开)",
+                    cid, flag,
+                )
+                self._on_wrong_flag(rec, flag, res.get("message", ""))
             else:  # error / skipped
                 self.log.error("%s 提交未成功 (%s): %s", cid, status, res.get("message", ""))
 
@@ -510,14 +577,10 @@ class Master:
         多 flag 题收到一个正确 flag 但未通关: 回队列继续攻剩余 flag。
 
         已提交的 flag 保留在 flags_seen (防止下一轮 solver 重解同一 flag 后再提交，
-        平台会返回 duplicate)；并把已得 flag 注入 hint，让 codex 明确找"不同的" flag。
+        平台会返回 duplicate)；并把已得 flag 注入 hint，让解题 Agent 明确找"不同的" flag。
         """
-        handle = self.running.pop(rec.id, None)
-        if handle:
-            try:
-                self.backend.stop(handle)
-            except Exception as e:
-                self.log.error("停止 %s 失败: %s", rec.id, e)
+        if not self._terminate(rec.id, "多 flag 未通关，重整再战"):
+            return  # 未死透，下一轮 monitor 路径再处理
         got = list(rec.flags_submitted)  # 已提交成功的 flag
         if got:
             rec.description = (
@@ -531,19 +594,15 @@ class Master:
         rec.attempts -= 1         # 不消耗重试配额 (这是同一轮攻略的延续)
         self.state.set_status(rec.id, QUEUED)
 
-    def _accept_manual_flag(self, rec, flag: str, handle: SolverHandle) -> None:
+    def _accept_manual_flag(self, rec, flag: str) -> None:
         """手动模式 flag 闭环: 不走提交器，记录 + 展示 + 回收 solver。"""
         # record_submit_result 消掉 pending 计数 (不走 submitter 时也要闭环)
         self.state.record_submit_result(rec.id, flag, "manual_display")
         self.state.mark_correct(rec.id, flag)
         self._log_flag(rec, flag, auto_submitted=False)
         self.log.info("=== FLAG (手动模式，仅展示): %s %s ===", rec.id, flag)
-        self.running.pop(rec.id, None)
-        try:
-            self.backend.stop(handle)
-        except Exception as e:
-            self.log.error("停止 %s 失败: %s", rec.id, e)
-        self._release_target(rec)
+        if self._terminate(rec.id, "手动题闭环"):
+            self._release_target(rec)
 
     def _log_flag(self, rec, flag: str, auto_submitted: bool) -> None:
         """flag 落盘 flags.jsonl (历史归档) + 内存列表 (本次启动的面板展示)。"""
@@ -566,9 +625,113 @@ class Master:
 
     # ─── 终止/重试/释放 ───
 
+    def _terminate(self, cid: str, reason: str = "") -> bool:
+        """
+        停 solver 并确认死亡 (双死门)。
+
+        claude (解题) 和 hermes (监控循环) 都活在 run.sh 进程组里，
+        run.sh 退出前还会等在途 hermes 周期写完 (见 run.sh cleanup)。
+        所以本方法: 写 STOP (轮间隙优雅收工) -> 同步 stop -> 确认 is_alive==False。
+        只有确认死亡才返回 True —— 调用方此时才允许关靶机/释放槽位/请求下一题，
+        否则会出现"靶机已 close 但进程还在解题"的槽位泄漏。
+
+        返回 False = 尚未死透 (docker daemon 滞后等)，保持 running 记录，下轮再确认。
+        """
+        handle = self.running.get(cid)
+        if handle is None:
+            return True
+        # STOP 文件: run.sh 在轮间隙看到会自行收工 (managed 模式)
+        try:
+            (Path(handle.work_dir) / "STOP").write_text(
+                f"{time.strftime('%Y-%m-%dT%H:%M:%S')} {reason}\n", encoding="utf-8"
+            )
+        except OSError:
+            pass
+        try:
+            self.backend.stop(handle)  # 同步: SIGINT→8s→SIGKILL / docker stop -t 8 + rm
+        except Exception as e:
+            self.log.error("停止 %s 失败: %s", cid, e)
+        # stop 刚返回的瞬间线程/容器状态可能滞后一拍 (如线程刚被置停还在收尾)，
+        # 短暂宽限后复查，避免把"正在死"误判成"没死"改变回收路径
+        for _ in range(6):
+            if not self.backend.is_alive(handle):
+                self.running.pop(cid, None)
+                return True
+            time.sleep(0.25)
+        self.log.warning("%s 停止后仍存活 (daemon 滞后?)，暂不释放槽位/靶机", cid)
+        return False
+
+    def _on_wrong_flag(self, rec, flag: str, message: str) -> None:
+        """
+        假 flag 处理 (平台判定 wrong):
+          1. 当场从 progress.md 的 Flags Found 段清掉 (run.sh/提取端不再看到它)
+          2. 写 human_guidance.md 通知 hermes -> hermes 写 dead_ends.md (硬约束:
+             禁止重交、绕开产出路径) -> hook 注入 -> 解题 Agent 下一轮绕开继续挖
+        flags_seen 保留 (mark_flag_seen 去重保证不会重复提交同一个 flag)。
+        """
+        if not rec.work_dir:
+            return
+        work_dir = Path(rec.work_dir)
+        notice = (
+            f"[master {time.strftime('%Y-%m-%dT%H:%M:%S')}] 平台判定 flag 错误: {flag}\n"
+            f"平台响应: {message or '(无)'}\n"
+            "请立即按 hermes_monitor.md 的「调度器通知处理」一节执行:\n"
+            "把硬约束写入 dead_ends.md (禁止再提交该 flag、绕开产出它的路径)，\n"
+            "让解题 Agent 下一轮换攻击点继续寻找真 flag。\n"
+        )
+        try:
+            with open(work_dir / "human_guidance.md", "a", encoding="utf-8") as f:
+                f.write("\n" + notice)
+        except OSError as e:
+            self.log.error("%s 写 human_guidance.md 失败: %s", rec.id, e)
+        self._remove_flag_from_progress(work_dir, flag)
+
+    @staticmethod
+    def _remove_flag_from_progress(work_dir: Path, flag: str) -> None:
+        """从 progress.md 的 Flags Found 段删掉假 flag 行；段空了恢复 (无)。"""
+        path = work_dir / "progress.md"
+        try:
+            lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            return
+        out: list[str] = []
+        header_out_idx = -1      # 段头在 out 里的下标 (插入 (无) 用)
+        in_section = False
+        removed = False
+        kept_content = False     # 删除后段里还剩没有效内容行
+        for line in lines:
+            if line.startswith("##"):
+                in_section = bool(_FLAGS_HEADER_RE.match(line))
+                if in_section:
+                    header_out_idx = len(out)
+                out.append(line)
+                continue
+            if in_section:
+                if flag in line:
+                    removed = True
+                    continue  # 丢弃假 flag 行
+                s = line.strip()
+                if s and s != "(无)" and not s.startswith("<!--"):
+                    kept_content = True
+            out.append(line)
+        if not removed:
+            return
+        if not kept_content and header_out_idx >= 0:
+            out.insert(header_out_idx + 1, "(无)")
+        try:
+            tmp = path.with_suffix(".md.tmp")
+            tmp.write_text("\n".join(out) + "\n", encoding="utf-8")
+            tmp.replace(path)
+        except OSError:
+            pass
+
     def _finalize(self, cid: str, status: str, error: str) -> None:
-        """solver 失败/超时收尾: 释放槽位 + 靶机，按规则决定是否重试。"""
-        self.running.pop(cid, None)
+        """
+        solver 失败/超时收尾: 先经双死门 (_terminate 确认 claude+hermes 死透)，
+        再释放槽位 + 靶机，按规则决定是否重试。
+        """
+        if not self._terminate(cid, f"finalize:{status}"):
+            return  # 未死透，保持 running，下一轮再确认
         rec = self.state.get(cid)
         if rec is None:
             return
@@ -608,12 +771,6 @@ class Master:
             self.state.set_status(cid, status, error)
             self.log.info("%s 终态: %s (%s)", cid, status, error or "-")
 
-    def _release(self, cid: str) -> None:
-        """槽位释放 (correct 后由 drain 处理过状态，这里只清 handle)。"""
-        handle = self.running.pop(cid, None)
-        if handle:
-            self.backend.stop(handle)
-
     def _release_target(self, rec) -> None:
         """
         释放 web 题靶机 (赛方有数量/时长限制，即用即释放)。
@@ -640,6 +797,8 @@ class Master:
     def _should_exit(self) -> bool:
         if self.cfg.resident:
             return False  # 常驻模式: 面板永远在线，等待手动加题/平台接入
+        if self.standby:
+            return False  # 待命中: 等面板「接入」，队列空/零尝试不是退出理由
         if self.paused:
             return False
         records = self.state.all_records()
@@ -694,7 +853,8 @@ class Master:
                 self.dashboard_server.shutdown()
             except Exception:
                 pass
-        self.state.save()
+        if not self.standby:
+            self.state.save()
 
     def _log_summary(self) -> None:
         records = sorted(self.state.all_records(), key=lambda r: r.status)
@@ -820,7 +980,9 @@ class Master:
             id=f"manual-{ctype}-{title or Path(url or attachment).stem}"[:60],
             title=title or url or Path(attachment or "").stem or ctype,
             type=ctype,
-            score=int(item.get("score") or 0),
+            # 手动题默认分高于平台动态分 (≈200): 手动加题是用户明确意图，
+            # 不排在平台题后面饿死 (表单可改)
+            score=int(item.get("score") or 250),
             solve_count=int(item.get("solve_count") or 0),
             description=str(item.get("description", "")).strip(),
             url=url or None,
@@ -828,30 +990,111 @@ class Master:
             source="manual",
         )
 
-    def connect_platform(self, base_url: str, token: str = "") -> dict:
+    def connect_platform(self, platform: str, base_url: str, api_key: str = "") -> dict:
         """
-        面板「平台接入」: 热切换到真实赛方 API (LiveAdapter) 并立即拉题。
-        base_url/token 由用户在面板手动输入 (参考赛方提供的接入信息)。
+        面板「平台接入」: 接入赛方**题目平台** API (拉题/开靶机/提交 flag)，
+        热切换 adapter 并立即拉题，同时解除待命 —— 调度从这里开始。
+
+        - base_url 含 tsecbench -> TSecAdapter (BENCHMARK_TOKEN 认证 + VPN 预检)
+        - 其余 -> LiveAdapter (通用 best-effort, 认证头兼容 Bearer/X-Token)
+        api_key 仅在响应里以掩码回显，绝不回传明文。
+        (大模型接入与此无关: 引擎配置在仓库根 llm.yaml，容器运行时挂载热替换)
         """
+        platform = platform.strip()
         base_url = base_url.strip()
+        api_key = api_key.strip()
         if not base_url.startswith(("http://", "https://")):
             raise ValueError("API 地址必须以 http:// 或 https:// 开头")
-        from adapters.live import LiveAdapter
-        candidate = LiveAdapter(base_url, token)
+        if not api_key:
+            raise ValueError("api_key / Token 不能为空")
+
+        if "tsecbench" in base_url:
+            from adapters.tsec import TSecAdapter
+            candidate = TSecAdapter(base_url, api_key)
+        else:
+            from adapters.live import LiveAdapter
+            candidate = LiveAdapter(base_url, api_key)
+
         metas = candidate.list_challenges()  # 连通性验证，失败抛异常
+
+        # 按 (平台名, api_key) 切换状态/flag 文件:
+        #   同 key 重启 -> 加载该轮已有进度 (不重复请求已解出的题)
+        #   新 key -> 全新进度 (新文件首次 save 时创建)
+        # 路径在当前 state/flags 文件所在目录派生 (默认仓库根，与旧 scoping 行为一致)
+        suffix = _scope_suffix(platform, api_key)
+        self._rescope_state(
+            self.state.path.parent / f"master_state_{suffix}.json",
+            Path(self.flags_file).parent / f"flags_{suffix}.jsonl",
+        )
+
         self.adapter = candidate
         self.platform_connected = True
-        self.platform_info = {"base_url": base_url, "token": "***" if token else ""}
+        self.platform_info = {
+            "platform": platform,
+            "base_url": base_url,
+            "api_key": llm_config.mask_key(api_key),
+        }
         for meta in metas:
             self.state.sync_challenge(meta)
-        self.log.info("平台已接入: %s，拉到 %d 道题", base_url, len(metas))
-        return {"base_url": base_url, "challenges": len(metas)}
+        if self.standby:
+            self.standby = False
+            self.log.info("待命解除: 调度开始 (面板接入赛方平台触发)")
+        self.log.info(
+            "赛方平台已接入: %s %s (key: %s)，拉到 %d 道题",
+            platform or "未命名平台", base_url, self.platform_info["api_key"], len(metas),
+        )
+        return {
+            "platform": platform,
+            "base_url": base_url,
+            "api_key": self.platform_info["api_key"],
+            "challenges": len(metas),
+        }
+
+    def _rescope_state(self, state_path: Path, flags_path: Path) -> None:
+        """
+        切换题目状态机/flag 归档到 (平台, api_key) 作用域文件。
+
+        - 目标文件已有记录: 视为同一轮测试的续跑——加载进度、崩溃恢复
+          (在途记录按失败处理)、面板 Flags 回填该轮历史
+        - 目标文件不存在: 全新进度 (首次 save 时创建，不在接入时touch)
+        - 有 solver 在跑时拒绝切换 (进度会错乱)
+        """
+        if self.running:
+            raise RuntimeError(f"有 {len(self.running)} 个 solver 正在运行，停止后再切换平台")
+        if state_path == self.state.path:
+            self.flags_file = flags_path  # 同 key 重连: 作用域未变
+            return
+
+        new_state = MasterState(state_path, max_submit_per_challenge=self.cfg.max_submit_per_challenge)
+        restored = new_state.load()
+        # Submitter 线程持有 state 引用，一并换过去
+        self.state, self.submitter.state = new_state, new_state
+        self.flags_file = flags_path
+
+        if restored:
+            n = len(new_state.all_records())
+            if any(r.status in ACTIVE_STATES for r in new_state.all_records()):
+                self._recover()  # 上次崩溃在途的记录按失败处理 (走重试规则)
+            self.log.info("按 api_key 续跑进度: %s (%d 条记录)", state_path.name, n)
+        else:
+            self.log.info("新 api_key，开启全新进度: %s", state_path.name)
+
+        # 面板 Flags 区回填该轮历史 (同 key 测试视为同一轮展示)
+        session: list[dict] = []
+        if flags_path.exists():
+            for line in flags_path.read_text(encoding="utf-8", errors="replace").splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    session.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
+        self.session_flags = session
 
     def stop_solver(self, cid: str) -> bool:
-        handle = self.running.get(cid)
-        if handle is None:
+        if cid not in self.running:
             return False
-        self.backend.stop(handle)
         self._finalize(cid, MANUAL_STOP, "手动终止")
         return True
 
@@ -875,20 +1118,20 @@ def setup_logging(log_file: Path) -> None:
 
 def _apply_token_scoping(cfg: Config) -> None:
     """
-    按 TSEC_TOKEN 隔离状态/flag 文件 (用户需求: 每次 token 一份，历史保留不删)。
+    按 TSEC_TOKEN 隔离状态/flag 文件 (环境变量直连路径)。
 
-    不同 token 是不同的跑分任务，题目进度互不可比 —— 复用旧 token 的状态会把
-    上一次的 submitted_correct/running/重试计数带进新任务 (实测下午启动加载了
-    凌晨 57 条记录，重试配额直接耗尽)。
-    同一 token 重启则正确恢复自己的进度。
+    命名与面板接入一致: master_state_<平台>_<sha256(token)[:8]>.json。
+    不同 token 是不同的跑分任务，题目进度互不可比——复用旧 token 的状态会把
+    上一次的 submitted_correct/running/重试计数带进新任务；同一 token 重启则
+    正确恢复自己的进度。历史文件保留不删。
     """
     token = os.environ.get("TSEC_TOKEN", "").strip()
     if cfg.adapter == "tsec" and token:
-        suffix = token[:8]
+        suffix = _scope_suffix("tsec", token)
         for attr in ("state_file", "flags_file"):
             p = Path(getattr(cfg, attr))
             stem = p.stem
-            if not stem.endswith(f"_{suffix}"):  # 已带后缀则幂等
+            if not stem.endswith(suffix):  # 已带后缀则幂等
                 setattr(cfg, attr, str(p.with_name(f"{stem}_{suffix}{p.suffix}")))
 
 

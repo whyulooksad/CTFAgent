@@ -25,19 +25,22 @@ Master 只负责调度、状态机、flag 收集与提交。
 
 | 决策项 | 结论 |
 |--------|------|
-| Master 技术形态 | 混合: Python 确定性调度内核 + LLM (codex exec) 软决策 |
+| Master 技术形态 | 混合: Python 确定性调度内核 + LLM (claude -p) 软决策 |
 | Solver 隔离 | Docker 容器，每题一个容器，销毁重建 |
 | Hermes 角色 | 每个 Solver 容器内自带 Hermes，Master 不涉及 |
 | 并发数 | 默认 5，手动可配置 (`max_solvers`) |
 | 优先级 | 规则 + LLM 混合: ①分高+解出多 → ②容易(解出多) → ③分高 |
-| 优先级 LLM | `codex exec` 低推理档单次调用 |
+| 优先级 LLM | `claude -p` 无工具单次调用 (失败回退规则层) |
 | Flag 提交 | 自动提交 + 频控 |
 | Solver 整体超时 | 默认 1h (`solver_timeout: 3600`)，可配 |
 | 失败重试 | 最多 1 次，仅限高价值题 (分数高 / 解出人数少)，见 §4.2 |
-| 错误 flag 后的 solver | 继续跑，直到超时或自然结束 |
-| 靶机管理 | 有数量/时长限制，即用即开即释放 |
+| 错误 flag 后的 solver | 当场清除假 flag + 经 hermes 写 dead_ends，解题 Agent 下一轮绕开继续挖 (2026-08-18 更新) |
+| 靶机管理 | 有数量/时长限制，即用即开即释放；回收前必须过"双死门" |
 | 面板 | 新建 Master 总览面板 (:8081)，现有单题面板保留 |
 | 开发顺序 | Phase1 先进程方式跑通，Phase2 再 Docker 化 |
+| 解题引擎 | **claude code** (2026-08-18 替换 codex: 国产大模型下 codex 工具调用崩溃；ANTHROPIC_BASE_URL 接入，配置在 llm.yaml 文件——docker 运行时挂载实现换模型不重建镜像) |
+| 启动模式 | **待命启动** (2026-08-18): 启动后只起面板不调度，面板「接入」赛方**题目平台** (拉题 API 的名称/base_url/api_key) 后才开始；接入同时热切换 adapter (tsecbench→TSecAdapter 其余 LiveAdapter) |
+| subagent | claude code 原生 Task 工具 + scout agent (2026-08-18 替换 branch.py daemon) |
 
 ### 1.2 赛方 API 假设
 
@@ -389,6 +392,19 @@ attempted 计数），Master 崩溃重启后可恢复（running 的 solver 标 f
 ---
 
 ## 8. 开发阶段划分与验收标准
+
+> **2026-08-18 引擎替换变更（codex → claude code）**，涉及本规格的部分：
+> - §4.5 终止矩阵: "提交 correct → 销毁 solver"细化为**双死门** `_terminate`——写 STOP 文件
+>   → 同步 stop → 复查 is_alive==False（claude+hermes 同进程组死透）才关靶机/释放槽位；
+>   "提交 wrong"从"solver 继续跑"细化为: 当场清除 progress.md 假 flag + 写 [master] 通知进
+>   human_guidance.md → hermes 写 dead_ends → hook 注入 → 解题 Agent 下一轮绕开
+> - §4.4 Backend: run.sh 增加 `--managed` (STOP 文件收工，不因 flag 出现提前退出)；
+>   DockerBackend 挂载 llm.yaml (赛方大模型接入，不进镜像)
+> - §7 凭据快照: codex 部分整体删除 (claude code 走环境变量，无凭据)，只剩 hermes 快照
+> - 新增 llm.yaml (引擎模型接入，**纯文件配置**: platform/base_url/api_key/model/effort，
+>   master/llm_config.py；docker 运行时挂载) 与**待命启动** standby_start (启动只起面板，
+>   面板「接入」赛方**题目平台** API 后才开始调度——接入表单是拉题平台的
+>   名称/base_url/api_key，不是大模型接口)
 
 ### Phase 1 — 调度核心（进程后端 + mock adapter）
 - [ ] adapters/base.py + mock.py (3 道假题)

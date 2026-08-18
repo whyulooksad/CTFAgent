@@ -36,6 +36,7 @@ class Challenge:
     attachment_path: Optional[Path] = None   # Master 下载后的本地路径
     source: str = "platform"      # platform (adapter 拉取) | manual (面板手动加入)
     flag_count: int = 1           # 该题 flag 总数 (平台多 flag 题)
+    difficulty: str = ""          # easy | medium | hard | "" 未知 (规则层排序与分层超时用)
 
 
 @dataclass

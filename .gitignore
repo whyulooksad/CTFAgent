@@ -33,9 +33,7 @@ master_logs/
 flags.jsonl
 flags*.jsonl
 tests/master_flags_*.jsonl
-challenges/manual_*/
-challenges/attachments/
-challenges/fake/
+challenges/
 tests/master_state_test.json
 tests/master_test.log
 tests/mock_challenges/*.zip
@@ -43,3 +41,6 @@ tests/mock_challenges/*.zip
 # Phase 2: Docker 构建产物
 cred_snapshots/
 docker/solver/hermes-src/
+
+# 赛方大模型接入配置 (含 api_key，不进仓库；面板写入或手动编辑)
+llm.yaml

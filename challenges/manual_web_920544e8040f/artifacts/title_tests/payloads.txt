@@ -1,6 +1,0 @@
-trav_../pwn
-cmd_x;sleep 4;#
-sub_x$(sleep 4)
-quote_x`sleep 4`
-space name
-unicode_plain

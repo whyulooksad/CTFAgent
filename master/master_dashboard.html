@@ -54,6 +54,9 @@
                       padding: 4px 8px; border-radius: 4px; font-family: inherit; font-size: 12px; }
   .inline-row .in-api { width: 280px; } .inline-row .in-token { width: 170px; }
   .inline-row input[type=number] { width: 70px; }
+  .inline-row .in-plat { width: 160px; }
+  .badge.llm-on { color: #bc8cff; border-color: #bc8cff; }
+  .badge.llm-off { color: #8b949e; }
 
   /* ── Table ── */
   .main { flex: 1; overflow: auto; padding: 10px 16px; }
@@ -106,7 +109,7 @@
   .log-header { padding: 5px 12px; font-size: 12px; font-weight: bold; color: #8b949e;
                 background: #161b22; border-bottom: 1px solid #30363d; }
   .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
-  .dot-codex { background: #58a6ff; } .dot-hermes { background: #bc8cff; }
+  .dot-agent { background: #58a6ff; } .dot-hermes { background: #bc8cff; }
   .log-body { flex: 1; overflow-y: auto; padding: 8px 12px; font-size: 12px; line-height: 1.5;
               white-space: pre-wrap; word-break: break-all; }
   .log-body::-webkit-scrollbar { width: 6px; }
@@ -122,6 +125,8 @@
   <div class="badge">尝试 <b id="attempted">-</b></div>
   <div class="badge solved">已解 <b id="solved">-</b> / <b id="score">-</b> 分</div>
   <div class="badge plat-off" id="plat-badge">平台: 未接入</div>
+  <div class="badge llm-off" id="llm-badge">模型: 未接入</div>
+  <div class="badge paused" id="standby-badge" style="display:none">待接入 (未调度)</div>
   <div class="badge paused" id="paused-badge" style="display:none">已暂停</div>
   <div class="spacer"></div>
   <button class="btn btn-warn" id="btn-pause" onclick="togglePause()">暂停调度</button>
@@ -140,12 +145,13 @@
   </div>
 </div>
 
-<!-- 平台接入 -->
+<!-- 平台接入 (赛方题目 API: 拉题/开靶机/提交) -->
 <div class="section">
-  <div class="sec-title">平台接入<div style="font-size:10px;color:#484f58">赛方 API</div></div>
+  <div class="sec-title">平台接入<div style="font-size:10px;color:#484f58">赛方题目 API</div></div>
   <div class="inline-row">
-    <input type="text" class="in-api" id="in-api" placeholder="API 地址，如 http://host:port">
-    <input type="password" class="in-token" id="in-token" placeholder="Token (可选)">
+    <input type="text" class="in-plat" id="in-plat-name" placeholder="赛方平台名称，如 TSec">
+    <input type="text" class="in-api" id="in-plat-url" placeholder="平台 API 地址，如 https://tsecbench.zc.tencent.com">
+    <input type="password" class="in-token" id="in-plat-key" placeholder="api_key / Token" autocomplete="off">
     <button class="btn" onclick="connectPlatform()">接入</button>
     <span class="msg" id="plat-msg"></span>
   </div>
@@ -185,14 +191,14 @@
 <div class="drawer" id="drawer">
   <div class="drawer-header">
     <span class="title" id="drawer-title">-</span>
-    <span style="color:#8b949e">codex.log / hermes.log 实时流</span>
+    <span style="color:#8b949e">claude (agent.log) / hermes.log 实时流</span>
     <div class="spacer"></div>
     <button class="btn btn-mini" onclick="closeDrawer()">关闭 ✕</button>
   </div>
   <div class="logs">
     <div class="log-panel">
-      <div class="log-header"><span class="dot dot-codex"></span>Codex</div>
-      <div class="log-body" id="log-codex"></div>
+      <div class="log-header"><span class="dot dot-agent"></span>Claude</div>
+      <div class="log-body" id="log-agent"></div>
     </div>
     <div class="log-panel">
       <div class="log-header"><span class="dot dot-hermes"></span>Hermes</div>
@@ -202,7 +208,7 @@
 </div>
 
 <script>
-let esCodex = null, esHermes = null;
+let esAgent = null, esHermes = null;
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g,
   c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -267,21 +273,29 @@ async function submitChallenges() {
   refresh();
 }
 
-/* ── 平台接入 ── */
+/* ── 赛方题目平台接入 (拉题/开靶机/提交) ── */
 async function connectPlatform() {
-  const base_url = document.getElementById('in-api').value.trim();
-  const token = document.getElementById('in-token').value.trim();
+  const platform = document.getElementById('in-plat-name').value.trim();
+  const base_url = document.getElementById('in-plat-url').value.trim();
+  const api_key = document.getElementById('in-plat-key').value.trim();
   const msg = document.getElementById('plat-msg');
-  if (!base_url) { msg.className = 'msg err'; msg.textContent = '✗ 请填 API 地址'; return; }
+  let ov = null;
+  try { ov = await (await fetch('/api/overview')).json(); } catch (e) {}
+  const wasStandby = ov && ov.standby;
+  if (!base_url || !api_key) { msg.className = 'msg err'; msg.textContent = '✗ base_url 和 api_key 必填'; return; }
   msg.className = 'msg'; msg.textContent = '接入中...';
   try {
     const r = await fetch('/api/connect-platform', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ base_url, token }),
+      body: JSON.stringify({ platform, base_url, api_key }),
     });
     const d = await r.json();
-    if (r.ok) { msg.className = 'msg ok'; msg.textContent = `✓ 已接入，拉到 ${d.challenges} 道题`; }
-    else { msg.className = 'msg err'; msg.textContent = `✗ ${d.error}`; }
+    if (r.ok) {
+      msg.className = 'msg ok';
+      const started = wasStandby ? '，调度已开始' : '';
+      msg.textContent = `✓ 已接入 ${d.platform || base_url} (${d.api_key})，拉到 ${d.challenges} 道题${started}`;
+      document.getElementById('in-plat-key').value = '';  // 提交后即清，避免滞留明文
+    } else { msg.className = 'msg err'; msg.textContent = `✗ ${d.error}`; }
   } catch (e) { msg.className = 'msg err'; msg.textContent = `✗ ${e}`; }
   setTimeout(() => msg.textContent = '', 8000);
   refresh();
@@ -320,6 +334,7 @@ async function refresh() {
   document.getElementById('solved').textContent = d.solved;
   document.getElementById('score').textContent = d.score_earned;
   document.getElementById('paused-badge').style.display = d.paused ? '' : 'none';
+  document.getElementById('standby-badge').style.display = d.standby ? '' : 'none';
   document.getElementById('btn-pause').textContent = d.paused ? '恢复调度' : '暂停调度';
   document.getElementById('btn-pause').className = d.paused ? 'btn btn-go' : 'btn btn-warn';
   document.getElementById('in-solvers').placeholder = d.max_solvers;
@@ -327,9 +342,20 @@ async function refresh() {
   const pb = document.getElementById('plat-badge');
   if (d.platform_connected) {
     pb.className = 'badge plat-on';
-    pb.textContent = d.platform_base_url ? `平台: ${d.platform_base_url}` : '平台: mock';
+    const parts = [d.platform_name, d.platform_base_url].filter(Boolean);
+    pb.textContent = `平台: ${parts.join(' · ') || 'mock'}`;
   } else {
     pb.className = 'badge plat-off'; pb.textContent = '平台: 未接入';
+  }
+  const lb = document.getElementById('llm-badge');
+  if (d.llm && d.llm.configured) {
+    lb.className = 'badge llm-on';
+    lb.textContent = `模型: ${d.llm.platform || 'LLM'}${d.llm.model ? ' · ' + d.llm.model : ''}`;
+    lb.title = `${d.llm.base_url} (key ${d.llm.api_key})`;
+  } else {
+    lb.className = 'badge llm-off';
+    lb.textContent = '模型: 未接入';
+    lb.title = '引擎配置 llm.yaml 未填写，按本机默认登录态运行';
   }
 
   const tb = document.getElementById('tbody');
@@ -390,13 +416,13 @@ async function applyConfig() {
 function openLogs(cid) {
   document.getElementById('drawer-title').textContent = cid;
   document.getElementById('drawer').classList.add('open');
-  document.getElementById('log-codex').textContent = '';
+  document.getElementById('log-agent').textContent = '';
   document.getElementById('log-hermes').textContent = '';
-  if (esCodex) esCodex.close();
+  if (esAgent) esAgent.close();
   if (esHermes) esHermes.close();
-  esCodex = new EventSource(`/api/logs/${encodeURIComponent(cid)}/codex`);
+  esAgent = new EventSource(`/api/logs/${encodeURIComponent(cid)}/agent`);
   esHermes = new EventSource(`/api/logs/${encodeURIComponent(cid)}/hermes`);
-  esCodex.addEventListener('append', e => appendLog('log-codex', e.data));
+  esAgent.addEventListener('append', e => appendLog('log-agent', e.data));
   esHermes.addEventListener('append', e => appendLog('log-hermes', e.data));
 }
 
@@ -408,7 +434,7 @@ function appendLog(id, text) {
 
 function closeDrawer() {
   document.getElementById('drawer').classList.remove('open');
-  if (esCodex) esCodex.close();
+  if (esAgent) esAgent.close();
   if (esHermes) esHermes.close();
 }
 

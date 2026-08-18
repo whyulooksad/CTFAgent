@@ -5,16 +5,15 @@ solver_pool.py -- Solver 后端抽象与实现 (master-agent-spec.md §4.4)。
 Master 通过 SolverBackend 接口管理 Solver 生命周期，后端可替换:
   - ProcessBackend: Phase 1 主力，直接以子进程运行现有 run.sh (容器外)
   - DockerBackend:  Phase 2，每题一个容器，销毁重建 (未实现)
-  - FakeBackend:    开发/测试用，不起 codex，线程模拟解题生命周期
+  - FakeBackend:    开发/测试用，不起 claude，线程模拟解题生命周期
 
 Solver 交互协议 (与容器内一致): Master 只读 work_dir/progress.md 检测 flag，
-其余 (codex.log/hermes.log/board.md) 由 Solver 自行维护。
+其余 (agent.log/hermes.log/board.md) 由 Solver 自行维护。
 """
 
 from __future__ import annotations
 
 import abc
-import hashlib
 import os
 import re
 import signal
@@ -84,7 +83,8 @@ class ProcessBackend(SolverBackend):
     def start(self, ch: Challenge) -> SolverHandle:
         work_dir = self._predict_work_dir(ch)
 
-        cmd = ["bash", str(REPO_DIR / "solver" / "run.sh"), "--type", ch.type]
+        cmd = ["bash", str(REPO_DIR / "solver" / "run.sh"), "--type", ch.type,
+               "--cid", ch.id]
         if ch.type in ("web", "binary"):
             cmd += ["--url", ch.url or ""]
             if ch.type == "binary" and ch.attachment_path:
@@ -96,8 +96,9 @@ class ProcessBackend(SolverBackend):
         fc = int(getattr(ch, "flag_count", 1) or 1)
         if fc > 1:
             cmd += ["--flag-count", str(fc)]  # 多 flag: solver 拿满前不退出
+        cmd += ["--managed"]  # master 调度模式: STOP 文件收工，flag 对错由平台判定
 
-        # run.sh 的 stdout 横幅收集到 master_logs (codex/hermes 日志在 work_dir 内)
+        # run.sh 的 stdout 横幅收集到 master_logs (agent/hermes 日志在 work_dir 内)
         # 每次尝试追加写入 (不覆盖)，带分隔头 -- "w" 模式曾把重试前一轮的日志抹掉
         log_path = REPO_DIR / "master_logs" / f"{_safe_name(ch.id)}.log"
         log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -127,14 +128,9 @@ class ProcessBackend(SolverBackend):
 
     @staticmethod
     def _predict_work_dir(ch: Challenge) -> Path:
-        # binary: url 决定 work_dir (附件可选)，与 run.sh 的 binary 分支一致
-        if ch.type == "web" or (ch.type == "binary" and ch.url):
-            digest = hashlib.md5(ch.url.encode()).hexdigest()[:12]
-            name = f"manual_{ch.type}_{digest}"
-        else:
-            digest = hashlib.md5(str(ch.attachment_path).encode()).hexdigest()[:12]
-            name = f"manual_{ch.type}_{digest}"
-        return CHALLENGES_DIR / name
+        # 与 run.sh --cid 分支一致: <safe(cid)>_<题型>，每题唯一、同题重试复用
+        # (旧 md5(url) 命名会被平台回收地址击穿——两题共用目录串台)
+        return CHALLENGES_DIR / f"{_safe_name(ch.id)}_{ch.type}"
 
     def is_alive(self, handle: SolverHandle) -> bool:
         return handle.proc is not None and handle.proc.poll() is None
@@ -186,50 +182,6 @@ class ProcessBackend(SolverBackend):
             pass
 
 
-def _detect_host_proxy() -> Optional[str]:
-    """
-    探测宿主机代理，返回容器可用的代理 URL (如 http://host.docker.internal:7892)。
-
-    优先级: 环境变量 PROXY_FOR_CONTAINERS > 常见代理端口探测。
-    codex 在容器里访问 OpenAI 需要走宿主机代理 (账号登录 + 本地网络环境)。
-    """
-    explicit = os.environ.get("PROXY_FOR_CONTAINERS", "").strip()
-    if explicit:
-        return explicit
-
-    # macOS: 读系统代理设置
-    ports = []
-    try:
-        import subprocess as _sp
-
-        out = _sp.run(
-            ["scutil", "--proxy"], capture_output=True, text=True, timeout=5
-        ).stdout
-        for line in out.splitlines():
-            if "HTTPPort" in line:
-                ports.append(line.split(":")[1].strip())
-    except Exception:
-        pass
-    # 常见代理端口 (Clash/v2ray 系)
-    ports += ["7890", "7892", "1087"]
-
-    # 端口在宿主机 127.0.0.1 上监听才算有效；返回给容器用的地址则是
-    # host.docker.internal (Docker Desktop 将其映射到宿主机)
-    import socket as _socket
-
-    seen = []
-    for port in dict.fromkeys(ports):  # 去重保序
-        try:
-            with _socket.create_connection(("127.0.0.1", int(port)), timeout=1):
-                seen.append(port)
-        except OSError:
-            continue
-    if not seen:
-        return None
-    host = os.environ.get("CONTAINER_HOST_GATEWAY", "host.docker.internal")
-    return f"http://{host}:{seen[0]}"
-
-
 # ───────────────────────── DockerBackend (Phase 2) ─────────────────────────
 
 
@@ -240,8 +192,9 @@ class DockerBackend(SolverBackend):
     挂载:
       challenges/ → /opt/ctf-agent/challenges   整目录 bind mount，容器内 run.sh
         创建的 work_dir 直接落到宿主机 (删容器不删数据，Master 靠这个读 progress.md)
-      <snapshot>/codex → /root/.codex            精制快照 (cred_snapshot.py)
-      <snapshot>/hermes → /root/.hermes          同上
+      <snapshot>/hermes → /root/.hermes          精制快照 (cred_snapshot.py)
+      llm.yaml → /opt/ctf-agent/llm.yaml:ro     赛方大模型平台接入 (存在才挂)
+      (解题引擎 claude code 靠环境变量接入，无需凭据快照)
 
     附件路径语义: 传给 run.sh 的是容器内路径
       /opt/ctf-agent/challenges/attachments/<cid>/<name>
@@ -253,15 +206,15 @@ class DockerBackend(SolverBackend):
 
     def __init__(self, image: str = "ctf-solver:latest", snapshot_dir: Optional[Path] = None):
         self.image = image
-        self.proxy_url: Optional[str] = None   # 宿主代理 (惰性探测)
         if snapshot_dir is not None:
             self.snapshot_dir = Path(snapshot_dir)
         else:
             self.snapshot_dir = REPO_DIR / "cred_snapshots" / "current"
         if not self.snapshot_dir.exists():
             raise FileNotFoundError(
-                f"凭据快照不存在: {self.snapshot_dir} (先运行 python3 cred_snapshot.py)"
+                f"凭据快照不存在: {self.snapshot_dir} (先运行 python3 master/cred_snapshot.py)"
             )
+        self.llm_yaml = REPO_DIR / "llm.yaml"
 
     # ─── 路径换算 ───
 
@@ -274,14 +227,8 @@ class DockerBackend(SolverBackend):
         return self.CONTAINER_ROOT / "challenges" / rel
 
     def _predict_work_dir(self, ch: Challenge) -> Path:
-        """与 run.sh 命名规则一致，但附件用容器路径语义。"""
-        if ch.type == "web" or (ch.type == "binary" and ch.url):
-            digest = hashlib.md5(ch.url.encode()).hexdigest()[:12]
-            name = f"manual_{ch.type}_{digest}"
-        else:
-            digest = hashlib.md5(str(self._container_attachment(ch)).encode()).hexdigest()[:12]
-            name = f"manual_{ch.type}_{digest}"
-        return CHALLENGES_DIR / name  # bind mount 下与容器内同名
+        """与 run.sh --cid 分支一致: <safe(cid)>_<题型> (每题唯一、同题重试复用)。"""
+        return CHALLENGES_DIR / f"{_safe_name(ch.id)}_{ch.type}"  # bind mount 下与容器内同名
 
     # ─── 生命周期 ───
 
@@ -292,23 +239,19 @@ class DockerBackend(SolverBackend):
         cmd = [
             "docker", "run", "-d", "--name", cname,
             "-v", f"{CHALLENGES_DIR}:{self.CONTAINER_ROOT}/challenges",
-            "-v", f"{self.snapshot_dir}/codex:/root/.codex",
             "-v", f"{self.snapshot_dir}/hermes:/root/.hermes",
-            "--memory", "4g",
         ]
-        # codex 访问 OpenAI 走宿主机代理 (探测一次并缓存)
-        if self.proxy_url is None:
-            self.proxy_url = _detect_host_proxy()
-        if self.proxy_url:
-            for var in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"):
-                cmd += ["-e", f"{var}={self.proxy_url}"]
-            # VPN/内网段直连 (靶机在 10.x VPN 网内，必须绕过代理)
-            no_proxy = "localhost,127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
-            cmd += ["-e", f"NO_PROXY={no_proxy}", "-e", f"no_proxy={no_proxy}"]
+        # 赛方大模型平台接入配置 (含 api_key，绝不烘焙进镜像，运行时只读挂载)
+        if self.llm_yaml.is_file():
+            cmd += ["-v", f"{self.llm_yaml}:{self.CONTAINER_ROOT}/llm.yaml:ro"]
+        # 网络全直连: 引擎是 deepseek 等国产平台 (国内直连)，靶机在 VPN 内网，
+        # 不注入任何代理 (2026-08-18 codex/gpt 时代遗留的代理链路已移除)
+        cmd += ["--memory", "4g"]
         cmd += [
             self.image,
             # 镜像 ENTRYPOINT 已 exec run.sh，这里只传 run.sh 参数
             "--type", ch.type,
+            "--cid", ch.id,
         ]
         if ch.type in ("web", "binary"):
             cmd += ["--url", ch.url or ""]
@@ -322,6 +265,7 @@ class DockerBackend(SolverBackend):
         fc = int(getattr(ch, "flag_count", 1) or 1)
         if fc > 1:
             cmd += ["--flag-count", str(fc)]  # 多 flag: solver 拿满前不退出
+        cmd += ["--managed"]  # master 调度模式: STOP 文件收工，flag 对错由平台判定
 
         res = subprocess.run(cmd, capture_output=True, text=True, timeout=90)
         if res.returncode != 0:
@@ -360,7 +304,7 @@ class DockerBackend(SolverBackend):
                 pass
 
     def logs_tail(self, handle: SolverHandle, n: int = 50) -> str:
-        """容器 stdout 尾部 (run.sh 横幅; codex/hermes 日志在挂载的 work_dir 里)。"""
+        """容器 stdout 尾部 (run.sh 横幅; agent/hermes 日志在挂载的 work_dir 里)。"""
         if not handle.container:
             return ""
         try:
@@ -378,7 +322,7 @@ class DockerBackend(SolverBackend):
 
 class FakeBackend(SolverBackend):
     """
-    测试用假 Solver: 不起 codex，用线程模拟解题生命周期，验证 Master 调度逻辑。
+    测试用假 Solver: 不起 claude，用线程模拟解题生命周期，验证 Master 调度逻辑。
 
     行为由题目 title 中的标记驱动:
       含 "[fail]"  -> 永远不产出 flag，直到被 Master 停掉 (测超时/重试路径)
@@ -415,8 +359,8 @@ class FakeBackend(SolverBackend):
         for i in range(steps):
             if ev.wait(0.25):
                 return
-            with open(handle.work_dir / "codex.log", "a", encoding="utf-8") as f:
-                f.write(f"[fake-codex] {ch.id} 分析步骤 {i + 1}/{steps}...\n")
+            with open(handle.work_dir / "agent.log", "a", encoding="utf-8") as f:
+                f.write(f"[fake-agent] {ch.id} 分析步骤 {i + 1}/{steps}...\n")
             with open(handle.work_dir / "hermes.log", "a", encoding="utf-8") as f:
                 f.write(f"[fake-hermes] 第 {i + 1} 次监控: 正常推进，无需介入\n")
         if "[wrong]" in ch.title:
