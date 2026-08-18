@@ -99,11 +99,15 @@ def make_adapter(name: str):
     if name == "mock":
         return MockAdapter()
     if name == "tsec":
-        # 腾讯 Tsecbench (BENCHMARK_TOKEN 认证 + VPN 直连)
-        base_url = os.environ.get("TSEC_BASE_URL", "https://tsecbench.zc.tencent.com")
-        token = os.environ.get("TSEC_TOKEN", "")
+        # 腾讯 Tsecbench。本地模式: TSEC_BASE_URL/TSEC_TOKEN;
+        # 平台托管模式: 注入 BENCHMARK_BASE_URL/BENCHMARK_TOKEN (优先)
+        base_url = (
+            os.environ.get("BENCHMARK_BASE_URL")
+            or os.environ.get("TSEC_BASE_URL", "https://tsecbench.zc.tencent.com")
+        )
+        token = os.environ.get("BENCHMARK_TOKEN") or os.environ.get("TSEC_TOKEN", "")
         if not token:
-            raise ValueError("adapter=tsec 需要环境变量 TSEC_TOKEN")
+            raise ValueError("adapter=tsec 需要环境变量 TSEC_TOKEN 或 BENCHMARK_TOKEN")
         from adapters.tsec import TSecAdapter
         return TSecAdapter(base_url, token)
     if name in ("none", "live"):

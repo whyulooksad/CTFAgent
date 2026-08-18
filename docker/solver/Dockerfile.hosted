@@ -1,0 +1,31 @@
+# ctf-agent 托管模式镜像 (平台沙箱运行)
+#
+# 与本地镜像 ctf-solver 的差异:
+#   - 内置凭据快照 (本地靠 docker 挂载, 平台沙箱无挂载)
+#   - 内置 claude 配置 (ANTHROPIC_* 环境变量注入方式在托管不可用, 直接写 settings.json)
+#   - entrypoint 改为启动 master (本地是启动 solver/run.sh)
+#   - master 用 process backend (沙箱无 docker)
+#
+# 构建: docker build -f docker/solver/Dockerfile.hosted -t ctf-solver-hosted .
+# 导出: docker save ctf-solver-hosted | gzip > ctf-solver-hosted.tar.gz (上传平台 ≤3GB)
+
+FROM ctf-solver:latest
+
+# ── 最新 master 代码 (覆盖镜像内构建时旧版) ──
+COPY master/ /opt/ctf-agent/master/
+
+# ── 内置凭据快照 (托管无挂载, 必须打进镜像) ──
+# codex: config.toml 含 deepseek API key; entrypoint 会把 base_url 切到平台网关
+# 注意: .dockerignore 排除 cred_snapshots/ → 构建前先复制到 docker/hosted/snap_build/
+#       (构建后删除; 构建命令见 README/脚本)
+COPY docker/hosted/snap_build/codex /home/ubuntu/.codex
+COPY docker/hosted/snap_build/hermes /home/ubuntu/.hermes
+# claude: 从宿主 ~/.claude/settings.json 取 env 配置写入 (ANTHROPIC_*)
+COPY docker/hosted/claude-settings.json /home/ubuntu/.claude/settings.json
+
+# ── 托管配置 + 入口 ──
+COPY master/master_config.hosted.json /opt/ctf-agent/master/master_config.hosted.json
+COPY docker/hosted/entrypoint-hosted.sh /opt/ctf-agent/docker/hosted/entrypoint-hosted.sh
+RUN chmod +x /opt/ctf-agent/docker/hosted/entrypoint-hosted.sh
+
+ENTRYPOINT ["bash", "/opt/ctf-agent/docker/hosted/entrypoint-hosted.sh"]

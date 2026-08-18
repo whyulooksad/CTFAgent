@@ -51,3 +51,8 @@ tests/mock_challenges/*.zip
 
 # 临时备份 (崩溃恢复用，不入库)
 .backups/
+
+# 托管镜像构建产物 (含 API key 快照, 不入库)
+docker/hosted/claude-settings.json
+docker/hosted/snap_build/
+ctf-solver-hosted.tar.gz
