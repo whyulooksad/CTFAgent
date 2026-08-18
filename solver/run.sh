@@ -490,7 +490,7 @@ case "$CHALLENGE_TYPE" in
 
 【第一步必做】先 cat board.md 和 progress.md 恢复上下文（board.md 含已知结论/失败记录/当前方向，progress.md 含当前进度）。
 未读完这两个文件前，禁止执行任何攻击命令。读完后再继续解题。
-每次工具调用后更新 progress.md。"
+每次工具调用后必须更新 progress.md（Current Phase / Next Steps / Key Artifacts 保持最新）；找到 flag 必须立即追加到 Flags Found 段，禁止延迟或留到之后。"
         ;;
     crypto|misc)
         CODEX_PROMPT="附件: $ATTACHMENT_IN_WORKDIR
@@ -499,7 +499,7 @@ case "$CHALLENGE_TYPE" in
 这是一个 $CHALLENGE_TYPE 题目。附件已复制到工作目录。
 【第一步必做】先 cat board.md 和 progress.md 恢复上下文（board.md 含已知结论/失败记录/当前方向，progress.md 含当前进度）。
 未读完这两个文件前，禁止执行任何攻击命令。读完后再开始解题: 先解压/识别附件，分析文件内容，寻找 flag。
-每次工具调用后更新 progress.md。"
+每次工具调用后必须更新 progress.md（Current Phase / Next Steps / Key Artifacts 保持最新）；找到 flag 必须立即追加到 Flags Found 段，禁止延迟或留到之后。"
         ;;
     binary)
         CODEX_PROMPT="目标: $TARGET_URL
@@ -510,7 +510,7 @@ case "$CHALLENGE_TYPE" in
 【第一步必做】先 cat board.md 和 progress.md 恢复上下文（board.md 含已知结论/失败记录/当前方向，progress.md 含当前进度）。
 未读完这两个文件前，禁止执行任何攻击命令。读完后再开始解题: 先逆向分析附件/探测远程服务协议，定位内存安全缺陷或逻辑漏洞，
 编写 exploit (pwntools 可用) 从远程服务读取 flag。工具用法见 $SCRIPT_DIR/TOOLS.md。
-每次工具调用后更新 progress.md。"
+每次工具调用后必须更新 progress.md（Current Phase / Next Steps / Key Artifacts 保持最新）；找到 flag 必须立即追加到 Flags Found 段，禁止延迟或留到之后。"
         ;;
 esac
 
@@ -583,13 +583,18 @@ while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
         EXIT_CODE=0
         if [ "$AGENT_CLI" = "claude" ]; then
             # claude -p 非交互: [flags] [--resume <sid>] <prompt>
-            # stream-json 输出含大量 thinking_tokens 思维链计数噪音 → 写文件前过滤
+            # stream-json 输出含大量 thinking_tokens 思维链计数噪音 →
+            # 管道实时过滤再落 codex.log (必须实时: monitor 靠 codex.log 增量
+            # 触发 Hermes; 中间文件方案会致 Hermes 盲区)。
+            # set +e 局部关 -e: claude 失败时管道非 0 不能终止脚本 (要进 resume 循环);
+            # PIPESTATUS[0] 取 claude 退出码 (|| true 会覆盖 PIPESTATUS, 不可用)
+            set +e
             claude -p "${AGENT_EXEC_EXTRA[@]}" \
               ${RESUME_ARGS[@]+"${RESUME_ARGS[@]}"} \
               "$CODEX_PROMPT" \
-                < /dev/null > codex.raw.log 2>&1 || EXIT_CODE=$?
-            grep -v '"subtype":"thinking_tokens"' codex.raw.log > codex.log || true
-            rm -f codex.raw.log
+                < /dev/null 2>&1 | grep -v '"subtype":"thinking_tokens"' > codex.log
+            EXIT_CODE=${PIPESTATUS[0]}
+            set -e
         else
             # codex exec: [flags] [resume <sid>] <prompt>
             codex exec "${AGENT_EXEC_EXTRA[@]}" \
