@@ -117,12 +117,22 @@ fi
 # 清理上一次运行的残留状态（同一 URL 会复用工作目录）
 # branch.sock 实际在 /tmp/ctf-agent-<uid>/ 短路径下 (AF_UNIX 108 限制)，由 socket-path 查询
 BRANCH_SOCKET=$(python3 "$SCRIPT_DIR/branch.py" socket-path --work-dir "$WORK_DIR")
-rm -f "$WORK_DIR/branch_state.json" "$BRANCH_SOCKET"
-rm -f "$WORK_DIR/branch_result_"*.md
+rm -f "$BRANCH_SOCKET"
+# codex_round_*.log 是本次运行期的按轮归档，重启即重新编号 (续跑轮次从 1 重数，
+# 保留旧 round 文件会与新轮次追加混合；上轮诊断看保留的 codex.log)
+rm -f "$WORK_DIR/codex_round_"*.log
+# 续跑保留 branch_state.json + branch_result_*.md: branch daemon 启动时 _restore_state
+# 恢复 subagents (counter 一并恢复)，Codex 可继续读上轮 subagent 结果 (branch.py results)
+# —— 否则上轮 subagent 找到的 flag 会随重启永久丢失 (b-02 真实案例)
+if [ "$IS_RESUME" = "0" ]; then
+    rm -f "$WORK_DIR/branch_state.json"
+    rm -f "$WORK_DIR/branch_result_"*.md
+fi
 # 全新目录才删日志与提交记录; 续跑保留 hermes.log（Hermes 历史）+ codex.log 历史
 # + submit_results.jsonl（防重复提交/重复攻击）
 if [ "$IS_RESUME" = "0" ]; then
-    rm -f "$WORK_DIR/codex.log" "$WORK_DIR/hermes.log" "$WORK_DIR/monitor_state.json"
+    rm -f "$WORK_DIR/codex.log"
+    rm -f "$WORK_DIR/hermes.log" "$WORK_DIR/monitor_state.json"
     rm -f "$WORK_DIR/submit_result.json" "$WORK_DIR/submit_results.jsonl"
 fi
 
@@ -509,41 +519,47 @@ if [ "$IS_RESUME" = "0" ]; then
 fi
 
 while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
+    ROUND=$((RETRY+1))
     echo ""
-    echo "=== Codex round $((RETRY+1))/$MAX_RETRIES ==="
+    echo "=== Codex round $ROUND/$MAX_RETRIES ==="
 
     cd "$WORK_DIR"
-    # codex exec 带同轮快速重试: deepseek responses API 偶发 "No tool output found"
-    # (第三方模型工具往返 bug，V1 模式仍可能触发，长会话后偶发)。
-    # 非 0 退出且日志含该错误时，--resume 恢复本次 session 原地重试同轮 (最多 3 次):
-    # 不算新轮次、不丢上下文 (完整对话延续)。
+    # codex exec 崩溃恢复: deepseek responses API 偶发 "No tool output found"
+    # (第三方模型工具往返 bug)。判定: exit 非 0 且日志尾部 10 行含该错误
+    # (一轮内中途的 No tool output 是 codex 内部已恢复, exit 0 正常切换, 不算崩)。
+    # 崩溃 → `codex exec resume <sid>` 拉起原会话 (resume 是 exec 子命令,
+    # --resume 是非法参数会 exit 2 —— 曾导致 resume 兜底全部失效):
+    # 崩了就拉, 无限重试直到正常运行或容器被 master 超时杀掉 (不消耗新轮次)。
+    # 每轮日志追加归档 codex_round{N}.log (codex.log 保持最新轮内容, 历史用于诊断)。
     RESUME_ARGS=()
-    for attempt in 1 2 3; do
+    while true; do
         EXIT_CODE=0
         codex exec --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust \
-          --ignore-rules --disable guardian_approval \
-          "${RESUME_ARGS[@]}" \
+          --ignore-rules --disable guardian_approval --skip-git-repo-check \
+          ${RESUME_ARGS[@]+"${RESUME_ARGS[@]}"} \
           "$CODEX_PROMPT" \
             < /dev/null > codex.log 2>&1 || EXIT_CODE=$?
         # 注意: 必须 || 捕获退出码 (set -e 下 codex 非 0 退出会直接终止脚本!)
+        cat codex.log >> "codex_round${ROUND}.log" 2>/dev/null || true
         if [ $EXIT_CODE -eq 0 ]; then
             break
         fi
         if [ $INTERRUPTED -eq 1 ]; then
             break
         fi
-        if grep -q "No tool output found" codex.log 2>/dev/null; then
-            # 提取本次 session id，下次重试 --resume 恢复原会话
+        if tail -10 codex.log | grep -q "No tool output found" 2>/dev/null; then
+            # 提取本次 session id，resume 恢复原会话 (完整对话延续)
             SID=$(grep -oP "session id: \K[0-9a-f-]+" codex.log | tail -1)
             if [ -n "$SID" ]; then
-                RESUME_ARGS=(--resume "$SID")
+                RESUME_ARGS=(resume "$SID")
+                echo "[run.sh] codex 崩溃 (No tool output found, exit=$EXIT_CODE)，resume 拉起原会话重试 ($(date +%H:%M:%S))"
+                sleep 5
+                continue
             fi
-            echo "[run.sh] codex 工具往返偶发错误 (attempt $attempt/3)，--resume 恢复会话重试同轮 (exit=$EXIT_CODE)"
-            sleep 5
-        else
-            echo "[run.sh] codex exec 退出码 $EXIT_CODE (非工具往返错误)，进入收工检查"
-            break
         fi
+        # 非工具往返错误 / 拿不到 SID → 收工检查 (下一轮新 session)
+        echo "[run.sh] codex exec 退出码 $EXIT_CODE (无法恢复)，进入收工检查"
+        break
     done
 
     # Ctrl+C 被按下 -> 不续跑，直接退出

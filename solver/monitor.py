@@ -32,6 +32,10 @@ STATE_FILE = "monitor_state.json"
 
 FLAG_PATTERN = re.compile(r"(?:flag|ctf)\{[^}]+\}", re.IGNORECASE)
 
+# board.md 容量上限 (与 hermes_monitor.md 一致): 超限触发 Hermes 全量整理
+BOARD_MEMORY_LIMIT = 25
+BOARD_IDEA_LIMIT = 15
+
 # ───────────────────────── Data Models ─────────────────────────
 
 
@@ -40,6 +44,8 @@ class MonitorState:
     """跨轮次持久化的状态。"""
     last_log_offset: int = 0  # 上次读到的 codex.log 位置
     start_time: float = 0.0
+    board_over_notified: bool = False  # board 超限已通知过 Hermes (防每 10s 空转触发)
+    last_branch_mtime: float = 0.0  # 上次检查的 branch_result_*.md 最晚 mtime (新增结果触发)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -77,6 +83,16 @@ def parse_progress(path: Path) -> dict:
     return result
 
 
+def parse_board(path: Path) -> dict:
+    """解析 board.md，统计 Memory/Idea 条数 (容量整理触发依据)。"""
+    if not path.exists():
+        return {"memory_count": 0, "idea_count": 0}
+    text = path.read_text(encoding="utf-8", errors="replace")
+    memory_count = len(re.findall(r"^\|\s*M\d+", text, re.M))
+    idea_count = len(re.findall(r"^\|\s*I\d+", text, re.M))
+    return {"memory_count": memory_count, "idea_count": idea_count}
+
+
 def read_log_increment(path: Path, state: MonitorState) -> str:
     """读取 codex.log 的增量内容 (从上次位置到现在)。"""
     if not path.exists():
@@ -102,6 +118,23 @@ def check_flag_found(progress: dict, log_increment: str) -> Optional[str]:
         if match:
             return match.group(0)
     return None
+
+
+def check_branch_results(work_dir: Path, state: MonitorState) -> bool:
+    """检测是否有新增/更新的 branch_result_*.md (subagent 完成试探)。
+
+    branch_result 里可能有 subagent 找到的 flag——主进程 codex.log 无新日志时
+    monitor 不会触发，Hermes 就发现不了 branch_result 的 flag (b-02 断链场景)。
+    这里把 branch_result 变化也作为触发信号。
+    """
+    files = sorted(work_dir.glob("branch_result_*.md"))
+    if not files:
+        state.last_branch_mtime = 0.0
+        return False
+    latest = max(f.stat().st_mtime for f in files)
+    changed = latest > state.last_branch_mtime
+    state.last_branch_mtime = latest
+    return changed
 
 
 # ───────────────────────── State Persistence ─────────────────────────
@@ -140,12 +173,25 @@ def run_monitor(work_dir: Path) -> Optional[dict]:
     progress = parse_progress(work_dir / "progress.md")
     log_path = work_dir / "codex.log"
 
+    # board.md 容量统计 (超限时触发 Hermes 全量整理)
+    board = parse_board(work_dir / "board.md")
+    board_over_limit = (
+        board["memory_count"] > BOARD_MEMORY_LIMIT
+        or board["idea_count"] > BOARD_IDEA_LIMIT
+    )
+    # 超限只通知一次 (Hermes 整理前不反复触发 hermes chat 空转); 回落后重置可再通知
+    notify_board_over = board_over_limit and not state.board_over_notified
+    state.board_over_notified = bool(board_over_limit)
+
     # 读日志增量
     log_increment = read_log_increment(log_path, state)
 
     # 人工指导检测（human_guidance.md 非空 -> 触发 Hermes 处理）
     hg_path = work_dir / "human_guidance.md"
     has_human_guidance = hg_path.exists() and bool(hg_path.read_text(encoding="utf-8").strip())
+
+    # branch_result 变化检测 (subagent 完成 -> 可能带 flag，需 Hermes 审核)
+    branch_changed = check_branch_results(work_dir, state)
 
     # 快速检测 flag
     flag = check_flag_found(progress, log_increment)
@@ -170,7 +216,15 @@ def run_monitor(work_dir: Path) -> Optional[dict]:
     has_new_log = bool(log_increment.strip())
     has_flag = flag is not None
 
-    if not has_new_log and not has_flag and not is_stale and not is_timeout and not has_human_guidance:
+    if (
+        not has_new_log
+        and not has_flag
+        and not is_stale
+        and not is_timeout
+        and not has_human_guidance
+        and not notify_board_over
+        and not branch_changed
+    ):
         # 一切正常，无新日志 -> 静默
         return None
 
@@ -191,9 +245,15 @@ def run_monitor(work_dir: Path) -> Optional[dict]:
         "log_increment_hint": "(有新日志，请自行 tail codex.log 读取)" if log_line_count > 0 else "(无新日志)",
         "human_guidance": "有新的待处理人工指导，请读 human_guidance.md" if has_human_guidance else None,
         "flag_found": flag,
+        "branch_results_changed": branch_changed,
         "is_stale": is_stale,
         "stale_seconds": stale_seconds,
         "is_timeout": is_timeout,
+        "board": {
+            "memory_count": board["memory_count"],
+            "idea_count": board["idea_count"],
+            "over_limit": board_over_limit,
+        },
     }
 
     return output

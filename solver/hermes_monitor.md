@@ -13,6 +13,8 @@
 - `progress` -- progress.md 的关键字段（phase, next_steps, flags, url）
 - `elapsed_minutes` -- 已运行时间
 - `flag_found` -- 是否检测到 flag
+- `branch_results_changed` -- 是否有新增/更新的 branch_result_*.md (subagent 完成试探，
+  可能带 flag 结论，触发时用 read_file 读新结果并审核 flag)
 - `is_stale` -- 日志是否停滞
 - `is_timeout` -- 是否超时
 
@@ -95,8 +97,15 @@
 - 是 -> 写 dead_ends.md 追加硬约束。
 
 ### 4. Codex 找到 flag 了吗？
-flag_found 不为 null。
-- 是 -> 回复"FLAG 已找到: {flag}"，不需要其他操作。
+flag_found 不为 null（或你从 codex.log / branch_result_*.md 里看到 flag 出现）。
+- 先读 progress.md 的 Flags Found 段，确认这个 flag 是否已记录
+- **未记录** -> 写 dead_ends.md 硬约束（Codex 必须执行）：
+  "立即把 flag {flag} 追加到 progress.md 的 Flags Found 段（一行一个，不加注释）"
+  这是防 flag 丢失的关键——Codex 可能找到 flag 但忘了写 progress.md
+- **已记录** -> 检查是否在重复攻击已拿 flag 的入口，是则写 dead_ends.md 拦住
+- **疑似假 flag/诱饵**（上下文判断：模型闲聊/测试生成的 flag 模式，非实际获取）-> 写 dead_ends.md：
+  "🚫 flag {flag} 疑似假 flag/诱饵，禁止提交"
+- **不确定真假** -> 不写死约束，写 guidance.md 提醒 Codex 自行验证后再提交
 
 ### 5. 日志停滞了吗？
 is_stale 为 true，codex.log 超过 5 分钟无更新。
@@ -118,7 +127,7 @@ is_timeout 为 true。
 
 每次有新进展时同步维护 board.md，确保 Codex compact/续跑后能恢复状态。
 
-### Ideas 表 (最多 8 条)
+### Ideas 表 (最多 15 条)
 | ID | Status | Idea | Result | Updated |
 |----|--------|------|--------|---------|
 
@@ -135,7 +144,7 @@ is_timeout 为 true。
 3. 是否排除了环境/工具问题？
 三个都"是"才标 failed，否则保持 testing。
 
-### Memory 表 (最多 12 条)
+### Memory 表 (最多 25 条)
 | ID | Kind | Content | Source | Updated |
 |----|------|---------|--------|---------|
 
@@ -144,6 +153,14 @@ is_timeout 为 true。
 ### 容量约束
 - Memory > 25 条 -> merge 同类条目，delete 低价值条目
 - Ideas > 15 条 -> merge 近义 idea，delete 已 verified/failed 且超 24h 的
+
+### 容量整理触发 (monitor.py 通知)
+monitor.py 会统计 board.md 的 Memory/Idea 条数，超限时在给你的输出里带
+`board.over_limit: true`（及 memory_count / idea_count）。
+- 是 -> 立即全量整理一次：merge 同类条目、delete 低价值条目
+  （Memory 整理到 <= 20 条，Ideas 整理到 <= 12 条，留出余量避免反复触发）
+- 整理后 board.md 保持完整（Codex 恢复上下文仍可用）
+- 日常未超限时：只做增量更新（新增/修改条目），不重写未变化的行
 
 ## 文件操作规则
 

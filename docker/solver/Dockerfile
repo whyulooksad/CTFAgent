@@ -41,7 +41,7 @@ RUN set -eux; \
     for i in 1 2 3; do \
       if apt-get install -y --no-install-recommends \
            bash git curl wget unzip zip file jq xxd \
-           python3 python3-pip python3-venv \
+           python3 python3-pip python3-venv python3-bs4 \
            nmap netcat-openbsd \
            ffuf dirb openssl sudo \
            binwalk steghide libimage-exiftool-perl \
