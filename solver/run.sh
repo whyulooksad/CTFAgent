@@ -19,6 +19,33 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"   # 仓库根 (challenges/ 所在)
 
+# ─── 引擎选择 (codex 默认 / claude 可切换) ───
+# master 通过环境变量 AGENT_CLI 传入; 默认 codex (原逻辑不动)
+AGENT_CLI=${AGENT_CLI:-codex}
+case "$AGENT_CLI" in
+    claude)
+        AGENT_MODEL="deepseek-v4-pro"
+        # claude -p 非交互 + 跳过权限确认 + verbose(stream-json 输出带 session_id)
+        AGENT_EXEC_EXTRA=(--dangerously-skip-permissions --model "$AGENT_MODEL" --verbose --output-format stream-json)
+        ;;
+    *)
+        AGENT_CLI="codex"
+        AGENT_EXEC_EXTRA=(--dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust \
+            --ignore-rules --disable guardian_approval --skip-git-repo-check)
+        ;;
+esac
+echo "[run.sh] 引擎: $AGENT_CLI"
+
+# Hermes 监督指令文件: 按引擎选 (codex 用原名 "Codex" 称呼, claude 用中性化版)
+# hermes_monitor.claude.md 是 hermes_monitor.md 的称呼中性化副本, 机制完全一致
+if [ "$AGENT_CLI" = "claude" ] && [ -f "$SCRIPT_DIR/hermes_monitor.claude.md" ]; then
+    HERMES_MONITOR="$SCRIPT_DIR/hermes_monitor.claude.md"
+    AGENT_NAME="主解题 Agent"
+else
+    HERMES_MONITOR="$SCRIPT_DIR/hermes_monitor.md"
+    AGENT_NAME="Codex"
+fi
+
 # ─── 参数解析 ───
 
 CHALLENGE_TYPE=""
@@ -138,9 +165,14 @@ fi
 
 mkdir -p "$WORK_DIR/poc_scripts"
 
-# AGENTS.md 副本: Codex 从 work_dir (cwd) 加载，solver/AGENTS.md 不在向上查找路径上
+# AGENTS.md 副本: Codex/Claude 从 work_dir (cwd) 加载，solver/ 下的 AGENTS 不在向上查找路径上
 # (work_dir=challenges/<name>/ -> challenges/ -> 根，均无 AGENTS.md)，必须复制到 cwd
-cp "$SCRIPT_DIR/AGENTS.md" "$WORK_DIR/AGENTS.md"
+# 按引擎选版本: claude 用 AGENTS.claude.md (角色中性 + subagent 协议强调)
+if [ "$AGENT_CLI" = "claude" ] && [ -f "$SCRIPT_DIR/AGENTS.claude.md" ]; then
+    cp "$SCRIPT_DIR/AGENTS.claude.md" "$WORK_DIR/AGENTS.md"
+else
+    cp "$SCRIPT_DIR/AGENTS.md" "$WORK_DIR/AGENTS.md"
+fi
 # branch.py 副本: AGENTS.md 的 subagent 规则用裸 `python3 branch.py ...` (cwd=work_dir)，
 # 脚本本体在 solver/，不复制则 Codex 找不到、subagent 能力失效
 cp "$SCRIPT_DIR/branch.py" "$WORK_DIR/branch.py"
@@ -278,6 +310,25 @@ touch "$WORK_DIR/dead_ends.md"
 touch "$WORK_DIR/human_guidance.md"
 touch "$WORK_DIR/hermes.log"
 
+# claude 引擎: 生成项目级 hooks 配置 (PostToolUse 注入 guidance/dead_ends, 与 codex hooks.json 等价)
+if [ "$AGENT_CLI" = "claude" ]; then
+    mkdir -p "$WORK_DIR/.claude"
+    cat > "$WORK_DIR/.claude/settings.json" << EOF
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash|Read|Write|Edit",
+        "hooks": [
+          {"type": "command", "command": "python3 $SCRIPT_DIR/hooks/check_guidance.py"}
+        ]
+      }
+    ]
+  }
+}
+EOF
+fi
+
 echo "[run.sh] 工作目录初始化完成"
 
 # ─── 启动 branch daemon ───
@@ -307,10 +358,12 @@ fi
 
 MONITOR_LOOP_PID=""
 
-if [ -f "$SCRIPT_DIR/hermes_monitor.md" ]; then
+if [ -f "$HERMES_MONITOR" ]; then
     bash -c '
         SCRIPT_DIR="'"$SCRIPT_DIR"'"
         WORK_DIR="'"$WORK_DIR"'"
+        HERMES_MONITOR="'"$HERMES_MONITOR"'"
+        AGENT_NAME="'"$AGENT_NAME"'"
         INTERVAL=10
         # 复用 warmup 建立的 session（.hermes_session 由 warmup 写入），避免双 session 竞态
         HERMES_SESSION=""
@@ -342,10 +395,10 @@ if [ -f "$SCRIPT_DIR/hermes_monitor.md" ]; then
                 if [ -z "$HERMES_SESSION" ]; then
                     # warmup 超时/失败：自己建新会话，给完整指令，捕获 session_id
                     # -s 预加载 ctf-web (监督速查路由；其他方向按需 skill_view)
-                    RESP=$(timeout 300 hermes chat -q "你是 CTF 监督者。以下是 monitor.py 收集的 Codex 最新进展:
+                    RESP=$(timeout 300 hermes chat -q "你是 CTF 监督者。以下是 monitor.py 收集的 $AGENT_NAME 最新进展:
 $OUTPUT
 
-请读 $SCRIPT_DIR/hermes_monitor.md 获取详细指令，然后按指令执行。
+请读 $HERMES_MONITOR 获取详细指令，然后按指令执行。
 执行完毕后回复简短摘要。" \
                         -t terminal,file,web,search,skills \
                         -s ctf-web \
@@ -358,7 +411,7 @@ $OUTPUT
                 else
                     # 后续触发：复用会话，简短 prompt 即可
                     # timeout 300: hermes chat 挂起不能阻塞 monitor 循环
-                    timeout 300 hermes chat -q "Codex 最新进展:
+                    timeout 300 hermes chat -q "$AGENT_NAME 最新进展:
 $OUTPUT
 
 请按指令执行，回复简短摘要。" \
@@ -381,11 +434,11 @@ $OUTPUT
     # 后台跑不阻塞主流程; 预热只初始化 board.md, 动态监督仍由 monitor 循环驱动
     # 续跑模式: board.md 已有上下文 → 禁止重建，改为追加维护
     if [ "$IS_RESUME" = "1" ]; then
-        WARMUP_MSG="你是 CTF 监督者。续跑模式：请读 $SCRIPT_DIR/hermes_monitor.md 了解职责，\
+        WARMUP_MSG="你是 CTF 监督者。续跑模式：请读 $HERMES_MONITOR 了解职责，\
 读 board.md（已有完整上下文，禁止重建/覆盖，只允许追加维护）和 progress.md，\
 确认当前进展与失败记录后继续监督。回复简短摘要。"
     else
-        WARMUP_MSG="你是 CTF 监督者。新任务开始，请读 $SCRIPT_DIR/hermes_monitor.md 了解职责，\
+        WARMUP_MSG="你是 CTF 监督者。新任务开始，请读 $HERMES_MONITOR 了解职责，\
 读 progress.md（如存在）和题目背景，初始化 board.md 记录目标/URL/已知信息。回复简短摘要。"
     fi
     (
@@ -409,7 +462,7 @@ $OUTPUT
     HERMES_WARMUP_PID=$!
     echo "[run.sh] Hermes warmup started (PID: $HERMES_WARMUP_PID)"
 else
-    echo "[run.sh] WARNING: hermes_monitor.md not found, skipping monitor"
+    echo "[run.sh] WARNING: $HERMES_MONITOR 不存在, skipping monitor"
 fi
 
 # ─── 清理函数 ───
@@ -538,12 +591,20 @@ while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
     RESUME_MAX=3
     while true; do
         EXIT_CODE=0
-        codex exec --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust \
-          --ignore-rules --disable guardian_approval --skip-git-repo-check \
-          ${RESUME_ARGS[@]+"${RESUME_ARGS[@]}"} \
-          "$CODEX_PROMPT" \
-            < /dev/null > codex.log 2>&1 || EXIT_CODE=$?
-        # 注意: 必须 || 捕获退出码 (set -e 下 codex 非 0 退出会直接终止脚本!)
+        if [ "$AGENT_CLI" = "claude" ]; then
+            # claude -p 非交互: [flags] [--resume <sid>] <prompt>
+            claude -p "${AGENT_EXEC_EXTRA[@]}" \
+              ${RESUME_ARGS[@]+"${RESUME_ARGS[@]}"} \
+              "$CODEX_PROMPT" \
+                < /dev/null > codex.log 2>&1 || EXIT_CODE=$?
+        else
+            # codex exec: [flags] [resume <sid>] <prompt>
+            codex exec "${AGENT_EXEC_EXTRA[@]}" \
+              ${RESUME_ARGS[@]+"${RESUME_ARGS[@]}"} \
+              "$CODEX_PROMPT" \
+                < /dev/null > codex.log 2>&1 || EXIT_CODE=$?
+        fi
+        # 注意: 必须 || 捕获退出码 (set -e 下非 0 退出会直接终止脚本!)
         cat codex.log >> "codex_round${ROUND}.log" 2>/dev/null || true
         if [ $EXIT_CODE -eq 0 ]; then
             break
@@ -552,12 +613,16 @@ while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
             break
         fi
         if tail -10 codex.log | grep -q "No tool output found" 2>/dev/null; then
-            # 提取本次 session id，resume 恢复原会话 (完整对话延续)
-            SID=$(grep -oP "session id: \K[0-9a-f-]+" codex.log | tail -1)
+            # 提取本次 session id (codex: "session id: xxx" / claude: "session_id":"xxx")
+            SID=$(grep -oP '(session id: |"session_id":")\K[0-9a-f-]+' codex.log | tail -1)
             if [ -n "$SID" ] && [ "$RESUME_FAILS" -lt "$RESUME_MAX" ]; then
                 RESUME_FAILS=$((RESUME_FAILS+1))
-                RESUME_ARGS=(resume "$SID")
-                echo "[run.sh] codex 崩溃 (No tool output found, exit=$EXIT_CODE)，resume 拉起原会话 ($RESUME_FAILS/$RESUME_MAX) $(date +%H:%M:%S)"
+                if [ "$AGENT_CLI" = "claude" ]; then
+                    RESUME_ARGS=(--resume "$SID")
+                else
+                    RESUME_ARGS=(resume "$SID")
+                fi
+                echo "[run.sh] $AGENT_CLI 崩溃 (No tool output found, exit=$EXIT_CODE)，resume 拉起原会话 ($RESUME_FAILS/$RESUME_MAX) $(date +%H:%M:%S)"
                 sleep 5
                 continue
             fi
@@ -566,7 +631,7 @@ while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
             fi
         fi
         # 非工具往返错误 / 拿不到 SID / resume 超阈值 → 收工检查 (下一轮新 session)
-        echo "[run.sh] codex exec 退出码 $EXIT_CODE (无法恢复)，进入收工检查"
+        echo "[run.sh] $AGENT_CLI exec 退出码 $EXIT_CODE (无法恢复)，进入收工检查"
         break
     done
 

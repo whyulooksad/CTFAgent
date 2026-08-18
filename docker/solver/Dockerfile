@@ -59,6 +59,12 @@ RUN set -eux; \
     if [ -n "$NPM_REGISTRY" ]; then npm config set registry "$NPM_REGISTRY"; fi; \
     npm install -g --omit=dev @openai/codex@${CODEX_VERSION}
 
+# ── Claude Code CLI (claude 引擎, AGENT_CLI=claude 时使用; 版本锁定与宿主一致) ──
+ARG CLAUDE_VERSION=2.1.234
+RUN set -eux; \
+    if [ -n "$NPM_REGISTRY" ]; then npm config set registry "$NPM_REGISTRY"; fi; \
+    npm install -g --omit=dev @anthropic-ai/claude-code@${CLAUDE_VERSION}
+
 # ── 解题 Python 库: pwntools/z3/pycryptodome/Pillow/requests + angr (TOOLS.md 承诺的环境) ──
 # Ubuntu 系统 python 是 externally-managed (PEP 668)，必须 --break-system-packages
 # pip 带重试: 镜像源对个别包偶发 403

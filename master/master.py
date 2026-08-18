@@ -80,6 +80,7 @@ class Config:
     max_submit_per_challenge: int = 3        # 单题提交上限
     dashboard_port: int = 8081               # Phase 3
     docker_image: str = "ctf-solver:latest"  # Phase 2
+    agent_cli: str = "codex"                 # codex | claude (claude 引擎走 deepseek anthropic 端点)
     state_file: str = "master_state.json"
     log_file: str = "master.log"
     flags_file: str = "flags.jsonl"           # 已解出 flag 的落盘文件 (面板数据源)
@@ -124,7 +125,8 @@ def make_backend(name: str, cfg: Optional[Config] = None) -> SolverBackend:
         from cred_snapshot import ensure_snapshot
         snap = ensure_snapshot()  # 精制快照 (spec §7)，每次 Master 启动生成一份
         return DockerBackend(image=cfg.docker_image if cfg else "ctf-solver:latest",
-                             snapshot_dir=snap)
+                             snapshot_dir=snap,
+                             agent_cli=getattr(cfg, "agent_cli", "codex"))
     if name == "fake":
         # 零成本手动调试用: 不起 codex，秒级"解出"题目 (mock 平台下直接判对)
         from adapters.mock import MOCK_FLAGS
@@ -778,8 +780,8 @@ class Master:
         self.paused = False
         self.log.info("恢复调度")
 
-    def update_config(self, max_solvers=None, max_challenges=None) -> None:
-        """运行时调整并发数/题目上限 (面板用)。"""
+    def update_config(self, max_solvers=None, max_challenges=None, agent_cli=None) -> None:
+        """运行时调整并发数/题目上限/引擎 (面板用)。"""
         if max_solvers is not None:
             max_solvers = int(max_solvers)
             if max_solvers < 1:
@@ -790,9 +792,18 @@ class Master:
             if max_challenges < 1:
                 raise ValueError("max_challenges 必须 >= 1")
             self.cfg.max_challenges = max_challenges
+        if agent_cli is not None:
+            agent_cli = str(agent_cli).strip().lower()
+            if agent_cli not in ("codex", "claude"):
+                raise ValueError("agent_cli 必须是 codex 或 claude")
+            self.cfg.agent_cli = agent_cli
+            # 同步到 backend (DockerBackend 实例), 新容器生效
+            if hasattr(self.backend, "agent_cli"):
+                self.backend.agent_cli = agent_cli
+            self.log.info("引擎已切换: %s (对新容器生效，运行中的容器保持原引擎)", agent_cli)
         self.log.info(
-            "配置已更新: max_solvers=%d max_challenges=%d",
-            self.cfg.max_solvers, self.cfg.max_challenges,
+            "配置已更新: max_solvers=%d max_challenges=%d agent_cli=%s",
+            self.cfg.max_solvers, self.cfg.max_challenges, self.cfg.agent_cli,
         )
 
     # ─── 手动加题 / 平台接入 (面板 API) ───

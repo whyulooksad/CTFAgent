@@ -161,8 +161,17 @@
   <div class="inline-row">
     <label style="color:#8b949e">并发 solver 数 <input type="number" id="in-solvers" min="1"></label>
     <label style="color:#8b949e">题目数上限 <input type="number" id="in-challenges" min="1"></label>
+    <label style="color:#8b949e">引擎
+      <select id="sel-agent-cli" style="background:#161b22;color:#c9d1d9;border:1px solid #30363d;border-radius:4px;padding:2px 6px">
+        <option value="codex">codex</option>
+        <option value="claude">claude (CC)</option>
+      </select>
+    </label>
     <button class="btn" onclick="applyConfig()">应用</button>
     <span class="msg" id="config-msg"></span>
+  </div>
+  <div class="inline-row" style="margin-top:8px;font-size:11px;color:#8b949e">
+    引擎切换对新容器生效，运行中的容器保持原引擎（需 Kill All 或等终态后重分发生效）
   </div>
   <div class="inline-row" style="margin-top:8px">
     <button class="btn" style="background:#da3633;border-color:#da3633" onclick="killAll()">Kill All（停全部 + 退出 master）</button>
@@ -348,6 +357,8 @@ async function refresh() {
   document.getElementById('btn-pause').className = d.paused ? 'btn btn-go' : 'btn btn-warn';
   document.getElementById('in-solvers').placeholder = d.max_solvers;
   document.getElementById('in-challenges').placeholder = d.max_challenges;
+  const selCli = document.getElementById('sel-agent-cli');
+  if (selCli && d.agent_cli) selCli.value = d.agent_cli;
   const pb = document.getElementById('plat-badge');
   if (d.platform_connected) {
     pb.className = 'badge plat-on';
@@ -407,8 +418,10 @@ async function applyConfig() {
   const body = {};
   const s = document.getElementById('in-solvers').value;
   const c = document.getElementById('in-challenges').value;
+  const cli = document.getElementById('sel-agent-cli').value;
   if (s) body.max_solvers = parseInt(s);
   if (c) body.max_challenges = parseInt(c);
+  if (cli) body.agent_cli = cli;
   const r = await fetch('/api/config', {
     method: 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(body),

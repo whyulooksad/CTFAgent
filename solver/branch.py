@@ -339,6 +339,24 @@ class BranchDaemon:
 
     # ─── commands ───
 
+    def _spawn_cmd(self, full_prompt: str) -> list[str]:
+        """按引擎选择 subagent 启动命令 (AGENT_CLI: codex|claude)。"""
+        agent_cli = os.environ.get("AGENT_CLI", "codex")
+        if agent_cli == "claude":
+            # claude -p 非交互 + 跳过权限; 输出用 text (subagent 不需要 resume/session_id)
+            model = os.environ.get("CLAUDE_MODEL", "deepseek-v4-pro")
+            return [
+                "claude", "-p", "--dangerously-skip-permissions",
+                "--model", model,
+                full_prompt,
+            ]
+        return [
+            CODEX_CMD, "exec",
+            "--dangerously-bypass-approvals-and-sandbox", "--dangerously-bypass-hook-trust",
+            "--ignore-rules", "--disable", "guardian_approval",
+            full_prompt,
+        ]
+
     def _cmd_spawn(self, req: dict) -> dict:
         name = req["name"]
         prompt = req["prompt"]
@@ -354,8 +372,9 @@ class BranchDaemon:
         try:
             env = os.environ.copy()
             env["CODEX_ROLE"] = "subagent"
+            cmd = self._spawn_cmd(full_prompt)
             proc = subprocess.Popen(
-                [CODEX_CMD, "exec", "--dangerously-bypass-approvals-and-sandbox", "--dangerously-bypass-hook-trust", "--ignore-rules", "--disable", "guardian_approval", full_prompt],
+                cmd,
                 stdout=open(log_file, "w"),
                 stderr=subprocess.STDOUT,
                 cwd=str(self.work_dir),
@@ -364,7 +383,7 @@ class BranchDaemon:
                 env=env,
             )
         except FileNotFoundError:
-            return {"error": f"codex command not found: {CODEX_CMD}"}
+            return {"error": f"agent command not found: {cmd[0]}"}
 
         sa = Subagent(
             id=sid,

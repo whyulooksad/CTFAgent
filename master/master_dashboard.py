@@ -99,6 +99,7 @@ def build_overview(master) -> dict:
         "max_solvers": master.cfg.max_solvers,
         "attempted": master.state.distinct_attempted(),
         "max_challenges": master.cfg.max_challenges,
+        "agent_cli": master.cfg.agent_cli,
         "solved": len(solved),
         "score_earned": sum(r.score for r in solved),
         "platform_connected": master.platform_connected,
@@ -173,6 +174,7 @@ def _make_handler(master):
                     master.update_config(
                         max_solvers=data.get("max_solvers"),
                         max_challenges=data.get("max_challenges"),
+                        agent_cli=data.get("agent_cli"),
                     )
                 except (TypeError, ValueError) as e:
                     self._json(HTTPStatus.BAD_REQUEST, {"error": str(e)})
@@ -180,6 +182,7 @@ def _make_handler(master):
                 self._json(HTTPStatus.OK, {
                     "max_solvers": master.cfg.max_solvers,
                     "max_challenges": master.cfg.max_challenges,
+                    "agent_cli": master.cfg.agent_cli,
                 })
             elif path == "/api/add-challenges":
                 """手动批量加题 (items 数组，见 Master.add_manual_challenges)。"""

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import abc
 import hashlib
+import json
 import os
 import re
 import signal
@@ -183,6 +184,20 @@ class ProcessBackend(SolverBackend):
             pass
 
 
+def _read_claude_env() -> dict:
+    """读宿主 ~/.claude/settings.json 的 env 段 (claude 引擎容器注入用)。
+
+    返回 ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN / ANTHROPIC_MODEL 等。
+    """
+    try:
+        p = Path.home() / ".claude" / "settings.json"
+        data = json.loads(p.read_text(encoding="utf-8"))
+        env = data.get("env", {})
+        return {k: v for k, v in env.items() if isinstance(v, str)}
+    except Exception:
+        return {}
+
+
 def _detect_host_proxy() -> Optional[str]:
     """
     探测宿主机代理，返回容器可用的代理 URL (如 http://host.docker.internal:7892)。
@@ -235,8 +250,9 @@ class DockerBackend(SolverBackend):
 
     CONTAINER_ROOT = Path("/opt/ctf-agent")
 
-    def __init__(self, image: str = "ctf-solver:latest", snapshot_dir: Optional[Path] = None):
+    def __init__(self, image: str = "ctf-solver:latest", snapshot_dir: Optional[Path] = None, agent_cli: str = "codex"):
         self.image = image
+        self.agent_cli = agent_cli  # codex | claude (claude 引擎: deepseek anthropic 端点)
         self.proxy_url: Optional[str] = None   # 宿主代理 (惰性探测)
         if snapshot_dir is not None:
             self.snapshot_dir = Path(snapshot_dir)
@@ -275,7 +291,14 @@ class DockerBackend(SolverBackend):
             "-v", f"{self.snapshot_dir}/codex:/home/ubuntu/.codex",
             "-v", f"{self.snapshot_dir}/hermes:/home/ubuntu/.hermes",
             "--memory", "4g",
+            "-e", f"AGENT_CLI={self.agent_cli}",
         ]
+        # claude 引擎: 容器内 claude 读 deepseek anthropic 端点环境变量
+        # (值从宿主 ~/.claude/settings.json 取, 与 claude 主程序同一配置源)
+        if self.agent_cli == "claude":
+            claude_env = _read_claude_env()
+            for k, v in claude_env.items():
+                cmd += ["-e", f"{k}={v}"]
         # codex 访问 OpenAI 走宿主机代理 (探测一次并缓存)
         if self.proxy_url is None:
             self.proxy_url = _detect_host_proxy()
