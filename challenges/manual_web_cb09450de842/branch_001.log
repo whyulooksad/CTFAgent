@@ -1,981 +1,0 @@
-Reading additional input from stdin...
-OpenAI Codex v0.146.0
---------
-workdir: /home/stw/ctf-agent/challenges/manual_web_cb09450de842
-model: gpt-5.5
-provider: openai
-approval: never
-sandbox: danger-full-access
-reasoning effort: xhigh
-reasoning summaries: none
-session id: 019fb7b6-559d-7022-89bf-920b7c6b275c
---------
-user
-Target http://6fb2ba677ad56a139506d872.http-ctf2.dasctf.com:80. Enumerate likely PHP source/backup leaks for index.php/check.php and common sensitive paths. Do not brute force passwords. Return FEASIBLE only with exact accessible URL/content that helps exploit.
-
-协作隔离规则：你是只读试探分支。不要修改 board.md、progress.md、guidance.md、dead_ends.md，也不要创建或修改主线文件；只允许在完成时写入指定的结果文件。
-
----
-完成后将结果写入 /home/stw/ctf-agent/challenges/manual_web_cb09450de842/branch_result_branch_001.md，格式:
-## Branch Result
-direction: source-leak-enum
-subagent_id: branch_001
-status: FEASIBLE | INFEASIBLE
-### 发现
-(列出关键发现)
-### 命令和结果
-(关键命令及其输出)
-### 结论
-(可行/不可行 + 建议)
-warning: `--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation.
-warning: `--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation.
-codex
-I’ll keep this branch read-only apart from the requested result file. I’m going to check the local task context, then probe only likely PHP backup/source leak names and common exposed sensitive paths on the provided host.
-exec
-/bin/bash -lc 'pwd && ls' in /home/stw/ctf-agent/challenges/manual_web_cb09450de842
- succeeded in 0ms:
-/home/stw/ctf-agent/challenges/manual_web_cb09450de842
-board.md
-branch.sock
-branch_001.log
-branch_002.log
-branch_state.json
-codex.log
-dead_ends.md
-guidance.md
-hermes.log
-monitor_state.json
-poc_scripts
-progress.md
-
-exec
-/bin/bash -lc "sed -n '1,220p' board.md" in /home/stw/ctf-agent/challenges/manual_web_cb09450de842
-hook: PostToolUse
- succeeded in 0ms:
-# Board
-
-## Ideas
-
-| ID | Status | Idea | Result | Updated |
-|----|--------|------|---------|---------|
-| I1 | verified | Baseline application reconnaissance | PHP/7.3.11 on openresty; login form sends GET parameters `username` and `password` to `check.php`. | 2026-07-31 18:26 +08:00 |
-| I2 | testing | Filter-bypass SQL injection in `check.php` | A lone quote in `username` raises MariaDB syntax error. Obvious OR/comment patterns are blocked, so exact blacklist and alternate syntax remain to be characterized. | 2026-07-31 18:26 +08:00 |
-| I3 | testing | PHP source/backup disclosure | Common backup/source paths are being enumerated; no result recorded yet. | 2026-07-31 18:26 +08:00 |
-
-## Memory
-
-| ID | Kind | Content | Source | Updated |
-|----|------|---------|--------|---------|
-| M1 | fact | Target is `http://6fb2ba677ad56a139506d872.http-ctf2.dasctf.com:80`; challenge type is web and no background hint is supplied. | progress.md | 2026-07-31 18:26 +08:00 |
-| M2 | fact | Homepage identifies PHP/7.3.11 on openresty and contains a GET login form targeting `check.php`, with `username` and `password` fields. | progress.md | 2026-07-31 18:26 +08:00 |
-| M3 | evidence | `check.php` with `admin/admin` returns `NO,Wrong username password`; `username='` returns a MariaDB SQL syntax error. This confirms user-controlled SQL syntax. | progress.md | 2026-07-31 18:26 +08:00 |
-| M4 | evidence | Inputs containing obvious OR/comment patterns return `你可别被我逮住了，臭弟弟`, proving a pattern-based injection filter/WAF. | progress.md | 2026-07-31 18:26 +08:00 |
-| M5 | failure_boundary | Initial subagent spawning failed because `branch.py` is absent from this challenge work directory. This is an orchestration issue, not evidence against either attack direction. | progress.md | 2026-07-31 18:26 +08:00 |
-
-hook: PostToolUse
-exec
-/bin/bash -lc 'rg --files strategies 2>/dev/null || true' in /home/stw/ctf-agent/challenges/manual_web_cb09450de842
- succeeded in 0ms:
-hook: PostToolUse
-hook: PostToolUse Completed
-hook: PostToolUse Completed
-hook: PostToolUse Completed
-exec
-/bin/bash -lc "sed -n '1,220p' progress.md" in /home/stw/ctf-agent/challenges/manual_web_cb09450de842
- succeeded in 0ms:
-## Target
-- Type: web
-- URL: http://6fb2ba677ad56a139506d872.http-ctf2.dasctf.com:80
-- Background: 
-- Start Time: 2026-07-31T18:25:03+08:00
-
-## Current Phase
-verification
-
-## Next Steps
-1. 主线绕过 check.php SQL 注入过滤，确认可控查询结构
-2. 定期查看 branch_001/source-leak-enum 和 branch_002/sqli-filter-map
-3. 尝试 union/报错/布尔盲注提取库表信息
-
-## Key Artifacts
-- Read /home/stw/ctf-agent/strategies/web.md, board.md, progress.md; board currently empty.
-- Homepage: PHP/7.3.11 on openresty; GET form action check.php with username/password.
-- Page copy explicitly hints SQL injection hardening.
-- check.php baseline admin/admin returns "NO,Wrong username password".
-- username=' produces MariaDB SQL syntax error, confirming SQL injection surface.
-- Payloads containing obvious comment/OR patterns return Chinese block message "你可别被我逮住了，臭弟弟".
-- branch.py is located at /home/stw/ctf-agent/branch.py; current work-dir has branch.sock/state files.
-- Spawned branch_001 (source-leak-enum) and branch_002 (sqli-filter-map).
-
-## Flags Found
-(无)
-
-hook: PostToolUse
-hook: PostToolUse Completed
-codex
-The shared context already confirms the useful SQLi surface. For this branch I’m narrowing scope to direct file disclosure: first establish the server’s 404 behavior, then compare a curated list of backup/source names against that baseline.
-exec
-/bin/bash -lc "sed -n '1,240p' /home/stw/ctf-agent/strategies/web.md" in /home/stw/ctf-agent/challenges/manual_web_cb09450de842
- succeeded in 0ms:
-# Web 题攻击流程
-
-## 侦察阶段 (5-10min)
-
-1. curl 探测目标，识别技术栈 (Server header、X-Powered-By、Cookie 特征)
-2. 端口扫描: `nmap -sV -p- <host>` (或快速 `nmap -sV <host>`)
-3. 目录扫描: `ffuf -u <url>/FUZZ -w common.txt -mc 200,301,302,403`
-4. 识别所有入口点 (GET/POST 参数、API 端点、上传点、登录框)
-5. 发现 2+ 攻击向量时，调 `branch.py spawn` 并行试探
-
-## 验证阶段 (每个向量 3-5min)
-
-- 选最高优先级向量全力推进
-- 单次失败不换方向
-- 同一命令参数微调不超 3 次
-- 同类操作连续 3 次无新发现 -> 换方向
-
-## 利用阶段 (充分投入)
-
-- 对确认漏洞深入利用
-- 拿到 RCE 先读 flag: `cat /flag*`、`find / -name "flag*"`、`env | grep -i flag`
-- 发现 flag 立即输出到 progress.md 的 Flags Found 段
-
-## 常见攻击面清单
-
-- SQL 注入: 联合查询 / 盲注 / 时间盲注 / 堆叠注入 / 二次注入
-- XSS: 反射 / 存储 / DOM (CTF 中通常用于窃取 cookie 或打 bot)
-- SSTI: {{7*7}} / ${7*7} / <%= 7*7 %> 测试不同模板引擎
-- 文件上传: 绕过扩展名/MIME/内容检查，getshell
-- 文件包含: LFI/RFI，读源码或日志getshell
-- 命令注入: ; | || && ` $() 反引号绕过
-- SSRF: 内网探测 / 读文件 / 打 Redis / gopher 协议
-- 反序列化: PHP (__wakeup/__destruct) / Java / Python pickle
-- 弱认证: 默认密码 / JWT 伪造 / session 固定
-- 逻辑漏洞: 越权 / 条件竞争 / 参数篡改
-
-hook: PostToolUse
-hook: PostToolUse Completed
-exec
-/bin/bash -lc "curl -i -sS --max-time 8 'http://6fb2ba677ad56a139506d872.http-ctf2.dasctf.com/__definitely_missing_001__.txt' | sed -n '1,60p'" in /home/stw/ctf-agent/challenges/manual_web_cb09450de842
- succeeded in 0ms:
-HTTP/1.1 200 OK
-Transfer-Encoding: chunked
-Cache-Control: no-cache
-Connection: keep-alive
-Content-Type: text/html; charset=UTF-8
-Date: Fri, 31 Jul 2026 10:27:29 GMT
-Keep-Alive: timeout=4
-Proxy-Connection: keep-alive
-Server: openresty
-Vary: Accept-Encoding
-X-Powered-By: PHP/7.3.11
-
-<!DOCTYPE html>
-<html>
-
-<style>
-                .slickButton3 {
-                        margin-right:20px;
-                        margin-left:20px;
-                        margin-top:20px;
-                        margin-bottom:20px;
-                color: white;
-                font-weight: bold;
-                padding: 10px;
-                border: solid 1px black;
-                background: #111111;
-                cursor: pointer;
-                transition: box-shadow 0.5s;
-                -webkit-transition: box-shadow 0.5s;
-                }
-
-                .slickButton3:hover {
-                box-shadow:4px 4px 8px #00FFFF;
-                }
-                img {
-                        position:absolute;
-                        left:20px;
-                        top:0px;
-                }
-                p {
-                        cursor: default;
-                }
-                .input{
-                        border: 1px solid #ccc;
-                        padding: 7px 0px;
-                        border-radius: 3px;
-                        padding-left:5px;
-                        -webkit-box-shadow: inset 0 1px 1px rgba(0,0,0,.075);
-                        box-shadow: inset 0 1px 1px rgba(0,0,0,.075);
-                        -webkit-transition: border-color ease-in-out .15s,-webkit-box-shadow ease-in-out .15s;
-                        -o-transition: border-color ease-in-out .15s,box-shadow ease-in-out .15s;
-                        transition: border-color ease-in-out .15s,box-shadow ease-in-out .15s
-                }
-                .input:hover{
-                        border-color: #808000;
-                        box-shadow: 0px 0px 8px #7CFC00;
-                }  
-        </style>
-
-<head>
-
-exec
-/bin/bash -lc "curl -i -sS --max-time 8 'http://6fb2ba677ad56a139506d872.http-ctf2.dasctf.com/' | sed -n '1,80p'" in /home/stw/ctf-agent/challenges/manual_web_cb09450de842
-hook: PostToolUse
- succeeded in 0ms:
-HTTP/1.1 200 OK
-Transfer-Encoding: chunked
-Cache-Control: no-cache
-Connection: keep-alive
-Content-Type: text/html; charset=UTF-8
-Date: Fri, 31 Jul 2026 10:27:29 GMT
-Keep-Alive: timeout=4
-Proxy-Connection: keep-alive
-Server: openresty
-Vary: Accept-Encoding
-X-Powered-By: PHP/7.3.11
-
-<!DOCTYPE html>
-<html>
-
-<style>
-                .slickButton3 {
-                        margin-right:20px;
-                        margin-left:20px;
-                        margin-top:20px;
-                        margin-bottom:20px;
-                color: white;
-                font-weight: bold;
-                padding: 10px;
-                border: solid 1px black;
-                background: #111111;
-                cursor: pointer;
-                transition: box-shadow 0.5s;
-                -webkit-transition: box-shadow 0.5s;
-                }
-
-                .slickButton3:hover {
-                box-shadow:4px 4px 8px #00FFFF;
-                }
-                img {
-                        position:absolute;
-                        left:20px;
-                        top:0px;
-                }
-                p {
-                        cursor: default;
-                }
-                .input{
-                        border: 1px solid #ccc;
-                        padding: 7px 0px;
-                        border-radius: 3px;
-                        padding-left:5px;
-                        -webkit-box-shadow: inset 0 1px 1px rgba(0,0,0,.075);
-                        box-shadow: inset 0 1px 1px rgba(0,0,0,.075);
-                        -webkit-transition: border-color ease-in-out .15s,-webkit-box-shadow ease-in-out .15s;
-                        -o-transition: border-color ease-in-out .15s,box-shadow ease-in-out .15s;
-                        transition: border-color ease-in-out .15s,box-shadow ease-in-out .15s
-                }
-                .input:hover{
-                        border-color: #808000;
-                        box-shadow: 0px 0px 8px #7CFC00;
-                }  
-        </style>
-
-<head>
-        <meta charset="UTF-8">
-        <title>用户登陆</title>
-</head>
-<body background="./image/background.jpg" style="background-repeat:no-repeat ;background-size:100% 100%; background-attachment: fixed;" >
-        <form action="check.php" method="GET">
-                <div>
-                        </br></br></br></br>
-                        <p style="font-family:arial;color:white;font-size:20px;text-align:center;font-family:KaiTi;">没错，又是我，这群该死的黑客竟然如此厉害，所以我回去爆肝SQL注入，这次，再也没有人能拿到我的flag了！</p>
-                        </br></br></br></br></br></br></br>
-                        <p style="font-family:arial;color:white;font-size:20px;text-align:center;">用户名：</p>
-                        <div align="center"><input type="text" name="username" style="text-align:center;" class="input" /></div>
-
-                        <p style="font-family:arial;color:white;font-size:20px;text-align:center;">密  码：</p>
-                        <div align="center"><input type="text" name="password" style="text-align:center;" class="input" /></div>
-
-                        <div align="center">
-                                <input type="submit" value="登录" class="slickButton3">
-                        </div>
-                </div>
-        </form>
-
-hook: PostToolUse
-exec
-/bin/bash -lc "curl -i -sS --max-time 8 'http://6fb2ba677ad56a139506d872.http-ctf2.dasctf.com/check.php?username=admin&password=admin' | sed -n '1,80p'" in /home/stw/ctf-agent/challenges/manual_web_cb09450de842
- succeeded in 0ms:
-HTTP/1.1 200 OK
-Transfer-Encoding: chunked
-Cache-Control: no-cache
-Connection: keep-alive
-Content-Type: text/html; charset=UTF-8
-Date: Fri, 31 Jul 2026 10:27:29 GMT
-Keep-Alive: timeout=4
-Proxy-Connection: keep-alive
-Server: openresty
-Vary: Accept-Encoding
-X-Powered-By: PHP/7.3.11
-
-<!DOCTYPE html>
-<html>
-<head>
-	<meta charset="UTF-8">
-	<title>check</title>
-</head>
-<div style="position: absolute;bottom: 0;width: 99%;"><p align="center" style="font:italic 15px Georgia,serif;color:white;"> Syclover @ cl4y</p></div>
-
-			<body background='./image/background.jpg' style='background-repeat:no-repeat ;background-size:100% 100%; background-attachment: fixed;'>
-				<br><br><br>
-				<h1 style='font-family:verdana;color:red;text-align:center;font-size:40px;'>NO,Wrong username password！！！</h1>
-				</br>
-			</body>			
-				
-</html>
-
-
-
-hook: PostToolUse
-hook: PostToolUse Completed
-hook: PostToolUse Completed
-hook: PostToolUse Completed
-codex
-The host rewrites unknown paths to the homepage with `200 OK`, so plain status codes are misleading. I’m comparing body hashes/snippets against the homepage and checking only deviations as candidates.
-exec
-/bin/bash -lc "python3 - <<'PY'
-import urllib.request, urllib.error, socket, hashlib, ssl
-from urllib.parse import quote
-base='http://6fb2ba677ad56a139506d872.http-ctf2.dasctf.com'
-ua='ctf-source-leak-enum/1.0'
-
-def fetch(path):
-    url=base+path
-    req=urllib.request.Request(url, headers={'User-Agent': ua, 'Accept':'*/*'})
-    try:
-        with urllib.request.urlopen(req, timeout=8) as r:
-            data=r.read(65536)
-            return {'path':path,'url':url,'status':r.status,'headers':dict(r.headers),'body':data,'err':None}
-    except Exception as e:
-        return {'path':path,'url':url,'status':None,'headers':{},'body':b'','err':repr(e)}
-
-root=fetch('/')
-missing=fetch('/__definitely_missing_source_leak_probe__.txt')
-root_hash=hashlib.sha256(root['body']).hexdigest()
-missing_hash=hashlib.sha256(missing['body']).hexdigest()
-print('BASELINE / status=%s len=%d sha=%s' % (root['status'], len(root['body']), root_hash[:16]))
-print('BASELINE missing status=%s len=%d sha=%s same_as_root=%s' % (missing['status'], len(missing['body']), missing_hash[:16], missing_hash==root_hash))
-
-base_files=['index.php','check.php']
-suffixes=['~','.bak','.backup','.old','.orig','.save','.sav','.copy','.tmp','.temp','.txt','.text','.inc','.src','.source','.dist','.disabled','.swp','.swo','.1','.bak1','.old1','.backup1','.zip','.tar.gz','.rar']
-paths=[]
-for f in base_files:
-    stem=f[:-4]
-    variants=[f+s for s in suffixes] + [stem+'.phps', stem+'.php3', stem+'.php4', stem+'.php5', stem+'.phtml', stem+'.inc', stem+'.txt', stem+'.bak']
-    variants += ['.'+f+'.swp','.'+f+'.swo',f+'%7e',f+'%252e%252e']
-    for v in variants:
-        paths.append('/'+v)
-
-common=['/robots.txt','/sitemap.xml','/.git/HEAD','/.git/config','/.git/index','/.git/logs/HEAD','/.svn/entries','/.hg/hgrc','/CVS/Entries','/.env','/.env.local','/.env.bak','/.env.php','/.user.ini','/.htaccess','/.htpasswd','/composer.json','/composer.lock','/package.json','/yarn.lock','/Dockerfile','/docker-compose.yml','/README','/README.md','/readme.txt','/phpinfo.php','/info.php','/test.php','/debug.php','/config.php','/config.php~','/config.php.bak','/config.inc.php','/config.inc.php.bak','/database.php','/database.php.bak','/db.php','/db.php.bak','/conn.php','/conn.php.bak','/connect.php','/connect.php.bak','/common.php','/common.php.bak','/function.php','/functions.php','/flag','/flag.txt','/flag.php','/flag.php.bak','/admin.php','/login.php','/index.html','/index.html.bak','/www.zip','/web.zip','/src.zip','/source.zip','/backup.zip','/html.zip','/site.zip','/wwwroot.zip','/htdocs.zip','/app.zip','/www.tar.gz','/web.tar.gz','/src.tar.gz','/source.tar.gz','/backup.tar.gz','/html.tar.gz','/www.rar','/backup.rar','/.DS_Store']
-paths.extend(common)
-# de-dupe preserving order
-seen=set(); dedup=[]
-for p in paths:
-    if p not in seen:
-        seen.add(p); dedup.append(p)
-
-interesting=[]
-for p in dedup:
-    res=fetch(p)
-    body=res['body']
-    h=hashlib.sha256(body).hexdigest()
-    ct=res['headers'].get('Content-Type','').strip()
-    disp=res['headers'].get('Content-Disposition','').strip()
-    loc=res['headers'].get('Location','').strip()
-    # Interesting if not same as homepage/missing or explicit non-200 error revealing different behavior.
-    if res['err'] or h not in (root_hash, missing_hash):
-        snippet=body[:220].decode('utf-8','replace').replace('\\n','\\\\n')
-        interesting.append((p,res['status'],len(body),h[:16],ct,disp,loc,res['err'],snippet))
-
-print('CHECKED paths=%d interesting=%d' % (len(dedup), len(interesting)))
-for item in interesting:
-    p,status,l,h,ct,disp,loc,err,snippet=item
-    print('\\nPATH',p)
-    print('  status=%s len=%d sha=%s ct=%r loc=%r err=%r' % (status,l,h,ct,loc,err))
-    if disp: print('  content-disposition=%r' % disp)
-    print('  snippet=%s' % snippet[:220])
-PY" in /home/stw/ctf-agent/challenges/manual_web_cb09450de842
- succeeded in 17390ms:
-BASELINE / status=200 len=3342 sha=9f210cdf65bdaab8
-BASELINE missing status=200 len=3342 sha=9f210cdf65bdaab8 same_as_root=True
-CHECKED paths=149 interesting=17
-
-PATH /.env.php
-  status=None len=0 sha=e3b0c44298fc1c14 ct='' loc='' err="<HTTPError 404: 'Not Found'>"
-  snippet=
-
-PATH /phpinfo.php
-  status=None len=0 sha=e3b0c44298fc1c14 ct='' loc='' err="<HTTPError 404: 'Not Found'>"
-  snippet=
-
-PATH /info.php
-  status=None len=0 sha=e3b0c44298fc1c14 ct='' loc='' err="<HTTPError 404: 'Not Found'>"
-  snippet=
-
-PATH /test.php
-  status=None len=0 sha=e3b0c44298fc1c14 ct='' loc='' err="<HTTPError 404: 'Not Found'>"
-  snippet=
-
-PATH /debug.php
-  status=None len=0 sha=e3b0c44298fc1c14 ct='' loc='' err="<HTTPError 404: 'Not Found'>"
-  snippet=
-
-PATH /config.php
-  status=None len=0 sha=e3b0c44298fc1c14 ct='' loc='' err="<HTTPError 404: 'Not Found'>"
-  snippet=
-
-PATH /config.inc.php
-  status=None len=0 sha=e3b0c44298fc1c14 ct='' loc='' err="<HTTPError 404: 'Not Found'>"
-  snippet=
-
-PATH /database.php
-  status=None len=0 sha=e3b0c44298fc1c14 ct='' loc='' err="<HTTPError 404: 'Not Found'>"
-  snippet=
-
-PATH /db.php
-  status=None len=0 sha=e3b0c44298fc1c14 ct='' loc='' err="<HTTPError 404: 'Not Found'>"
-  snippet=
-
-PATH /conn.php
-  status=None len=0 sha=e3b0c44298fc1c14 ct='' loc='' err="<HTTPError 404: 'Not Found'>"
-  snippet=
-
-PATH /connect.php
-  status=None len=0 sha=e3b0c44298fc1c14 ct='' loc='' err="<HTTPError 404: 'Not Found'>"
-  snippet=
-
-PATH /common.php
-  status=None len=0 sha=e3b0c44298fc1c14 ct='' loc='' err="<HTTPError 404: 'Not Found'>"
-  snippet=
-
-PATH /function.php
-  status=None len=0 sha=e3b0c44298fc1c14 ct='' loc='' err="<HTTPError 404: 'Not Found'>"
-  snippet=
-
-PATH /functions.php
-  status=None len=0 sha=e3b0c44298fc1c14 ct='' loc='' err="<HTTPError 404: 'Not Found'>"
-  snippet=
-
-PATH /flag.php
-  status=None len=0 sha=e3b0c44298fc1c14 ct='' loc='' err="<HTTPError 404: 'Not Found'>"
-  snippet=
-
-PATH /admin.php
-  status=None len=0 sha=e3b0c44298fc1c14 ct='' loc='' err="<HTTPError 404: 'Not Found'>"
-  snippet=
-
-PATH /login.php
-  status=None len=0 sha=e3b0c44298fc1c14 ct='' loc='' err="<HTTPError 404: 'Not Found'>"
-  snippet=
-
-hook: PostToolUse
-hook: PostToolUse Completed
-codex
-No source-like backup variant has shown a useful body so far. I’m doing a second pass over common directory and archive names, plus a few PHP naming variants that often appear in CTF deployments.
-exec
-/bin/bash -lc "python3 - <<'PY'
-import urllib.request, urllib.error, hashlib
-base='http://6fb2ba677ad56a139506d872.http-ctf2.dasctf.com'
-ua='ctf-source-leak-enum/1.0'
-
-def fetch(path):
-    req=urllib.request.Request(base+path, headers={'User-Agent': ua, 'Accept':'*/*'})
-    try:
-        with urllib.request.urlopen(req, timeout=8) as r:
-            body=r.read(131072)
-            return r.status, dict(r.headers), body, None
-    except urllib.error.HTTPError as e:
-        try: body=e.read(131072)
-        except Exception: body=b''
-        return e.code, dict(e.headers), body, 'HTTPError'
-    except Exception as e:
-        return None, {}, b'', repr(e)
-
-root_status, root_headers, root_body, _ = fetch('/')
-missing_status, missing_headers, missing_body, _ = fetch('/__definitely_missing_dir_probe__')
-root_hash=hashlib.sha256(root_body).hexdigest(); missing_hash=hashlib.sha256(missing_body).hexdigest()
-print('root status=%s len=%d sha=%s; missing status=%s len=%d sha=%s same=%s' % (root_status,len(root_body),root_hash[:12],missing_status,len(missing_body),missing_hash[:12],root_hash==missing_hash))
-
-files=[]
-for name in ['index','check']:
-    php=name+'.php'
-    suffixes=['~','.bak','.backup','.old','.orig','.save','.sav','.swp','.swo','.tmp','.temp','.txt','.inc','.source','.src','.copy','._bak','_bak','_backup','_old','-bak','-backup','-old','.bak.php','.old.php','.txt.php','.php.bak','.php.old']
-    # direct transformations and URL-encoded separators/dots often mishandled by servers
-    files += ['/'+php+s for s in suffixes]
-    files += ['/'+name+ext for ext in ['.phps','.php~','.php.bak','.php.backup','.php.old','.php.orig','.php.save','.php.swp','.php.swo','.phtml','.php.txt','.php.inc','.inc','.txt','.bak','.old','.backup','.zip','.tar.gz']]
-    files += ['/.%s.swp'%php, '/.%s.swo'%php, '/%s%%7e'%php, '/%s.'%php, '/%s::"'$DATA'"'%php]
-
-sensitive=[]
-# dirs and directory-index candidates
-for d in ['backup','backups','bak','old','src','source','www','wwwroot','html','htdocs','app','application','include','includes','inc','lib','libs','vendor','admin','uploads','upload','files','data','db','database','sql','logs','log','tmp','temp','cache','image','images','assets','static','css','js']:
-    sensitive += ['/'+d+'/', '/'+d+'.zip','/'+d+'.tar.gz','/'+d+'.tgz','/'+d+'.rar','/'+d+'.bak','/'+d+'.old']
-# selected files
-sensitive += ['/.git/HEAD','/.git/config','/.git/index','/.git/packed-refs','/.git/logs/HEAD','/.svn/entries','/.svn/wc.db','/.hg/hgrc','/.bzr/branch/branch.conf','/.env','/.env.local','/.env.production','/.env.bak','/.user.ini','/.htaccess','/.htpasswd','/robots.txt','/sitemap.xml','/crossdomain.xml','/composer.json','/composer.lock','/package.json','/package-lock.json','/yarn.lock','/Dockerfile','/docker-compose.yml','/README','/README.md','/readme.txt','/CHANGELOG.md','/LICENSE','/phpinfo.php','/info.php','/test.php','/debug.php','/shell.php','/cmd.php','/config.php','/config.php.bak','/config.inc.php','/db.php','/conn.php','/connect.php','/database.php','/sql.sql','/dump.sql','/backup.sql','/users.sql','/flag','/flag.txt','/flag.php','/flag.php.bak','/f1ag.php','/fl4g.php']
-paths=[]; seen=set()
-for p in files+sensitive:
-    if p not in seen:
-        seen.add(p); paths.append(p)
-
-hits=[]
-for p in paths:
-    st,h,b,err=fetch(p)
-    sha=hashlib.sha256(b).hexdigest()
-    if sha in (root_hash, missing_hash) and st == 200:
-        continue
-    # filter PHP 404 plain body as non-useful later, but show summary
-    ct=h.get('Content-Type','').strip(); loc=h.get('Location','').strip()
-    text=b[:300].decode('utf-8','replace').replace('\\n','\\\\n')
-    hits.append((p,st,len(b),sha[:16],ct,loc,err,text))
-
-print('checked=%d deviating=%d' % (len(paths),len(hits)))
-for p,st,l,sha,ct,loc,err,text in hits:
-    print('\\n%s' % p)
-    print('  status=%s len=%s sha=%s ct=%r loc=%r err=%r' % (st,l,sha,ct,loc,err))
-    print('  snippet=%s' % text[:300])
-PY" in /home/stw/ctf-agent/challenges/manual_web_cb09450de842
-codex
-The second pass is still running because the host is slow on some missing paths. I’m waiting for that process to finish rather than starting overlapping scans against the same target.
-codex
-A few requests are timing out one by one, which is expected with this style of direct probing. I’m letting this pass complete so the result file can distinguish “rewritten to homepage” from actual 404s and real disclosures.
- succeeded in 79012ms:
-root status=200 len=3342 sha=9f210cdf65bd; missing status=200 len=3342 sha=9f210cdf65bd same=True
-checked=397 deviating=23
-
-/index.php.bak.php
-  status=404 len=153 sha=1b47c0dc50d20d72 ct='text/html' loc='' err='HTTPError'
-  snippet=<html>\n<head><title>404 Not Found</title></head>\n<body>\n<center><h1>404 Not Found</h1></center>\n<hr><center>nginx/1.16.1</center>\n</body>\n</html>\n
-
-/index.php.old.php
-  status=404 len=153 sha=1b47c0dc50d20d72 ct='text/html' loc='' err='HTTPError'
-  snippet=<html>\n<head><title>404 Not Found</title></head>\n<body>\n<center><h1>404 Not Found</h1></center>\n<hr><center>nginx/1.16.1</center>\n</body>\n</html>\n
-
-/index.php.txt.php
-  status=404 len=153 sha=1b47c0dc50d20d72 ct='text/html' loc='' err='HTTPError'
-  snippet=<html>\n<head><title>404 Not Found</title></head>\n<body>\n<center><h1>404 Not Found</h1></center>\n<hr><center>nginx/1.16.1</center>\n</body>\n</html>\n
-
-/check.php.bak.php
-  status=404 len=153 sha=1b47c0dc50d20d72 ct='text/html' loc='' err='HTTPError'
-  snippet=<html>\n<head><title>404 Not Found</title></head>\n<body>\n<center><h1>404 Not Found</h1></center>\n<hr><center>nginx/1.16.1</center>\n</body>\n</html>\n
-
-/check.php.old.php
-  status=404 len=153 sha=1b47c0dc50d20d72 ct='text/html' loc='' err='HTTPError'
-  snippet=<html>\n<head><title>404 Not Found</title></head>\n<body>\n<center><h1>404 Not Found</h1></center>\n<hr><center>nginx/1.16.1</center>\n</body>\n</html>\n
-
-/check.php.txt.php
-  status=404 len=153 sha=1b47c0dc50d20d72 ct='text/html' loc='' err='HTTPError'
-  snippet=<html>\n<head><title>404 Not Found</title></head>\n<body>\n<center><h1>404 Not Found</h1></center>\n<hr><center>nginx/1.16.1</center>\n</body>\n</html>\n
-
-/includes.zip
-  status=None len=0 sha=e3b0c44298fc1c14 ct='' loc='' err="TimeoutError('timed out')"
-  snippet=
-
-/image/
-  status=403 len=153 sha=8dc71ca878ebf70c ct='text/html' loc='' err='HTTPError'
-  snippet=<html>\n<head><title>403 Forbidden</title></head>\n<body>\n<center><h1>403 Forbidden</h1></center>\n<hr><center>nginx/1.16.1</center>\n</body>\n</html>\n
-
-/phpinfo.php
-  status=404 len=153 sha=1b47c0dc50d20d72 ct='text/html' loc='' err='HTTPError'
-  snippet=<html>\n<head><title>404 Not Found</title></head>\n<body>\n<center><h1>404 Not Found</h1></center>\n<hr><center>nginx/1.16.1</center>\n</body>\n</html>\n
-
-/info.php
-  status=404 len=153 sha=1b47c0dc50d20d72 ct='text/html' loc='' err='HTTPError'
-  snippet=<html>\n<head><title>404 Not Found</title></head>\n<body>\n<center><h1>404 Not Found</h1></center>\n<hr><center>nginx/1.16.1</center>\n</body>\n</html>\n
-
-/test.php
-  status=404 len=153 sha=1b47c0dc50d20d72 ct='text/html' loc='' err='HTTPError'
-  snippet=<html>\n<head><title>404 Not Found</title></head>\n<body>\n<center><h1>404 Not Found</h1></center>\n<hr><center>nginx/1.16.1</center>\n</body>\n</html>\n
-
-/debug.php
-  status=404 len=153 sha=1b47c0dc50d20d72 ct='text/html' loc='' err='HTTPError'
-  snippet=<html>\n<head><title>404 Not Found</title></head>\n<body>\n<center><h1>404 Not Found</h1></center>\n<hr><center>nginx/1.16.1</center>\n</body>\n</html>\n
-
-/shell.php
-  status=404 len=153 sha=1b47c0dc50d20d72 ct='text/html' loc='' err='HTTPError'
-  snippet=<html>\n<head><title>404 Not Found</title></head>\n<body>\n<center><h1>404 Not Found</h1></center>\n<hr><center>nginx/1.16.1</center>\n</body>\n</html>\n
-
-/cmd.php
-  status=404 len=153 sha=1b47c0dc50d20d72 ct='text/html' loc='' err='HTTPError'
-  snippet=<html>\n<head><title>404 Not Found</title></head>\n<body>\n<center><h1>404 Not Found</h1></center>\n<hr><center>nginx/1.16.1</center>\n</body>\n</html>\n
-
-/config.php
-  status=404 len=153 sha=1b47c0dc50d20d72 ct='text/html' loc='' err='HTTPError'
-  snippet=<html>\n<head><title>404 Not Found</title></head>\n<body>\n<center><h1>404 Not Found</h1></center>\n<hr><center>nginx/1.16.1</center>\n</body>\n</html>\n
-
-/config.inc.php
-  status=404 len=153 sha=1b47c0dc50d20d72 ct='text/html' loc='' err='HTTPError'
-  snippet=<html>\n<head><title>404 Not Found</title></head>\n<body>\n<center><h1>404 Not Found</h1></center>\n<hr><center>nginx/1.16.1</center>\n</body>\n</html>\n
-
-/db.php
-  status=404 len=153 sha=1b47c0dc50d20d72 ct='text/html' loc='' err='HTTPError'
-  snippet=<html>\n<head><title>404 Not Found</title></head>\n<body>\n<center><h1>404 Not Found</h1></center>\n<hr><center>nginx/1.16.1</center>\n</body>\n</html>\n
-
-/conn.php
-  status=404 len=153 sha=1b47c0dc50d20d72 ct='text/html' loc='' err='HTTPError'
-  snippet=<html>\n<head><title>404 Not Found</title></head>\n<body>\n<center><h1>404 Not Found</h1></center>\n<hr><center>nginx/1.16.1</center>\n</body>\n</html>\n
-
-/connect.php
-  status=404 len=153 sha=1b47c0dc50d20d72 ct='text/html' loc='' err='HTTPError'
-  snippet=<html>\n<head><title>404 Not Found</title></head>\n<body>\n<center><h1>404 Not Found</h1></center>\n<hr><center>nginx/1.16.1</center>\n</body>\n</html>\n
-
-/database.php
-  status=404 len=153 sha=1b47c0dc50d20d72 ct='text/html' loc='' err='HTTPError'
-  snippet=<html>\n<head><title>404 Not Found</title></head>\n<body>\n<center><h1>404 Not Found</h1></center>\n<hr><center>nginx/1.16.1</center>\n</body>\n</html>\n
-
-/flag.php
-  status=404 len=153 sha=1b47c0dc50d20d72 ct='text/html' loc='' err='HTTPError'
-  snippet=<html>\n<head><title>404 Not Found</title></head>\n<body>\n<center><h1>404 Not Found</h1></center>\n<hr><center>nginx/1.16.1</center>\n</body>\n</html>\n
-
-/f1ag.php
-  status=404 len=153 sha=1b47c0dc50d20d72 ct='text/html' loc='' err='HTTPError'
-  snippet=<html>\n<head><title>404 Not Found</title></head>\n<body>\n<center><h1>404 Not Found</h1></center>\n<hr><center>nginx/1.16.1</center>\n</body>\n</html>\n
-
-/fl4g.php
-  status=404 len=153 sha=1b47c0dc50d20d72 ct='text/html' loc='' err='HTTPError'
-  snippet=<html>\n<head><title>404 Not Found</title></head>\n<body>\n<center><h1>404 Not Found</h1></center>\n<hr><center>nginx/1.16.1</center>\n</body>\n</html>\n
-
-hook: PostToolUse
-hook: PostToolUse Completed
-codex
-The only deviations are generic PHP 404 pages, a forbidden static directory, and one timeout. I’m checking the timeout and the few “403/404 but different from rewrite” cases once more so the branch result doesn’t overstate a false positive.
-exec
-/bin/bash -lc "curl -i -sS --max-time 12 -H 'Range: bytes=0-511' 'http://6fb2ba677ad56a139506d872.http-ctf2.dasctf.com/includes.zip' | sed -n '1,80p'" in /home/stw/ctf-agent/challenges/manual_web_cb09450de842
- succeeded in 0ms:
-HTTP/1.1 200 OK
-Transfer-Encoding: chunked
-Cache-Control: no-cache
-Connection: keep-alive
-Content-Type: text/html; charset=UTF-8
-Date: Fri, 31 Jul 2026 10:30:40 GMT
-Keep-Alive: timeout=4
-Proxy-Connection: keep-alive
-Server: openresty
-Vary: Accept-Encoding
-X-Powered-By: PHP/7.3.11
-
-<!DOCTYPE html>
-<html>
-
-<style>
-                .slickButton3 {
-                        margin-right:20px;
-                        margin-left:20px;
-                        margin-top:20px;
-                        margin-bottom:20px;
-                color: white;
-                font-weight: bold;
-                padding: 10px;
-                border: solid 1px black;
-                background: #111111;
-                cursor: pointer;
-                transition: box-shadow 0.5s;
-                -webkit-transition: box-shadow 0.5s;
-                }
-
-                .slickButton3:hover {
-                box-shadow:4px 4px 8px #00FFFF;
-                }
-                img {
-                        position:absolute;
-                        left:20px;
-                        top:0px;
-                }
-                p {
-                        cursor: default;
-                }
-                .input{
-                        border: 1px solid #ccc;
-                        padding: 7px 0px;
-                        border-radius: 3px;
-                        padding-left:5px;
-                        -webkit-box-shadow: inset 0 1px 1px rgba(0,0,0,.075);
-                        box-shadow: inset 0 1px 1px rgba(0,0,0,.075);
-                        -webkit-transition: border-color ease-in-out .15s,-webkit-box-shadow ease-in-out .15s;
-                        -o-transition: border-color ease-in-out .15s,box-shadow ease-in-out .15s;
-                        transition: border-color ease-in-out .15s,box-shadow ease-in-out .15s
-                }
-                .input:hover{
-                        border-color: #808000;
-                        box-shadow: 0px 0px 8px #7CFC00;
-                }  
-        </style>
-
-<head>
-        <meta charset="UTF-8">
-        <title>用户登陆</title>
-</head>
-<body background="./image/background.jpg" style="background-repeat:no-repeat ;background-size:100% 100%; background-attachment: fixed;" >
-        <form action="check.php" method="GET">
-                <div>
-                        </br></br></br></br>
-                        <p style="font-family:arial;color:white;font-size:20px;text-align:center;font-family:KaiTi;">没错，又是我，这群该死的黑客竟然如此厉害，所以我回去爆肝SQL注入，这次，再也没有人能拿到我的flag了！</p>
-                        </br></br></br></br></br></br></br>
-                        <p style="font-family:arial;color:white;font-size:20px;text-align:center;">用户名：</p>
-                        <div align="center"><input type="text" name="username" style="text-align:center;" class="input" /></div>
-
-                        <p style="font-family:arial;color:white;font-size:20px;text-align:center;">密  码：</p>
-                        <div align="center"><input type="text" name="password" style="text-align:center;" class="input" /></div>
-
-                        <div align="center">
-                                <input type="submit" value="登录" class="slickButton3">
-                        </div>
-                </div>
-        </form>
-
-hook: PostToolUse
-exec
-/bin/bash -lc "curl -i -sS --max-time 8 'http://6fb2ba677ad56a139506d872.http-ctf2.dasctf.com/index.php.bak' | sed -n '1,40p'" in /home/stw/ctf-agent/challenges/manual_web_cb09450de842
- succeeded in 0ms:
-HTTP/1.1 200 OK
-Transfer-Encoding: chunked
-Cache-Control: no-cache
-Connection: keep-alive
-Content-Type: text/html; charset=UTF-8
-Date: Fri, 31 Jul 2026 10:30:40 GMT
-Keep-Alive: timeout=4
-Proxy-Connection: keep-alive
-Server: openresty
-Vary: Accept-Encoding
-X-Powered-By: PHP/7.3.11
-
-<!DOCTYPE html>
-<html>
-
-<style>
-                .slickButton3 {
-                        margin-right:20px;
-                        margin-left:20px;
-                        margin-top:20px;
-                        margin-bottom:20px;
-                color: white;
-                font-weight: bold;
-                padding: 10px;
-                border: solid 1px black;
-                background: #111111;
-                cursor: pointer;
-                transition: box-shadow 0.5s;
-                -webkit-transition: box-shadow 0.5s;
-                }
-
-                .slickButton3:hover {
-                box-shadow:4px 4px 8px #00FFFF;
-                }
-                img {
-                        position:absolute;
-                        left:20px;
-                        top:0px;
-                }
-                p {
-
-exec
-/bin/bash -lc "curl -i -sS --max-time 8 'http://6fb2ba677ad56a139506d872.http-ctf2.dasctf.com/image/' | sed -n '1,80p'" in /home/stw/ctf-agent/challenges/manual_web_cb09450de842
-hook: PostToolUse
- succeeded in 0ms:
-HTTP/1.1 403 Forbidden
-Content-Length: 153
-Connection: keep-alive
-Content-Type: text/html
-Date: Fri, 31 Jul 2026 10:30:40 GMT
-Keep-Alive: timeout=4
-Proxy-Connection: keep-alive
-Server: openresty
-
-<html>
-<head><title>403 Forbidden</title></head>
-<body>
-<center><h1>403 Forbidden</h1></center>
-<hr><center>nginx/1.16.1</center>
-</body>
-</html>
-
-hook: PostToolUse
-exec
-/bin/bash -lc "curl -i -sS --max-time 8 'http://6fb2ba677ad56a139506d872.http-ctf2.dasctf.com/check.php.bak' | sed -n '1,40p'" in /home/stw/ctf-agent/challenges/manual_web_cb09450de842
- succeeded in 0ms:
-HTTP/1.1 200 OK
-Transfer-Encoding: chunked
-Cache-Control: no-cache
-Connection: keep-alive
-Content-Type: text/html; charset=UTF-8
-Date: Fri, 31 Jul 2026 10:30:40 GMT
-Keep-Alive: timeout=4
-Proxy-Connection: keep-alive
-Server: openresty
-Vary: Accept-Encoding
-X-Powered-By: PHP/7.3.11
-
-<!DOCTYPE html>
-<html>
-
-<style>
-                .slickButton3 {
-                        margin-right:20px;
-                        margin-left:20px;
-                        margin-top:20px;
-                        margin-bottom:20px;
-                color: white;
-                font-weight: bold;
-                padding: 10px;
-                border: solid 1px black;
-                background: #111111;
-                cursor: pointer;
-                transition: box-shadow 0.5s;
-                -webkit-transition: box-shadow 0.5s;
-                }
-
-                .slickButton3:hover {
-                box-shadow:4px 4px 8px #00FFFF;
-                }
-                img {
-                        position:absolute;
-                        left:20px;
-                        top:0px;
-                }
-                p {
-
-hook: PostToolUse
-hook: PostToolUse Completed
-hook: PostToolUse Completed
-hook: PostToolUse Completed
-hook: PostToolUse Completed
-codex
-This branch did not find a source or backup disclosure. I’m going to write the required result file with `INFEASIBLE` and include the exact probes that ruled out the likely leak paths.
-exec
-/bin/bash -lc "test -e branch_result_branch_001.md && sed -n '1,40p' branch_result_branch_001.md || true" in /home/stw/ctf-agent/challenges/manual_web_cb09450de842
- succeeded in 0ms:
-hook: PostToolUse
-hook: PostToolUse Completed
-apply patch
-patch: completed
-/home/stw/ctf-agent/challenges/manual_web_cb09450de842/branch_result_branch_001.md
-diff --git a/challenges/manual_web_cb09450de842/branch_result_branch_001.md b/challenges/manual_web_cb09450de842/branch_result_branch_001.md
-new file mode 100644
-index 0000000000000000000000000000000000000000..25ddbd6d5b8d234ffade3071e82e2a2858748f64
---- /dev/null
-+++ b/challenges/manual_web_cb09450de842/branch_result_branch_001.md
-@@ -0,0 +1,30 @@
-+## Branch Result
-+direction: source-leak-enum
-+subagent_id: branch_001
-+status: INFEASIBLE
-+
-+### 发现
-+- 未发现可帮助利用的 PHP 源码/备份泄露。
-+- 目标对大量不存在的非 PHP 路径返回首页内容：`200 OK`, body length `3342`, SHA256 prefix `9f210cdf65bd`。因此 `/index.php.bak`、`/check.php.bak`、`/www.zip`、`/.git/HEAD` 等如果返回同一首页，均判定为 rewrite/假阳性。
-+- 已覆盖 `index.php` / `check.php` 的常见源码与备份名：`~`, `.bak`, `.backup`, `.old`, `.orig`, `.save`, `.sav`, `.swp`, `.swo`, `.tmp`, `.txt`, `.inc`, `.src`, `.phps`, `.phtml`, `._bak`, `_bak`, `-old`, `.bak.php`, `.old.php`, 隐藏 vim swap 形式 `/.index.php.swp`、`/.check.php.swp` 等。
-+- 已覆盖常见敏感路径：`.git`, `.svn`, `.hg`, `.env`, `.user.ini`, `.htaccess`, `composer.json`, `Dockerfile`, `docker-compose.yml`, `README*`, `phpinfo.php`, `config.php`, `db.php`, `conn.php`, `connect.php`, `database.php`, `flag*`, 常见源码/备份归档如 `www.zip`, `source.zip`, `backup.tar.gz`, 以及 `backup/`, `src/`, `include/`, `vendor/`, `data/`, `logs/`, `image/` 等目录。
-+- 少量真实差异只说明资源不存在或禁止列目录：`/phpinfo.php`, `/config.php`, `/db.php`, `/flag.php` 等 PHP 文件返回通用 nginx `404 Not Found`；`/image/` 返回通用 nginx `403 Forbidden`；这些内容不泄露源码、配置或 flag。
-+
-+### 命令和结果
-+- 基线：
-+  - `curl -i -sS --max-time 8 'http://6fb2ba677ad56a139506d872.http-ctf2.dasctf.com/'`
-+  - 结果：`200 OK`, `Content-Type: text/html; charset=UTF-8`, `X-Powered-By: PHP/7.3.11`, 首页登录表单。
-+- 不存在路径基线：
-+  - `curl -i -sS --max-time 8 'http://6fb2ba677ad56a139506d872.http-ctf2.dasctf.com/__definitely_missing_001__.txt'`
-+  - 结果：`200 OK`, body 与首页相同，说明非 PHP 未命中路径会 rewrite 到首页。
-+- 枚举脚本：
-+  - 使用 Python/urllib 对 397 个候选路径 GET 请求并按 body hash 与首页/缺失页比较。
-+  - 结果：`checked=397 deviating=23`，差异均为通用 `404 Not Found`、`403 Forbidden` 或重试后回到首页；无源码文本、备份文件、归档文件、git 元数据、环境变量或配置内容。
-+- 复核重点 URL：
-+  - `http://6fb2ba677ad56a139506d872.http-ctf2.dasctf.com/index.php.bak` -> `200 OK`，body 为首页，不是备份源码。
-+  - `http://6fb2ba677ad56a139506d872.http-ctf2.dasctf.com/check.php.bak` -> `200 OK`，body 为首页，不是备份源码。
-+  - `http://6fb2ba677ad56a139506d872.http-ctf2.dasctf.com/includes.zip` -> `200 OK`，body 为首页，不是 zip。
-+  - `http://6fb2ba677ad56a139506d872.http-ctf2.dasctf.com/image/` -> `403 Forbidden`, generic nginx page only.
-+
-+### 结论
-+不可行。当前 source/backup leak 枚举未发现能帮助利用的可访问 URL 或内容；建议主线继续推进已确认的 `check.php` SQL 注入过滤绕过方向。
-
-diff --git a/challenges/manual_web_cb09450de842/branch_result_branch_001.md b/challenges/manual_web_cb09450de842/branch_result_branch_001.md
-new file mode 100644
-index 0000000000000000000000000000000000000000..25ddbd6d5b8d234ffade3071e82e2a2858748f64
---- /dev/null
-+++ b/challenges/manual_web_cb09450de842/branch_result_branch_001.md
-@@ -0,0 +1,30 @@
-+## Branch Result
-+direction: source-leak-enum
-+subagent_id: branch_001
-+status: INFEASIBLE
-+
-+### 发现
-+- 未发现可帮助利用的 PHP 源码/备份泄露。
-+- 目标对大量不存在的非 PHP 路径返回首页内容：`200 OK`, body length `3342`, SHA256 prefix `9f210cdf65bd`。因此 `/index.php.bak`、`/check.php.bak`、`/www.zip`、`/.git/HEAD` 等如果返回同一首页，均判定为 rewrite/假阳性。
-+- 已覆盖 `index.php` / `check.php` 的常见源码与备份名：`~`, `.bak`, `.backup`, `.old`, `.orig`, `.save`, `.sav`, `.swp`, `.swo`, `.tmp`, `.txt`, `.inc`, `.src`, `.phps`, `.phtml`, `._bak`, `_bak`, `-old`, `.bak.php`, `.old.php`, 隐藏 vim swap 形式 `/.index.php.swp`、`/.check.php.swp` 等。
-+- 已覆盖常见敏感路径：`.git`, `.svn`, `.hg`, `.env`, `.user.ini`, `.htaccess`, `composer.json`, `Dockerfile`, `docker-compose.yml`, `README*`, `phpinfo.php`, `config.php`, `db.php`, `conn.php`, `connect.php`, `database.php`, `flag*`, 常见源码/备份归档如 `www.zip`, `source.zip`, `backup.tar.gz`, 以及 `backup/`, `src/`, `include/`, `vendor/`, `data/`, `logs/`, `image/` 等目录。
-+- 少量真实差异只说明资源不存在或禁止列目录：`/phpinfo.php`, `/config.php`, `/db.php`, `/flag.php` 等 PHP 文件返回通用 nginx `404 Not Found`；`/image/` 返回通用 nginx `403 Forbidden`；这些内容不泄露源码、配置或 flag。
-+
-+### 命令和结果
-+- 基线：
-+  - `curl -i -sS --max-time 8 'http://6fb2ba677ad56a139506d872.http-ctf2.dasctf.com/'`
-+  - 结果：`200 OK`, `Content-Type: text/html; charset=UTF-8`, `X-Powered-By: PHP/7.3.11`, 首页登录表单。
-+- 不存在路径基线：
-+  - `curl -i -sS --max-time 8 'http://6fb2ba677ad56a139506d872.http-ctf2.dasctf.com/__definitely_missing_001__.txt'`
-+  - 结果：`200 OK`, body 与首页相同，说明非 PHP 未命中路径会 rewrite 到首页。
-+- 枚举脚本：
-+  - 使用 Python/urllib 对 397 个候选路径 GET 请求并按 body hash 与首页/缺失页比较。
-+  - 结果：`checked=397 deviating=23`，差异均为通用 `404 Not Found`、`403 Forbidden` 或重试后回到首页；无源码文本、备份文件、归档文件、git 元数据、环境变量或配置内容。
-+- 复核重点 URL：
-+  - `http://6fb2ba677ad56a139506d872.http-ctf2.dasctf.com/index.php.bak` -> `200 OK`，body 为首页，不是备份源码。
-+  - `http://6fb2ba677ad56a139506d872.http-ctf2.dasctf.com/check.php.bak` -> `200 OK`，body 为首页，不是备份源码。
-+  - `http://6fb2ba677ad56a139506d872.http-ctf2.dasctf.com/includes.zip` -> `200 OK`，body 为首页，不是 zip。
-+  - `http://6fb2ba677ad56a139506d872.http-ctf2.dasctf.com/image/` -> `403 Forbidden`, generic nginx page only.
-+
-+### 结论
-+不可行。当前 source/backup leak 枚举未发现能帮助利用的可访问 URL 或内容；建议主线继续推进已确认的 `check.php` SQL 注入过滤绕过方向。
-
-codex
-Wrote `/home/stw/ctf-agent/challenges/manual_web_cb09450de842/branch_result_branch_001.md`.
-
-Status: `INFEASIBLE`. No useful source/backup leak or sensitive path disclosure found.
-diff --git a/challenges/manual_web_cb09450de842/branch_result_branch_001.md b/challenges/manual_web_cb09450de842/branch_result_branch_001.md
-new file mode 100644
-index 0000000000000000000000000000000000000000..25ddbd6d5b8d234ffade3071e82e2a2858748f64
---- /dev/null
-+++ b/challenges/manual_web_cb09450de842/branch_result_branch_001.md
-@@ -0,0 +1,30 @@
-+## Branch Result
-+direction: source-leak-enum
-+subagent_id: branch_001
-+status: INFEASIBLE
-+
-+### 发现
-+- 未发现可帮助利用的 PHP 源码/备份泄露。
-+- 目标对大量不存在的非 PHP 路径返回首页内容：`200 OK`, body length `3342`, SHA256 prefix `9f210cdf65bd`。因此 `/index.php.bak`、`/check.php.bak`、`/www.zip`、`/.git/HEAD` 等如果返回同一首页，均判定为 rewrite/假阳性。
-+- 已覆盖 `index.php` / `check.php` 的常见源码与备份名：`~`, `.bak`, `.backup`, `.old`, `.orig`, `.save`, `.sav`, `.swp`, `.swo`, `.tmp`, `.txt`, `.inc`, `.src`, `.phps`, `.phtml`, `._bak`, `_bak`, `-old`, `.bak.php`, `.old.php`, 隐藏 vim swap 形式 `/.index.php.swp`、`/.check.php.swp` 等。
-+- 已覆盖常见敏感路径：`.git`, `.svn`, `.hg`, `.env`, `.user.ini`, `.htaccess`, `composer.json`, `Dockerfile`, `docker-compose.yml`, `README*`, `phpinfo.php`, `config.php`, `db.php`, `conn.php`, `connect.php`, `database.php`, `flag*`, 常见源码/备份归档如 `www.zip`, `source.zip`, `backup.tar.gz`, 以及 `backup/`, `src/`, `include/`, `vendor/`, `data/`, `logs/`, `image/` 等目录。
-+- 少量真实差异只说明资源不存在或禁止列目录：`/phpinfo.php`, `/config.php`, `/db.php`, `/flag.php` 等 PHP 文件返回通用 nginx `404 Not Found`；`/image/` 返回通用 nginx `403 Forbidden`；这些内容不泄露源码、配置或 flag。
-+
-+### 命令和结果
-+- 基线：
-+  - `curl -i -sS --max-time 8 'http://6fb2ba677ad56a139506d872.http-ctf2.dasctf.com/'`
-+  - 结果：`200 OK`, `Content-Type: text/html; charset=UTF-8`, `X-Powered-By: PHP/7.3.11`, 首页登录表单。
-+- 不存在路径基线：
-+  - `curl -i -sS --max-time 8 'http://6fb2ba677ad56a139506d872.http-ctf2.dasctf.com/__definitely_missing_001__.txt'`
-+  - 结果：`200 OK`, body 与首页相同，说明非 PHP 未命中路径会 rewrite 到首页。
-+- 枚举脚本：
-+  - 使用 Python/urllib 对 397 个候选路径 GET 请求并按 body hash 与首页/缺失页比较。
-+  - 结果：`checked=397 deviating=23`，差异均为通用 `404 Not Found`、`403 Forbidden` 或重试后回到首页；无源码文本、备份文件、归档文件、git 元数据、环境变量或配置内容。
-+- 复核重点 URL：
-+  - `http://6fb2ba677ad56a139506d872.http-ctf2.dasctf.com/index.php.bak` -> `200 OK`，body 为首页，不是备份源码。
-+  - `http://6fb2ba677ad56a139506d872.http-ctf2.dasctf.com/check.php.bak` -> `200 OK`，body 为首页，不是备份源码。
-+  - `http://6fb2ba677ad56a139506d872.http-ctf2.dasctf.com/includes.zip` -> `200 OK`，body 为首页，不是 zip。
-+  - `http://6fb2ba677ad56a139506d872.http-ctf2.dasctf.com/image/` -> `403 Forbidden`, generic nginx page only.
-+
-+### 结论
-+不可行。当前 source/backup leak 枚举未发现能帮助利用的可访问 URL 或内容；建议主线继续推进已确认的 `check.php` SQL 注入过滤绕过方向。
-
-tokens used
-48,531
-Wrote `/home/stw/ctf-agent/challenges/manual_web_cb09450de842/branch_result_branch_001.md`.
-
-Status: `INFEASIBLE`. No useful source/backup leak or sensitive path disclosure found.

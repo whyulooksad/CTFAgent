@@ -519,12 +519,13 @@ while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
     # 不算新轮次、不丢上下文 (完整对话延续)。
     RESUME_ARGS=()
     for attempt in 1 2 3; do
+        EXIT_CODE=0
         codex exec --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust \
           --ignore-rules --disable guardian_approval \
           "${RESUME_ARGS[@]}" \
           "$CODEX_PROMPT" \
-            < /dev/null > codex.log 2>&1
-        EXIT_CODE=$?
+            < /dev/null > codex.log 2>&1 || EXIT_CODE=$?
+        # 注意: 必须 || 捕获退出码 (set -e 下 codex 非 0 退出会直接终止脚本!)
         if [ $EXIT_CODE -eq 0 ]; then
             break
         fi

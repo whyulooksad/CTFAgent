@@ -178,10 +178,20 @@ def build_hermes(src: Path, dst: Path) -> None:
             shutil.copy2(f, dst / name)  # 凭据文件原样
         else:
             (dst / name).write_text(
-                _rewrite_home_paths(f.read_text(encoding="utf-8")), encoding="utf-8"
+                f.read_text(encoding="utf-8").replace(
+                    # 容器内 hermes 读挂载配置，路径无需重写；仅确保 host 路径不泄漏
+                    str(src).replace("~", ""), "/home/ubuntu",
+                )
             )
-    # 用户安装的 skills (如 ctf-supervisor-knowledge) -- run.sh 的 hermes 调用
-    # 带 -s ctf-supervisor-knowledge，容器里没这个 skill 监督循环会降级
+
+    # bin/ 同步 (tirith 安全扫描二进制, ~22MB): 不复制则容器内 hermes
+    # 首次 terminal 调用要现场下载 GitHub release, 慢/被墙 -> warmup 超时崩溃
+    # (2026-08-18 实测: 3 容器并发下载, 2 个 timeout 300 被杀, board 未初始化)
+    bin_src = src / "bin"
+    if bin_src.is_dir() and any(bin_src.iterdir()):
+        shutil.copytree(bin_src, dst / "bin", dirs_exist_ok=True)
+        _warn(f"bin/ 已同步 ({sum(f.stat().st_size for f in bin_src.rglob('*') if f.is_file())//1024//1024}MB)")
+    # 用户安装的 skills (ctf-web 等) -- run.sh 的 hermes 调用带 -s ctf-web
     skills = src / "skills"
     if skills.is_dir():
         shutil.copytree(

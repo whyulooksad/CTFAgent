@@ -1,2 +1,0 @@
-zip http=200 time=0.111944 size=1565
-tar http=200 time=0.104739 size=8192

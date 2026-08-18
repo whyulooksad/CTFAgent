@@ -1,1 +1,0 @@
-方向：对已失效 target URL 的任何动态 HTTP、Redis 代理、端口或平台转发继续测试；原因：题目实例已停止，响应不再来自 Flask 应用。证据：当前 `GET /` 返回 openresty `404 Target not found`；正确 Host 直连节点同样无应用转发。时间：2026-08-01 20:57 +08:00。恢复前提：获得重启后的新 target URL 或平台真实认证/metadata，恢复后先做全新 liveness/recon。
