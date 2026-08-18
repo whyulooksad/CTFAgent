@@ -16,3 +16,7 @@ tests/
 
 # 本地开发残留
 progress.md
+*.tar.gz
+master_state*.json*
+flags.jsonl
+master.log
