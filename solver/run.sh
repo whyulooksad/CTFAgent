@@ -228,6 +228,38 @@ EOF
 
 else
     echo "[run.sh] 续跑模式: 保留 progress.md/board.md 上下文 ($WORK_DIR)"
+    # 保险: 平台题重试会重开靶机拿新 URL，续跑时同步更新 progress.md 的
+    # Target URL 行（只改 URL 行，保留其余内容），避免 Codex 读到过期 URL 混淆
+    # (a-03 M19 真实案例)。crypto/misc 无 URL 参数时自动跳过。
+    if [ -n "$TARGET_URL" ]; then
+        python3 - "$WORK_DIR" "$TARGET_URL" << 'PYEOF'
+import os
+import sys
+
+work_dir, url = sys.argv[1], sys.argv[2]
+p = os.path.join(work_dir, "progress.md")
+try:
+    lines = open(p, encoding="utf-8").read().splitlines(keepends=True)
+    out, changed, in_target = [], False, False
+    for ln in lines:
+        if ln.startswith("## Target"):
+            in_target = True
+        elif ln.startswith("## ") and not ln.startswith("## Target"):
+            in_target = False
+        if in_target and ln.startswith("- URL:"):
+            out.append(f"- URL: {url}\n")
+            changed = True
+            continue
+        out.append(ln)
+    if changed:
+        tmp = p + ".tmp"
+        open(tmp, "w", encoding="utf-8").writelines(out)
+        os.replace(tmp, p)
+        print(f"[run.sh] progress.md Target URL 已更新: {url}")
+except Exception as e:
+    print(f"[run.sh] 更新 Target URL 失败: {e}")
+PYEOF
+    fi
 fi
 
 # 空文件
