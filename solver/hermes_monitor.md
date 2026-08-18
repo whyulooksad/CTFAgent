@@ -27,11 +27,22 @@
 ## 知识获取
 
 判断 Codex 方向、写 guidance/dead_ends 时，如果对某个攻击面/漏洞类型不熟、需要具体 payload 思路、或想确认某条路是不是死路：
-- 会话已预加载 `ctf-supervisor-knowledge` skill（SKILL.md 含 14 类漏洞的核心速查 + 路由表）
-- 需要完整 payload / 绕过技巧时加载对应 reference：
-  `skill_view(name="ctf-supervisor-knowledge", file_path="references/web-sqli.md")` 等
-- 路由规则：Codex 在干什么 -> 加载哪个 reference（见 SKILL.md 路由表）
-- 每轮只加载需要的 reference，不要全部加载（省 token）
+- 会话预加载 `ctf-web` skill（SKILL.md 含路由说明；监督速查在 `references/supervisor-quickref.md`）
+- 按 Codex 攻击方向加载对应 skill（skill_view 按需加载，不要一次全加载）：
+  | Codex 在打 | skill | 优先加载 |
+  |---|---|---|
+  | Web（SQLi/XSS/SSRF/XXE/上传/遍历/反序列化/越权/信息泄露/现代协议） | `ctf-web` | 速查 `references/supervisor-quickref.md`；深度 `references/web-*.md` 或根目录文档 |
+  | Misc（编码/pyjail/bashjail/DNS/RF/游戏VM/提权） | `ctf-misc` | `references/supervisor-quickref.md` 的 Misc 节 + 对应文档 |
+  | Pwn（溢出/格式化串/ROP/堆/内核） | `ctf-pwn` | SKILL.md 速查 + 对应专题文档 |
+  | Reverse（逆向/脱壳/VM/固件） | `ctf-reverse` | SKILL.md 速查 + 对应专题文档 |
+  | Crypto | `ctf-crypto` | SKILL.md + 对应专题 |
+  | Forensics / OSINT / Malware | `ctf-forensics` / `ctf-osint` / `ctf-malware` | SKILL.md + 对应专题 |
+  | 内网渗透/多阶段（打点→内网→横向→域控） | `lateral-movement` `multi-layer-network` `ad-domain-attack` `internal-recon` 等（security/pentest/ 下 85 个渗透 skill） | SKILL.md 决策树 + references |
+  | 服务渗透（ssh/smb/redis/kerberos/mysql 等） | `ssh-pentesting` `smb-pentesting` `redis-attack` 等 | SKILL.md + references |
+  | 提权（拿到 shell 后） | `post-exploit-linux` / `post-exploit-windows` | SKILL.md 全流程 + GTFOBins |
+  | Web 方法论（中文流程向，与 ctf-web 英文 writeup 向互补） | `sql-injection-methodology` `ssrf-methodology` `lfi-rfi-methodology` 等 | SKILL.md + references |
+- 用法：`skill_view(name="ctf-pwn", file_path="rop-advanced.md")`（skill 目录内任意 md 均可按文件名加载）
+- 每轮只加载需要的部分，不要全部加载（省 token）
 
 ## 人工指导处理（人 → Hermes → Codex）
 

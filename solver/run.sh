@@ -299,15 +299,14 @@ if [ -f "$SCRIPT_DIR/hermes_monitor.md" ]; then
 
                 if [ -z "$HERMES_SESSION" ]; then
                     # warmup 超时/失败：自己建新会话，给完整指令，捕获 session_id
-                    # -s 预加载 ctf-supervisor-knowledge (SKILL.md 注入上下文, references 按需 skill_view)
-                    # timeout 300: hermes chat 挂起时不能阻塞 monitor 循环 (实测曾永久卡死)
+                    # -s 预加载 ctf-web (监督速查路由；其他方向按需 skill_view)
                     RESP=$(timeout 300 hermes chat -q "你是 CTF 监督者。以下是 monitor.py 收集的 Codex 最新进展:
 $OUTPUT
 
 请读 $SCRIPT_DIR/hermes_monitor.md 获取详细指令，然后按指令执行。
 执行完毕后回复简短摘要。" \
                         -t terminal,file,web,search,skills \
-                        -s ctf-supervisor-knowledge \
+                        -s ctf-web \
                         --quiet 2>&1) || true
                     HERMES_SESSION=$(echo "$RESP" | grep -oP "session_id:\s*\K[^\s]+" | head -1)
                     if [ -n "$HERMES_SESSION" ]; then
@@ -355,7 +354,7 @@ $OUTPUT
         rm -f "$WORK_DIR/.hermes_warmup_failed"
         RESP=$(timeout 300 hermes chat -q "$WARMUP_MSG" \
             -t terminal,file,web,search,skills \
-            -s ctf-supervisor-knowledge \
+            -s ctf-web \
             --quiet 2>&1) || true
         echo "$RESP" >> "$WORK_DIR/hermes.log"
         SID=$(echo "$RESP" | grep -oP "session_id:\s*\K[^\s]+" | head -1)
