@@ -528,10 +528,14 @@ while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
     # (第三方模型工具往返 bug)。判定: exit 非 0 且日志尾部 10 行含该错误
     # (一轮内中途的 No tool output 是 codex 内部已恢复, exit 0 正常切换, 不算崩)。
     # 崩溃 → `codex exec resume <sid>` 拉起原会话 (resume 是 exec 子命令,
-    # --resume 是非法参数会 exit 2 —— 曾导致 resume 兜底全部失效):
-    # 崩了就拉, 无限重试直到正常运行或容器被 master 超时杀掉 (不消耗新轮次)。
-    # 每轮日志追加归档 codex_round{N}.log (codex.log 保持最新轮内容, 历史用于诊断)。
+    # --resume 是非法参数会 exit 2 —— 曾导致 resume 兜底全部失效)。
+    # 崩了就拉: 偶发崩溃 resume 后 API 恢复即可继续。但若崩溃是确定性的
+    # (同一工具调用必现 No tool output, resume 重放同 session 必重崩 —— 实测 b-01),
+    # 无限 resume 会死循环空转烧 token → 连续 RESUME_MAX 次失败即放弃本 session,
+    # 收工检查后下一轮换全新 session (从 board/progress 恢复, 不重放崩溃现场)。
     RESUME_ARGS=()
+    RESUME_FAILS=0
+    RESUME_MAX=3
     while true; do
         EXIT_CODE=0
         codex exec --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust \
@@ -550,14 +554,18 @@ while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
         if tail -10 codex.log | grep -q "No tool output found" 2>/dev/null; then
             # 提取本次 session id，resume 恢复原会话 (完整对话延续)
             SID=$(grep -oP "session id: \K[0-9a-f-]+" codex.log | tail -1)
-            if [ -n "$SID" ]; then
+            if [ -n "$SID" ] && [ "$RESUME_FAILS" -lt "$RESUME_MAX" ]; then
+                RESUME_FAILS=$((RESUME_FAILS+1))
                 RESUME_ARGS=(resume "$SID")
-                echo "[run.sh] codex 崩溃 (No tool output found, exit=$EXIT_CODE)，resume 拉起原会话重试 ($(date +%H:%M:%S))"
+                echo "[run.sh] codex 崩溃 (No tool output found, exit=$EXIT_CODE)，resume 拉起原会话 ($RESUME_FAILS/$RESUME_MAX) $(date +%H:%M:%S)"
                 sleep 5
                 continue
             fi
+            if [ "$RESUME_FAILS" -ge "$RESUME_MAX" ]; then
+                echo "[run.sh] 连续 $RESUME_MAX 次 resume 失败 (确定性崩溃)，放弃本 session，下一轮换全新 session"
+            fi
         fi
-        # 非工具往返错误 / 拿不到 SID → 收工检查 (下一轮新 session)
+        # 非工具往返错误 / 拿不到 SID / resume 超阈值 → 收工检查 (下一轮新 session)
         echo "[run.sh] codex exec 退出码 $EXIT_CODE (无法恢复)，进入收工检查"
         break
     done
