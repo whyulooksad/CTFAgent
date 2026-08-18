@@ -48,3 +48,6 @@ challenges/fake/
 tests/master_state_test.json
 tests/master_test.log
 tests/mock_challenges/*.zip
+
+# 临时备份 (崩溃恢复用，不入库)
+.backups/
