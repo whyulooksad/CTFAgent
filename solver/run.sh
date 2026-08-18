@@ -283,13 +283,17 @@ if [ -f "$SCRIPT_DIR/hermes_monitor.md" ]; then
                 echo "=== [$(date "+%H:%M:%S")] Hermes agent 被触发 ===" >> "$WORK_DIR/hermes.log"
 
                 if [ -z "$HERMES_SESSION" ]; then
-                    # warmup 尚未建立 session：等待它完成（最多 60s）
-                    for i in $(seq 1 20); do
+                    # warmup 尚未建立 session：等它完成（最多 360s，hermes chat 慢）
+                    # 成功 -> .hermes_session；失败 -> .hermes_warmup_failed
+                    for i in $(seq 1 60); do
                         if [ -f "$WORK_DIR/.hermes_session" ]; then
                             HERMES_SESSION=$(cat "$WORK_DIR/.hermes_session" 2>/dev/null || true)
                             break
                         fi
-                        sleep 3
+                        if [ -f "$WORK_DIR/.hermes_warmup_failed" ]; then
+                            break
+                        fi
+                        sleep 6
                     done
                 fi
 
@@ -344,6 +348,8 @@ $OUTPUT
     (
         # 预热建立 Hermes session，session_id 写 .hermes_session 供 monitor loop 复用
         # （避免 warmup 与 monitor 各建一个 session 并发写 board.md 的竞态）
+        # 失败写 .hermes_warmup_failed 标记，让 monitor/board 等待方知道可自建/继续
+        rm -f "$WORK_DIR/.hermes_warmup_failed"
         RESP=$(hermes chat -q "$WARMUP_MSG" \
             -t terminal,file,web,search,skills \
             -s ctf-supervisor-knowledge \
@@ -352,6 +358,8 @@ $OUTPUT
         SID=$(echo "$RESP" | grep -oP "session_id:\s*\K[^\s]+" | head -1)
         if [ -n "$SID" ]; then
             printf '%s' "$SID" > "$WORK_DIR/.hermes_session"
+        else
+            printf 'warmup failed' > "$WORK_DIR/.hermes_warmup_failed"
         fi
     ) &
     HERMES_WARMUP_PID=$!
@@ -447,14 +455,19 @@ fi
 RETRY=0
 
 # 全新目录: 等待 Hermes 预热完成 board.md 初始化（Codex 首轮启动前 board 必须有上下文）
+# 等 warmup 完成信号（.hermes_session 成功 / .hermes_warmup_failed 失败，最多 360s）
 if [ "$IS_RESUME" = "0" ]; then
-    echo "[run.sh] 等待 Hermes 初始化 board.md (最长 90s)..."
-    for i in $(seq 1 30); do
+    echo "[run.sh] 等待 Hermes 初始化 board.md (最长 360s)..."
+    for i in $(seq 1 60); do
         if grep -q "^| M[0-9]" "$WORK_DIR/board.md" 2>/dev/null; then
             echo "[run.sh] board.md 已就绪 ($(grep -c '^| M[0-9]' "$WORK_DIR/board.md") 条 Memory)"
             break
         fi
-        sleep 3
+        if [ -f "$WORK_DIR/.hermes_warmup_failed" ]; then
+            echo "[run.sh] WARNING: Hermes 预热失败，board.md 可能未初始化"
+            break
+        fi
+        sleep 6
     done
     if ! grep -q "^| M[0-9]" "$WORK_DIR/board.md" 2>/dev/null; then
         echo "[run.sh] WARNING: board.md 未就绪（Hermes 预热超时），Codex 将自行读 board 并继续"
@@ -469,7 +482,6 @@ while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
     # codex exec 带同轮快速重试: deepseek responses API 偶发 "No tool output found"
     # (第三方模型工具往返 bug，V1 模式仍可能触发)。非 0 退出且日志含该错误时
     # 原地重试同轮 (最多 3 次)，避免偶发错误直接丢掉一整轮。
-    EXEC_FAILED=0
     for attempt in 1 2 3; do
         codex exec --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust \
           --ignore-rules --disable guardian_approval \
@@ -477,7 +489,6 @@ while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
             < /dev/null > codex.log 2>&1
         EXIT_CODE=$?
         if [ $EXIT_CODE -eq 0 ]; then
-            EXEC_FAILED=0
             break
         fi
         if [ $INTERRUPTED -eq 1 ]; then
@@ -486,10 +497,8 @@ while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
         if grep -q "No tool output found" codex.log 2>/dev/null; then
             echo "[run.sh] codex 工具往返偶发错误 (attempt $attempt/3)，快速重试同轮 (exit=$EXIT_CODE)"
             sleep 5
-            EXEC_FAILED=1
         else
             echo "[run.sh] codex exec 退出码 $EXIT_CODE (非工具往返错误)，进入收工检查"
-            EXEC_FAILED=1
             break
         fi
     done

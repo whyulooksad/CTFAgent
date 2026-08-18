@@ -375,14 +375,10 @@ class Master:
             self._dispatch_cooldown(rec, f"启动 solver 失败: {e}")
             return None
 
-        # 清掉上次运行残留的 progress.md (比本次启动旧的)，避免陈旧的
-        # Flags Found 在 run.sh 重写前被误检测 (重试/重启场景)
-        stale = Path(handle.work_dir) / "progress.md"
-        try:
-            if stale.exists() and stale.stat().st_mtime < handle.started_at:
-                stale.unlink()
-        except OSError:
-            pass
+        # 注意: 不删除 work_dir/progress.md。run.sh 有 IS_RESUME 续跑逻辑
+        # (progress.md 存在即保留上下文，仅全新目录初始化模板)；
+        # 旧 Flags Found 由 mark_flag_seen 去重 (flags_seen 持久化在 master_state.json)，
+        # 不会重复提交。曾经这里 unlink progress.md 防误检测，反而破坏了续跑上下文。
 
         rec.attempts += 1
         rec.started_at = time.time()
