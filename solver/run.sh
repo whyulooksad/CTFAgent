@@ -300,7 +300,8 @@ if [ -f "$SCRIPT_DIR/hermes_monitor.md" ]; then
                 if [ -z "$HERMES_SESSION" ]; then
                     # warmup 超时/失败：自己建新会话，给完整指令，捕获 session_id
                     # -s 预加载 ctf-supervisor-knowledge (SKILL.md 注入上下文, references 按需 skill_view)
-                    RESP=$(hermes chat -q "你是 CTF 监督者。以下是 monitor.py 收集的 Codex 最新进展:
+                    # timeout 300: hermes chat 挂起时不能阻塞 monitor 循环 (实测曾永久卡死)
+                    RESP=$(timeout 300 hermes chat -q "你是 CTF 监督者。以下是 monitor.py 收集的 Codex 最新进展:
 $OUTPUT
 
 请读 $SCRIPT_DIR/hermes_monitor.md 获取详细指令，然后按指令执行。
@@ -315,7 +316,8 @@ $OUTPUT
                     echo "$RESP" >> "$WORK_DIR/hermes.log"
                 else
                     # 后续触发：复用会话，简短 prompt 即可
-                    hermes chat -q "Codex 最新进展:
+                    # timeout 300: hermes chat 挂起不能阻塞 monitor 循环
+                    timeout 300 hermes chat -q "Codex 最新进展:
 $OUTPUT
 
 请按指令执行，回复简短摘要。" \
@@ -349,8 +351,9 @@ $OUTPUT
         # 预热建立 Hermes session，session_id 写 .hermes_session 供 monitor loop 复用
         # （避免 warmup 与 monitor 各建一个 session 并发写 board.md 的竞态）
         # 失败写 .hermes_warmup_failed 标记，让 monitor/board 等待方知道可自建/继续
+        # timeout 300: hermes chat 挂起时不能无限等
         rm -f "$WORK_DIR/.hermes_warmup_failed"
-        RESP=$(hermes chat -q "$WARMUP_MSG" \
+        RESP=$(timeout 300 hermes chat -q "$WARMUP_MSG" \
             -t terminal,file,web,search,skills \
             -s ctf-supervisor-knowledge \
             --quiet 2>&1) || true
