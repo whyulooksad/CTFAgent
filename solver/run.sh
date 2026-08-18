@@ -514,11 +514,14 @@ while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
 
     cd "$WORK_DIR"
     # codex exec 带同轮快速重试: deepseek responses API 偶发 "No tool output found"
-    # (第三方模型工具往返 bug，V1 模式仍可能触发)。非 0 退出且日志含该错误时
-    # 原地重试同轮 (最多 3 次)，避免偶发错误直接丢掉一整轮。
+    # (第三方模型工具往返 bug，V1 模式仍可能触发，长会话后偶发)。
+    # 非 0 退出且日志含该错误时，--resume 恢复本次 session 原地重试同轮 (最多 3 次):
+    # 不算新轮次、不丢上下文 (完整对话延续)。
+    RESUME_ARGS=()
     for attempt in 1 2 3; do
         codex exec --dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust \
           --ignore-rules --disable guardian_approval \
+          "${RESUME_ARGS[@]}" \
           "$CODEX_PROMPT" \
             < /dev/null > codex.log 2>&1
         EXIT_CODE=$?
@@ -529,7 +532,12 @@ while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
             break
         fi
         if grep -q "No tool output found" codex.log 2>/dev/null; then
-            echo "[run.sh] codex 工具往返偶发错误 (attempt $attempt/3)，快速重试同轮 (exit=$EXIT_CODE)"
+            # 提取本次 session id，下次重试 --resume 恢复原会话
+            SID=$(grep -oP "session id: \K[0-9a-f-]+" codex.log | tail -1)
+            if [ -n "$SID" ]; then
+                RESUME_ARGS=(--resume "$SID")
+            fi
+            echo "[run.sh] codex 工具往返偶发错误 (attempt $attempt/3)，--resume 恢复会话重试同轮 (exit=$EXIT_CODE)"
             sleep 5
         else
             echo "[run.sh] codex exec 退出码 $EXIT_CODE (非工具往返错误)，进入收工检查"

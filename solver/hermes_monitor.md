@@ -142,8 +142,8 @@ is_timeout 为 true。
 类型: fact / evidence / failure_boundary / hint / external
 
 ### 容量约束
-- Memory > 12 条 -> merge 同类条目，delete 低价值条目
-- Ideas > 8 条 -> merge 近义 idea，delete 已 verified/failed 且超 24h 的
+- Memory > 25 条 -> merge 同类条目，delete 低价值条目
+- Ideas > 15 条 -> merge 近义 idea，delete 已 verified/failed 且超 24h 的
 
 ## 文件操作规则
 

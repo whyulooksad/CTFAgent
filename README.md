@@ -285,6 +285,39 @@ TSEC_TOKEN=<你的token> PROXY_FOR_CONTAINERS=http://172.23.48.1:7897 \
 - `PROXY_FOR_CONTAINERS`：容器内 Codex 出网代理（WSL 下 `http://172.23.48.1:7897`；不设则自动探测 7890/7892/1087/7897）
 - `CTF_MOCK_PUBLIC_HOST`：mock web 靶机对容器的地址（WSL 原生 docker 用 `172.17.0.1`，Docker Desktop 用 `host.docker.internal`）
 
+## 比赛 API 切换（scripts/switch-api.sh）
+
+比赛网关只代理两条路径，**没有 /v1/chat/completions**：
+
+| 官方端点 | 比赛网关代理 |
+|---------|-------------|
+| `https://api.deepseek.com/responses` | `https://llm-gateway.dasctf.com/llm-gateway/proxy/e/lFfnjnPhYeLWKnl7` |
+| `https://api.deepseek.com/anthropic/v1/messages` | `https://llm-gateway.dasctf.com/llm-gateway/proxy/e/adHBctoNwQbmLUvp` |
+
+因此 codex（responses 协议）只换 base_url；hermes（原 chat_completions）必须换协议为 anthropic_messages。**模型名不变**（deepseek-v4-pro / deepseek-v4-flash）。
+
+```bash
+cd ~/ctf-agent
+
+bash scripts/switch-api.sh gateway   # 比赛时：一键切到网关（改宿主配置 + 重生成快照）
+bash scripts/switch-api.sh official  # 赛后：一键切回官方 API
+bash scripts/switch-api.sh status    # 查看当前端点（宿主 + 快照）
+```
+
+切换内容：
+
+| 组件 | 切 gateway | 切回 official |
+|------|-----------|--------------|
+| codex base_url | 网关 /responses URL | api.deepseek.com |
+| hermes base_url | 网关 /anthropic URL | api.deepseek.com/v1 |
+| hermes api_mode | anthropic_messages | chat_completions |
+
+机制：
+- 每次切换前自动备份原配置到 `~/.ctf-agent-api-backup/`（带时间戳，可手动回滚）
+- 切换后自动重新生成凭据快照 → 容器下次启动即生效（无需重建镜像）
+
+⚠️ 比赛第一次用网关建议先小测一道题，确认网关对 v4-flash + anthropic 协议的工具调用兼容性。
+
 # 待改
 
 - [x] board.md — 全量更新，8 条 Ideas（6 failed + 1 verified + 2 testing）+ 12 条 Memory   有点小，但改大的话是单纯改大，还是做个压缩管理？
