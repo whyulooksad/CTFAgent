@@ -66,7 +66,7 @@
 
 已装工具速览：
 - **Web**：nmap（端口扫描）、ffuf（目录/参数 fuzz）、jq（JSON 处理）、curl
-- **Misc**：exiftool（图片元数据）、steghide（隐写）、binwalk（文件提取）、foremost（文件雕刻）、tshark（流量分析）、file/strings/xxd
+- **Misc**：exiftool（图片元数据）、steghide（隐写）、binwalk（文件提取）、foremost（文件雕刻）、tshark（流量分析）、file/strings/xxd、unzip/7z/tar/xz/zstd/unrar（压缩附件解压）
 - **Crypto**：openssl、python 库 z3-solver / pycryptodome / pwntools / Pillow / requests
 - **Binary**：gdb（动态调试）、radare2（静态分析）、objdump/readelf、strace/ltrace（运行时跟踪）、socat（网络/转发）、pwntools / angr
 

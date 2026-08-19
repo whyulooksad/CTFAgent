@@ -82,6 +82,9 @@ class ProcessBackend(SolverBackend):
     构建 cmd 时使用的字符串完全一致。
     """
 
+    def __init__(self, agent_cli: str = "codex"):
+        self.agent_cli = agent_cli  # codex | claude | hermes (传给 run.sh 环境变量)
+
     def start(self, ch: Challenge) -> SolverHandle:
         work_dir = self._predict_work_dir(ch)
 
@@ -98,6 +101,10 @@ class ProcessBackend(SolverBackend):
         fc = int(getattr(ch, "flag_count", 1) or 1)
         if fc > 1:
             cmd += ["--flag-count", str(fc)]  # 多 flag: solver 拿满前不退出
+        # 轮转断点: 上一圈 session id 传给 run.sh → claude --resume 恢复会话
+        sid = getattr(ch, "cc_session_id", None)
+        if sid:
+            cmd += ["--resume-session", sid]
 
         # run.sh 的 stdout 横幅收集到 master_logs (codex/hermes 日志在 work_dir 内)
         # 每次尝试追加写入 (不覆盖)，带分隔头 -- "w" 模式曾把重试前一轮的日志抹掉
@@ -115,6 +122,7 @@ class ProcessBackend(SolverBackend):
                 stderr=subprocess.STDOUT,
                 cwd=str(REPO_DIR),
                 start_new_session=True,  # 独立进程组，方便整组终止
+                env={**os.environ, "AGENT_CLI": self.agent_cli},  # 引擎传给 run.sh (默认 codex)
             )
         finally:
             log_f.close()  # 子进程持有 fd 副本，父进程侧关闭
@@ -184,18 +192,26 @@ class ProcessBackend(SolverBackend):
             pass
 
 
-def _read_claude_env() -> dict:
-    """读宿主 ~/.claude/settings.json 的 env 段 (claude 引擎容器注入用)。
+def _read_claude_env(snapshot_dir: Optional[Path] = None) -> dict:
+    """读 claude 引擎容器注入用的 env 段 (ANTHROPIC_BASE_URL / AUTH_TOKEN / MODEL 等)。
 
-    返回 ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN / ANTHROPIC_MODEL 等。
+    优先读快照 claude/settings.json (比赛网关切换 switch-api.sh gateway 只改快照,
+    宿主 ~/.claude 保持官方); 快照无 claude 配置时回退宿主。
     """
-    try:
-        p = Path.home() / ".claude" / "settings.json"
-        data = json.loads(p.read_text(encoding="utf-8"))
-        env = data.get("env", {})
-        return {k: v for k, v in env.items() if isinstance(v, str)}
-    except Exception:
-        return {}
+    candidates = []
+    if snapshot_dir is not None:
+        candidates.append(Path(snapshot_dir) / "claude" / "settings.json")
+    candidates.append(Path.home() / ".claude" / "settings.json")
+    for p in candidates:
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+            env = data.get("env", {})
+            env = {k: v for k, v in env.items() if isinstance(v, str)}
+            if env:
+                return env
+        except Exception:
+            continue
+    return {}
 
 
 def _detect_host_proxy() -> Optional[str]:
@@ -294,9 +310,9 @@ class DockerBackend(SolverBackend):
             "-e", f"AGENT_CLI={self.agent_cli}",
         ]
         # claude 引擎: 容器内 claude 读 deepseek anthropic 端点环境变量
-        # (值从宿主 ~/.claude/settings.json 取, 与 claude 主程序同一配置源)
+        # (优先快照 claude/settings.json = 当前模式端点; 无快照回退宿主)
         if self.agent_cli == "claude":
-            claude_env = _read_claude_env()
+            claude_env = _read_claude_env(self.snapshot_dir)
             for k, v in claude_env.items():
                 cmd += ["-e", f"{k}={v}"]
         # codex 访问 OpenAI 走宿主机代理 (探测一次并缓存)
@@ -326,6 +342,10 @@ class DockerBackend(SolverBackend):
         fc = int(getattr(ch, "flag_count", 1) or 1)
         if fc > 1:
             cmd += ["--flag-count", str(fc)]  # 多 flag: solver 拿满前不退出
+        # 轮转断点: 上一圈 session id 传给 run.sh → claude --resume 恢复会话
+        sid = getattr(ch, "cc_session_id", None)
+        if sid:
+            cmd += ["--resume-session", sid]
 
         res = subprocess.run(cmd, capture_output=True, text=True, timeout=90)
         if res.returncode != 0:

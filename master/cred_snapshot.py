@@ -203,6 +203,23 @@ def build_hermes(src: Path, dst: Path) -> None:
         _warn(f"{skills} 不存在 (hermes 将无用户 skills，监督质量降级)")
 
 
+# ─── Claude Code (§7.2) ───
+
+
+def build_claude(src: Path, dst: Path) -> None:
+    """快照 claude 配置: 复制宿主 ~/.claude/settings.json (env 段含 ANTHROPIC_*)。
+
+    DockerBackend 容器注入 claude 引擎配置时优先读快照 claude/settings.json,
+    这样比赛网关切换 (switch-api.sh gateway) 只改快照, 宿主 ~/.claude 保持官方。
+    """
+    dst.mkdir(parents=True, exist_ok=True)
+    f = src / "settings.json"
+    if not f.exists():
+        _warn(f"{f} 不存在 (容器 claude 引擎将回退宿主配置)")
+        return
+    shutil.copy2(f, dst / "settings.json")
+
+
 # ─── 入口 ───
 
 
@@ -216,6 +233,7 @@ def ensure_snapshot(
     root = out_root / run_id
     build_codex(codex_home or HOME / ".codex", root / "codex")
     build_hermes(hermes_home or HOME / ".hermes", root / "hermes")
+    build_claude(HOME / ".claude", root / "claude")
 
     # current 符号链接指向最新快照，方便排查 (DockerBackend 默认也用它)
     link = out_root / "current"

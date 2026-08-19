@@ -28,6 +28,11 @@ case "$AGENT_CLI" in
         # claude -p 非交互 + 跳过权限确认 + verbose(stream-json 输出带 session_id)
         AGENT_EXEC_EXTRA=(--dangerously-skip-permissions --model "$AGENT_MODEL" --verbose --output-format stream-json)
         ;;
+    hermes)
+        # hermes 主引擎 (托管模式 chat 协议兜底; 走 /v1/chat/completions 标准路径)
+        # -q 非交互; --pass-session-id 输出 session_id 供 resume
+        AGENT_EXEC_EXTRA=(-t terminal,file,web,search -s ctf-web --quiet --pass-session-id)
+        ;;
     *)
         AGENT_CLI="codex"
         AGENT_EXEC_EXTRA=(--dangerously-bypass-approvals-and-sandbox --dangerously-bypass-hook-trust \
@@ -48,6 +53,7 @@ ATTACHMENT=""
 HINT=""
 FLAG_COUNT=1
 CHALLENGE_ID=""
+RESUME_SESSION=""   # 上一圈主解题 Agent 的 session id (轮转断点恢复, claude --resume)
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -57,6 +63,7 @@ while [ $# -gt 0 ]; do
         --hint)       HINT="$2"; shift 2 ;;
         --flag-count) FLAG_COUNT="$2"; shift 2 ;;
         --challenge-id) CHALLENGE_ID="$2"; shift 2 ;;
+        --resume-session) RESUME_SESSION="$2"; shift 2 ;;
         *) echo "未知参数: $1"; exit 1 ;;
     esac
 done
@@ -361,6 +368,9 @@ if [ -f "$HERMES_MONITOR" ]; then
             HERMES_SESSION=$(cat "$WORK_DIR/.hermes_session" 2>/dev/null || true)
         fi
 
+        # monitor loop 必须 cd WORK_DIR: hermes chat 的 cwd 决定它能否看到 work dir 文件
+        cd "$WORK_DIR"
+
         while true; do
             OUTPUT=$(python3 "$SCRIPT_DIR/monitor.py" --work-dir "$WORK_DIR" 2>/dev/null)
 
@@ -388,10 +398,13 @@ if [ -f "$HERMES_MONITOR" ]; then
                     RESP=$(timeout 300 hermes chat -q "你是 CTF 监督者。以下是 monitor.py 收集的 $AGENT_NAME 最新进展:
 $OUTPUT
 
-请读 $HERMES_MONITOR 获取详细指令，然后按指令执行。
-执行完毕后回复简短摘要。" \
+以下是你的完整职责文档（已内嵌，无需再读文件）:
+$(cat "$HERMES_MONITOR" 2>/dev/null || true)
+
+按文档职责执行，回复简短摘要。" \
                         -t terminal,file,web,search,skills \
                         -s ctf-web \
+                        --ignore-rules \
                         --quiet 2>&1) || true
                     HERMES_SESSION=$(echo "$RESP" | grep -oP "session_id:\s*\K[^\s]+" | head -1)
                     if [ -n "$HERMES_SESSION" ]; then
@@ -407,6 +420,7 @@ $OUTPUT
 请按指令执行，回复简短摘要。" \
                         -r "$HERMES_SESSION" \
                         -t terminal,file,web,search,skills \
+                        --ignore-rules \
                         --quiet >> "$WORK_DIR/hermes.log" 2>&1 || true
                 fi
 
@@ -423,24 +437,53 @@ $OUTPUT
     # 解决 "codex 解完题 hermes 首次初始化(~3min)还没完成" 的时序问题
     # 后台跑不阻塞主流程; 预热只初始化 board.md, 动态监督仍由 monitor 循环驱动
     # 续跑模式: board.md 已有上下文 → 禁止重建，改为追加维护
+    # 职责文档全文内嵌进消息 (不依赖 hermes 自觉 read_file; 模型可能偷懒不读)
+    MONITOR_DOC="$(cat "$HERMES_MONITOR" 2>/dev/null || true)"
     if [ "$IS_RESUME" = "1" ]; then
-        WARMUP_MSG="你是 CTF 监督者。续跑模式：请读 $HERMES_MONITOR 了解职责，\
-读 board.md（已有完整上下文，禁止重建/覆盖，只允许追加维护）和 progress.md，\
+        WARMUP_MSG="你是 CTF 监督者。以下是你完整职责文档（已内嵌，无需再读文件）:
+
+$MONITOR_DOC
+
+续跑模式：读 board.md（已有完整上下文，禁止重建/覆盖，只允许追加维护）和 progress.md，
 确认当前进展与失败记录后继续监督。回复简短摘要。"
     else
-        WARMUP_MSG="你是 CTF 监督者。新任务开始，请读 $HERMES_MONITOR 了解职责，\
-读 progress.md（如存在）和题目背景，初始化 board.md 记录目标/URL/已知信息。回复简短摘要。"
+        WARMUP_MSG="你是 CTF 监督者。以下是你完整职责文档（已内嵌，无需再读文件）:
+
+$MONITOR_DOC
+
+新任务开始：读 progress.md（如存在）和题目背景，初始化 board.md 记录目标/URL/已知信息。回复简短摘要。"
     fi
     (
         # 预热建立 Hermes session，session_id 写 .hermes_session 供 monitor loop 复用
         # （避免 warmup 与 monitor 各建一个 session 并发写 board.md 的竞态）
         # 失败写 .hermes_warmup_failed 标记，让 monitor/board 等待方知道可自建/继续
         # timeout 300: hermes chat 挂起时不能无限等
+        # 必须 cd WORK_DIR: hermes 看不到 work dir 的 board/progress/题目背景会困惑归属
+        # --ignore-rules: work dir 有主解题 Agent 的 AGENTS.md, hermes 自动加载会角色混淆
+        # (监督者 vs 主解题), 必须跳过, 只按 hermes_monitor.md 的监督职责工作
+        cd "$WORK_DIR"
         rm -f "$WORK_DIR/.hermes_warmup_failed"
-        RESP=$(timeout 300 hermes chat -q "$WARMUP_MSG" \
-            -t terminal,file,web,search,skills \
-            -s ctf-web \
-            --quiet 2>&1) || true
+        # 轮转断点: 续跑且有旧 hermes session → -r 复用, 监督上下文跨圈连续
+        # (否则每圈新建 session, hermes 只能靠读 board.md 内容级恢复)
+        HERMES_OLD_SESSION=""
+        if [ -s "$WORK_DIR/.hermes_session" ]; then
+            HERMES_OLD_SESSION=$(cat "$WORK_DIR/.hermes_session" 2>/dev/null || true)
+        fi
+        if [ -n "$HERMES_OLD_SESSION" ]; then
+            RESP=$(timeout 300 hermes chat -q "$WARMUP_MSG" \
+                -r "$HERMES_OLD_SESSION" \
+                -t terminal,file,web,search,skills \
+                -s ctf-web \
+                --ignore-rules \
+                --quiet 2>&1) || true
+            echo "[run.sh] hermes warmup 复用上一圈 session: $HERMES_OLD_SESSION"
+        else
+            RESP=$(timeout 300 hermes chat -q "$WARMUP_MSG" \
+                -t terminal,file,web,search,skills \
+                -s ctf-web \
+                --ignore-rules \
+                --quiet 2>&1) || true
+        fi
         echo "$RESP" >> "$WORK_DIR/hermes.log"
         SID=$(echo "$RESP" | grep -oP "session_id:\s*\K[^\s]+" | head -1)
         if [ -n "$SID" ]; then
@@ -541,6 +584,20 @@ fi
 
 RETRY=0
 
+# ── 比赛网关本地代理自举 ──
+# 网关快照 (switch-api.sh gateway) 把 claude 的 ANTHROPIC_BASE_URL 指向 http://127.0.0.1:8765:
+# DASCTF 网关 URL 是完整端点 (POST 本身=一次调用), SDK 拼 /v1/messages|/responses 会 404,
+# gateway-proxy.py 剥离路径转发到网关完整 URL。容器内无代理时自动拉起。
+# 检测: 环境变量 (DockerBackend -e 注入, 容器内无 settings.json 文件) + 文件双通道。
+if echo "${ANTHROPIC_BASE_URL:-}" | grep -q "127.0.0.1:8765" \
+    || grep -q "127.0.0.1:8765" "$HOME/.claude/settings.json" 2>/dev/null; then
+    if ! pgrep -f "gateway-proxy.py" >/dev/null 2>&1; then
+        python3 "$SCRIPT_DIR/../scripts/gateway-proxy.py" --bg 2>/dev/null || true
+        sleep 1
+    fi
+    echo "[run.sh] 比赛网关代理已就绪 (gateway-proxy.py @ 127.0.0.1:8765)"
+fi
+
 # 全新目录: 等待 Hermes 预热完成 board.md 初始化（Codex 首轮启动前 board 必须有上下文）
 # 等 warmup 完成信号（.hermes_session 成功 / .hermes_warmup_failed 失败，最多 360s）
 if [ "$IS_RESUME" = "0" ]; then
@@ -579,6 +636,11 @@ while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
     RESUME_ARGS=()
     RESUME_FAILS=0
     RESUME_MAX=3
+    # 轮转断点: 上一圈传 --resume-session 时, 首轮 claude 调用直接恢复该会话
+    if [ -n "$RESUME_SESSION" ]; then
+        RESUME_ARGS=(--resume "$RESUME_SESSION")
+        echo "[run.sh] 恢复上一圈会话: $RESUME_SESSION"
+    fi
     while true; do
         EXIT_CODE=0
         if [ "$AGENT_CLI" = "claude" ]; then
@@ -588,22 +650,41 @@ while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
             # 触发 Hermes; 中间文件方案会致 Hermes 盲区)。
             # set +e 局部关 -e: claude 失败时管道非 0 不能终止脚本 (要进 resume 循环);
             # PIPESTATUS[0] 取 claude 退出码 (|| true 会覆盖 PIPESTATUS, 不可用)
+            # HOSTED_TIMEOUT (托管 entrypoint 设置): 防网关挂起时无限等 (timeout 0=不限, 本地不变)
             set +e
-            claude -p "${AGENT_EXEC_EXTRA[@]}" \
+            timeout ${HOSTED_TIMEOUT:-0} claude -p "${AGENT_EXEC_EXTRA[@]}" \
               ${RESUME_ARGS[@]+"${RESUME_ARGS[@]}"} \
               "$CODEX_PROMPT" \
                 < /dev/null 2>&1 | grep -v '"subtype":"thinking_tokens"' > codex.log
             EXIT_CODE=${PIPESTATUS[0]}
             set -e
+        elif [ "$AGENT_CLI" = "hermes" ]; then
+            # hermes 主引擎 (chat 协议, 托管兜底): hermes chat -q <prompt>
+            # --ignore-rules: 只按 CODEX_PROMPT 工作, 跳过 AGENTS.md (claude 特定指令)
+            set +e
+            timeout ${HOSTED_TIMEOUT:-0} hermes chat -q "$CODEX_PROMPT" \
+              ${RESUME_ARGS[@]+"${RESUME_ARGS[@]}"} \
+              "${AGENT_EXEC_EXTRA[@]}" \
+              --ignore-rules \
+                < /dev/null > codex.log 2>&1
+            EXIT_CODE=$?
+            set -e
         else
             # codex exec: [flags] [resume <sid>] <prompt>
-            codex exec "${AGENT_EXEC_EXTRA[@]}" \
+            # HOSTED_TIMEOUT (托管 entrypoint 设置): 防网关挂起时无限等 (timeout 0=不限, 本地不变)
+            timeout ${HOSTED_TIMEOUT:-0} codex exec "${AGENT_EXEC_EXTRA[@]}" \
               ${RESUME_ARGS[@]+"${RESUME_ARGS[@]}"} \
               "$CODEX_PROMPT" \
                 < /dev/null > codex.log 2>&1 || EXIT_CODE=$?
         fi
         # 注意: 必须 || 捕获退出码 (set -e 下非 0 退出会直接终止脚本!)
         cat codex.log >> "codex_round${ROUND}.log" 2>/dev/null || true
+        # 提取本次 session id 落盘 .cc_session (轮转断点恢复用, master 下圈传 --resume-session)
+        # 格式: codex: "session id: xxx" / claude: "session_id":"xxx" / hermes: "session_id: xxx"
+        SID=$(grep -oP '(session id: |"session_id":"|session_id:\s*)\K[0-9a-f-]+' codex.log | tail -1)
+        if [ -n "$SID" ]; then
+            printf '%s' "$SID" > "$WORK_DIR/.cc_session"
+        fi
         if [ $EXIT_CODE -eq 0 ]; then
             break
         fi
@@ -611,11 +692,13 @@ while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
             break
         fi
         if tail -10 codex.log | grep -q "No tool output found" 2>/dev/null; then
-            # 提取本次 session id (codex: "session id: xxx" / claude: "session_id":"xxx")
-            SID=$(grep -oP '(session id: |"session_id":")\K[0-9a-f-]+' codex.log | tail -1)
+            # 提取本次 session id (codex: "session id: xxx" / claude: "session_id":"xxx" / hermes: "session_id: xxx")
+            SID=$(grep -oP '(session id: |"session_id":"|session_id:\s*)\K[0-9a-f-]+' codex.log | tail -1)
             if [ -n "$SID" ] && [ "$RESUME_FAILS" -lt "$RESUME_MAX" ]; then
                 RESUME_FAILS=$((RESUME_FAILS+1))
                 if [ "$AGENT_CLI" = "claude" ]; then
+                    RESUME_ARGS=(--resume "$SID")
+                elif [ "$AGENT_CLI" = "hermes" ]; then
                     RESUME_ARGS=(--resume "$SID")
                 else
                     RESUME_ARGS=(resume "$SID")
@@ -629,6 +712,12 @@ while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
             fi
         fi
         # 非工具往返错误 / 拿不到 SID / resume 超阈值 → 收工检查 (下一轮新 session)
+        # 轮转断点: 若本次失败是因为 resume 上一圈 session (RESUME_SESSION 非空),
+        # 说明该 session 已失效 → 清空, 后续轮次换全新 session, 避免死循环重放坏 session
+        if [ -n "$RESUME_SESSION" ]; then
+            echo "[run.sh] 上一圈 session ($RESUME_SESSION) resume 失败，放弃断点，后续换全新 session"
+            RESUME_SESSION=""
+        fi
         echo "[run.sh] $AGENT_CLI exec 退出码 $EXIT_CODE (无法恢复)，进入收工检查"
         break
     done

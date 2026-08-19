@@ -173,6 +173,8 @@ class ChallengeRecord:
     work_dir: Optional[str] = None
     started_at: Optional[float] = None
     finished_at: Optional[float] = None
+    cc_session_id: Optional[str] = None   # 主解题 Agent 会话 id (轮转断点恢复)
+    last_done_round: int = 0              # 最近一次做完的圈数 (本圈做完不再分发)
 
     # flag / 提交
     flags_seen: list[str] = field(default_factory=list)      # progress.md 里出现过的

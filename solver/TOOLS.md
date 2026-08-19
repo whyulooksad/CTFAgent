@@ -50,6 +50,20 @@ xxd mystery.bin | head             # 十六进制查看头部
 xxd -r -p hex.txt > out.bin        # hex 转回二进制
 ```
 
+### 压缩/解压 — 附件处理
+```bash
+unzip a.zip                          # 解压 zip
+unzip -l a.zip                       # 只列内容（密码题先看清单）
+7z x a.7z                            # 解压 7z（含 7z 分卷/加密头枚举）
+7z l a.7z                            # 列 7z 内容
+tar xf a.tar.gz                      # 解 tar.gz / tar.bz2 / tar.xz
+xz -d a.xz                           # 解 xz 单文件
+zstd -d a.zst                        # 解 zstd
+unrar-free x a.rar                   # 解 rar（unrar-free 无密码爆破，枚举用 rar2john+john）
+python3 -c "import zipfile; zipfile.ZipFile('a.zip').extractall()"   # python 兜底（含密码 pwd=）
+# 加密 zip: fcrackzip 未预装，可用 john 或 python zipfile 字典爆破
+```
+
 ### exiftool — 图片元数据
 ```bash
 exiftool image.jpg                 # 全部元数据（注意 Comment/Copyright/Artist 字段藏 flag）

@@ -69,10 +69,17 @@ class Config:
     backend: str = "process"                 # process | docker | fake(测试)
     max_solvers: int = 5                     # 并发 Solver 槽位数 (手动可配)
     max_challenges: int = 20                 # 尝试题目数上限 (去重计)
-    solver_timeout: int = 3600               # 单个 solver 整体超时 (秒，默认 1h)
+    solver_timeout: int = 3600               # 兜底超时: 单次 solver 整体上限 (秒)
     max_retries_per_challenge: int = 1       # 失败重试次数上限
     retry_value_threshold: float = 0.6       # 高价值判定: 分数归一化阈值
     retry_rarity_threshold: float = 0.7      # 高价值判定: 解出稀有度阈值
+    # 轮转调度 (时间片轮转 + 渐进式时间预算):
+    #   第 1 圈每道题 round_time_base 秒, 超时换题 (保留 cc session);
+    #   所有题做完一圈后 current_round+1, 时间上限 +round_time_step;
+    #   最多 max_rounds 圈, 之后未解出的题终态。
+    round_time_base: int = 1200              # 首轮每题时间上限 (秒, 默认 20 分钟)
+    round_time_step: int = 600               # 每圈递增 (秒, 默认 +10 分钟)
+    max_rounds: int = 5                      # 最多轮数 (默认 5 圈)
     poll_interval: int = 15                  # 主循环间隔 (秒)
     llm_priority: bool = True                # LLM 软修正开关 (Phase 3 生效)
     llm_priority_effort: str = "low"
@@ -80,7 +87,7 @@ class Config:
     max_submit_per_challenge: int = 3        # 单题提交上限
     dashboard_port: int = 8081               # Phase 3
     docker_image: str = "ctf-solver:latest"  # Phase 2
-    agent_cli: str = "codex"                 # codex | claude (claude 引擎走 deepseek anthropic 端点)
+    agent_cli: str = "codex"                 # codex | claude | hermes (hermes=chat 协议, 托管网关兜底)
     state_file: str = "master_state.json"
     log_file: str = "master.log"
     flags_file: str = "flags.jsonl"           # 已解出 flag 的落盘文件 (面板数据源)
@@ -124,7 +131,7 @@ def make_manual_adapter():
 
 def make_backend(name: str, cfg: Optional[Config] = None) -> SolverBackend:
     if name == "process":
-        return ProcessBackend()
+        return ProcessBackend(agent_cli=getattr(cfg, "agent_cli", "codex"))
     if name == "docker":
         from cred_snapshot import ensure_snapshot
         snap = ensure_snapshot()  # 精制快照 (spec §7)，每次 Master 启动生成一份
@@ -160,6 +167,11 @@ class Master:
 
     def __init__(self, cfg: Config, adapter=None, backend: Optional[SolverBackend] = None):
         self.cfg = cfg
+        # 确保 challenges/ 存在且属主为当前用户 (stw):
+        # docker run -v 挂载不存在的源目录会由 docker daemon 自动创建 (root 属主),
+        # 容器内 ubuntu(1000) 无写权限 → run.sh 建 work dir Permission denied → 秒崩
+        # (2026-08-19 实测: 清理 challenges/ 后 master 重启, 全部题 failed 的根因)
+        CHALLENGES_DIR.mkdir(parents=True, exist_ok=True)
         state_path = Path(cfg.state_file)
         if not state_path.is_absolute():
             state_path = REPO_DIR / state_path
@@ -184,6 +196,7 @@ class Master:
         self.paused = False
         self.platform_connected = not isinstance(self.adapter, NoPlatformAdapter)
         self.platform_info: dict = {"base_url": "", "token": ""}
+        self.current_round = 1        # 轮转圈数 (第 1 圈 round_time_base 秒/题)
         self.log = logging.getLogger("master")
 
     # ─── 生命周期 ───
@@ -198,6 +211,13 @@ class Master:
         restored = self.state.load()
         if restored:
             self.log.info("恢复状态: %d 条题目记录", len(self.state.all_records()))
+            # 恢复圈数: 从已完成的最高圈推断 (做过第 1 圈的题 → 继续第 2 圈)
+            max_done = max(
+                [getattr(r, "last_done_round", 0) for r in self.state.all_records()] + [0]
+            )
+            self.current_round = min(max_done + 1, self.cfg.max_rounds)
+            if max_done:
+                self.log.info("恢复圈数: 第 %d 圈 (上次最高完成 %d)", self.current_round, max_done)
             self._recover()
         # 兜底: 清掉平台上所有残留活跃靶机 (kill -9 强杀等无法优雅退出的残留，
         # 状态文件可能没记录到 running，_recover 管不到)
@@ -225,6 +245,7 @@ class Master:
             while not self._stop.is_set():
                 if not self.paused:
                     self._sync_challenges()
+                    self._advance_round_if_done()
                     self._fill_slots()
                 self._drain_results()
                 self._monitor_solvers()
@@ -309,6 +330,8 @@ class Master:
             if r.status == QUEUED
             and (r.next_eligible_at or 0) <= now
             and (allow_new or r.attempts >= 1 or r.source == "manual")
+            # 轮转: 本圈已做过的题不再分发, 等圈数推进
+            and getattr(r, "last_done_round", 0) < self.current_round
         ]
         if not queued:
             return None
@@ -437,6 +460,16 @@ class Master:
                 self.running.pop(cid, None)
                 continue
 
+            # 0. 同步 cc session id (run.sh 每次调用后写 work_dir/.cc_session)
+            wd = getattr(rec, "work_dir", None)
+            if wd:
+                try:
+                    sid = Path(wd, ".cc_session").read_text(encoding="utf-8").strip()
+                    if sid and sid != getattr(rec, "cc_session_id", None):
+                        rec.cc_session_id = sid
+                except OSError:
+                    pass
+
             # 1. flag 检测 (读 progress.md 的 Flags Found 段)
             manual_accepted = False
             for flag in self._read_flags(handle):
@@ -456,22 +489,77 @@ class Master:
             if manual_accepted:
                 continue
 
-            # 2. 死亡检测
+            # 2. 死亡检测: solver 自行结束 (正常收工/崩溃)。有 flag 由上面处理;
+            #    无 flag → 本圈做完, 保留 session, 下圈再试 (轮转)
             if not self.backend.is_alive(handle):
                 if self.state.pending_submits(cid) > 0:
                     continue  # 等提交结果，下轮再判定
                 if rec.status == SUBMITTED_CORRECT:
                     self._release(cid)
                     continue
-                self._finalize(cid, FAILED, "solver 已结束且无待定 flag")
+                self._round_rotate(rec, "solver 已结束且无待定 flag")
                 continue
 
-            # 3. 超时检测 (多 flag 题时间放大: 基础时间 × flag 数)
-            timeout = self.cfg.solver_timeout * max(1, int(getattr(rec, "flag_count", 1) or 1))
-            if rec.started_at and time.time() - rec.started_at > timeout:
-                self.log.warning("%s 超时 (%ds)，终止", cid, timeout)
+            # 3. 超时检测: 当前圈时间上限 = 基础 + (圈数-1)*步进, 多 flag 题放大
+            base = self._round_timeout(rec)
+            if rec.started_at and time.time() - rec.started_at > base:
+                self.log.warning("%s 本圈超时 (%ds, 第 %d 圈)，换题保留断点", cid, base, self.current_round)
                 self.backend.stop(handle)
-                self._finalize(cid, TIMEOUT, f"solver 超时 ({timeout}s)")
+                self._round_rotate(rec, f"本圈超时 ({base}s)")
+
+    def _round_timeout(self, rec) -> int:
+        """当前圈的单题时间上限: (round_time_base + (round-1)*step) × flag 数。"""
+        base = self.cfg.round_time_base + (self.current_round - 1) * self.cfg.round_time_step
+        return base * max(1, int(getattr(rec, "flag_count", 1) or 1))
+
+    def _round_rotate(self, rec, reason: str) -> None:
+        """本圈做完: 释放槽位/靶机, 记 last_done_round, 下圈再试 (最后一圈则终态)。"""
+        self.running.pop(rec.id, None)
+        # 回收前最后一次同步 cc session (solver 快速结束时轮询可能没读到)
+        wd = getattr(rec, "work_dir", None)
+        if wd:
+            try:
+                sid = Path(wd, ".cc_session").read_text(encoding="utf-8").strip()
+                if sid:
+                    rec.cc_session_id = sid
+            except OSError:
+                pass
+        rec.finished_at = time.time()
+        rec.last_done_round = self.current_round
+        self._release_target(rec)
+        if self.current_round >= self.cfg.max_rounds:
+            self.state.set_status(rec.id, TIMEOUT, f"{reason} (达到最大轮数 {self.cfg.max_rounds})")
+            self.log.info("%s 终态: %s (达到最大轮数)", rec.id, reason)
+        else:
+            rec.next_eligible_at = time.time() + 3
+            self.state.set_status(rec.id, QUEUED, reason)
+            self.log.info("%s 本圈未解 (%s)，保留 session 等第 %d 圈", rec.id, reason, self.current_round + 1)
+
+    def _advance_round_if_done(self) -> None:
+        """所有非终态题都做过本圈 (且无运行中) → 圈数+1, 时间上限提升。"""
+        if self.current_round >= self.cfg.max_rounds:
+            # 最后一圈结束: 还没解出的题终态化 (否则 QUEUED+last_done_round>=max 永不分发)
+            for r in self.state.all_records():
+                if r.status == QUEUED and getattr(r, "last_done_round", 0) >= self.cfg.max_rounds:
+                    r.finished_at = time.time()
+                    self.state.set_status(r.id, TIMEOUT, f"达到最大轮数 ({self.cfg.max_rounds}) 未解出")
+                    self.log.info("%s 终态: 达到最大轮数未解出", r.id)
+            return
+        recs = self.state.all_records()
+        active = [r for r in recs if r.status in ACTIVE_STATES or r.status == QUEUED]
+        if not active:
+            return
+        # 新拉到的题 (last_done_round < current_round) 说明本圈还有题没做
+        if any(getattr(r, "last_done_round", 0) < self.current_round for r in active):
+            return
+        if self.running:
+            return  # 还有 solver 在跑, 等它结束
+        self.current_round += 1
+        self.log.info(
+            "=== 全部题目已完成第 %d 圈，进入第 %d 圈 (时间上限 %d 秒) ===",
+            self.current_round - 1, self.current_round,
+            self.cfg.round_time_base + (self.current_round - 1) * self.cfg.round_time_step,
+        )
 
     def _drain_results(self) -> None:
         """处理提交结果。"""
@@ -764,6 +852,7 @@ class Master:
             attachment_url=rec.attachment_url,
             attachment_path=Path(rec.attachment_path) if rec.attachment_path else None,
             flag_count=getattr(rec, "flag_count", 1),
+            cc_session_id=getattr(rec, "cc_session_id", None),
         )
 
     def _read_flags(self, handle: SolverHandle) -> list[str]:
@@ -798,8 +887,8 @@ class Master:
             self.cfg.max_challenges = max_challenges
         if agent_cli is not None:
             agent_cli = str(agent_cli).strip().lower()
-            if agent_cli not in ("codex", "claude"):
-                raise ValueError("agent_cli 必须是 codex 或 claude")
+            if agent_cli not in ("codex", "claude", "hermes"):
+                raise ValueError("agent_cli 必须是 codex / claude / hermes")
             self.cfg.agent_cli = agent_cli
             # 同步到 backend (DockerBackend 实例), 新容器生效
             if hasattr(self.backend, "agent_cli"):
@@ -884,6 +973,11 @@ class Master:
             if not token:
                 raise ValueError("TSec 接入需要 Token (BENCHMARK_TOKEN)")
             candidate = TSecAdapter(base_url, token)
+        elif adapter_type == "dasctf":
+            from adapters.dasctf import DasctfAdapter
+            if not token:
+                raise ValueError("DASCTF 接入需要 AccessKey")
+            candidate = DasctfAdapter(base_url, token)
         else:
             from adapters.live import LiveAdapter
             candidate = LiveAdapter(base_url, token)

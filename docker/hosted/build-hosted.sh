@@ -32,6 +32,7 @@ sed -i 's|^experimental_bearer_token = ".*"|experimental_bearer_token = "{{DEEPS
 rm -f docker/hosted/snap_build/hermes/state.db
 rm -rf docker/hosted/snap_build/hermes/sessions
 rm -f docker/hosted/snap_build/hermes/.skills_prompt_snapshot.json
+rm -rf docker/hosted/snap_build/hermes/skills/.curator_backups   # hermes 技能旧备份
 sed -i 's|^DEEPSEEK_API_KEY=.*|DEEPSEEK_API_KEY={{DEEPSEEK_API_KEY}}|' \
     docker/hosted/snap_build/hermes/.env
 # subapi (本地专用) 等其它 key 一律清空, 托管只用 deepseek 网关

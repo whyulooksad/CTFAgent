@@ -36,6 +36,7 @@ class Challenge:
     attachment_path: Optional[Path] = None   # Master 下载后的本地路径
     source: str = "platform"      # platform (adapter 拉取) | manual (面板手动加入)
     flag_count: int = 1           # 该题 flag 总数 (平台多 flag 题)
+    cc_session_id: Optional[str] = None   # 主解题 Agent 的会话 id (轮转断点恢复用)
 
 
 @dataclass

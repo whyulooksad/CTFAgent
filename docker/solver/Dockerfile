@@ -47,7 +47,8 @@ RUN set -eux; \
            binwalk steghide libimage-exiftool-perl \
            binutils gdb ltrace strace socat radare2 make cmake \
            tshark foremost \
-           nodejs npm; then ok=1; break; fi; \
+           nodejs npm \
+           p7zip-full bzip2 xz-utils unrar-free zstd; then ok=1; break; fi; \
       echo "apt 安装失败，重试 $i/3"; sleep 5; apt-get update || true; \
     done; \
     [ "$ok" = "1" ]; \
