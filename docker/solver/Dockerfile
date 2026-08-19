@@ -48,7 +48,9 @@ RUN set -eux; \
            binutils gdb ltrace strace socat radare2 make cmake \
            tshark foremost \
            nodejs npm \
-           p7zip-full bzip2 xz-utils unrar-free zstd; then ok=1; break; fi; \
+           p7zip-full bzip2 xz-utils unrar-free zstd \
+           tesseract-ocr tesseract-ocr-chi-sim \
+           zbar-tools; then ok=1; break; fi; \
       echo "apt 安装失败，重试 $i/3"; sleep 5; apt-get update || true; \
     done; \
     [ "$ok" = "1" ]; \
@@ -71,9 +73,9 @@ RUN set -eux; \
 # pip 带重试: 镜像源对个别包偶发 403
 RUN set -eux; \
     if [ -n "$PIP_INDEX_URL" ]; then \
-      pip3 install --no-cache-dir --break-system-packages --retries 5 -i "$PIP_INDEX_URL" pwntools z3-solver pycryptodome Pillow requests angr; \
+      pip3 install --no-cache-dir --break-system-packages --retries 5 -i "$PIP_INDEX_URL" pwntools z3-solver pycryptodome Pillow requests angr pytesseract; \
     else \
-      pip3 install --no-cache-dir --break-system-packages --retries 5 pwntools z3-solver pycryptodome Pillow requests angr; \
+      pip3 install --no-cache-dir --break-system-packages --retries 5 pwntools z3-solver pycryptodome Pillow requests angr pytesseract; \
     fi
 
 # ── Hermes Agent (build.sh 从宿主机同步源码，排除 venv/node_modules 等) ──

@@ -100,6 +100,13 @@ tail 时跳过这些行，只看 `"type":"assistant"` 的思考和 `"type":"user
 对比当前 Next Steps 和你之前设的 dead_ends 约束（或 board.md 中的失败记录）。
 - 是 -> 写 dead_ends.md 追加硬约束。
 
+### 3.5 主解题 Agent 在翻系统代码吗？
+从 codex.log 看到它在读 /opt/ctf-agent 下的 docker/、master/、scripts/、solver/
+这些目录（这些是 agent 系统自己的代码，不是题目，里面没有 flag）。
+
+- 是 -> 写 dead_ends.md 硬约束：题目是远程 URL / 附件文件，系统目录不是题目，
+  不要花时间翻它们，回到题目上。
+
 ### 4. 主解题 Agent 找到 flag 了吗？
 flag_found 不为 null（或你从 codex.log / branch_result_*.md 里看到 flag 出现）。
 - 先读 progress.md 的 Flags Found 段，确认这个 flag 是否已记录

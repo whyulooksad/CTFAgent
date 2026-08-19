@@ -64,6 +64,15 @@ python3 -c "import zipfile; zipfile.ZipFile('a.zip').extractall()"   # python �
 # 加密 zip: fcrackzip 未预装，可用 john 或 python zipfile 字典爆破
 ```
 
+### OCR / 二维码 — 图片文字提取
+```bash
+tesseract img.png stdout -l chi_sim+eng   # 图片 OCR（中英混合，flag 常藏在截图/验证码）
+tesseract img.png stdout --psm 6          # 单行文本模式（验证码/一行 flag）
+zbarimg qr.png                            # 二维码/条形码解码（zbar-tools）
+python3 -c "import pytesseract; print(pytesseract.image_to_string('img.png', lang='chi_sim+eng'))"
+# 预处理: ImageMagick 未预装，可用 Pillow 放大/二值化后再 OCR（提高验证码识别率）
+```
+
 ### exiftool — 图片元数据
 ```bash
 exiftool image.jpg                 # 全部元数据（注意 Comment/Copyright/Artist 字段藏 flag）

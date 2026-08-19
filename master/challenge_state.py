@@ -7,11 +7,11 @@ challenge_state.py -- Master 的题目状态机与持久化。
     discovered → queued → dispatched → running ─┬→ flag_found → submitted_correct ✓
                                                 ├→ submitted_wrong (solver 继续跑)
                                                 ├→ timeout ──┐
-                                                ├→ failed ───┴→ (可选重试一次) → queued
+                                                ├→ failed ───┴→ (轮转: 本圈让路) → queued
                                                 └→ manual_stop ✓
 
-- submitted_correct / manual_stop / 不再重试的 timeout / failed 为终态
-- 重试规则: 最多重试 1 次，且仅限高价值题 (分数高 / 解出人数少)，见 retry_eligible()
+- submitted_correct / manual_stop / 达到最大轮数的 timeout / failed 为终态
+- 轮转机制: 超时 / 失败 / 崩溃 → 本圈让路 (last_done_round=current_round)，下圈再试，max_rounds 兜底
 - 状态由 Master 主循环 + Submitter 线程两个线程读写，MasterState 加锁保护
 """
 
@@ -120,28 +120,6 @@ def extract_flags(progress_text: str) -> list[str]:
     return flags
 
 
-# ─── 重试判定 ───
-
-
-def retry_eligible(
-    rec: "ChallengeRecord",
-    records: list["ChallengeRecord"],
-    value_threshold: float = 0.6,
-    rarity_threshold: float = 0.7,
-) -> bool:
-    """
-    高价值题重试判定 (master-agent-spec.md §4.2):
-      value  = score / max(score)                分数高
-      rarity = 1 - solve_count / max(solve_count) 解出人数少
-      可重试 ⇔ value >= value_threshold 或 rarity >= rarity_threshold
-    """
-    max_score = max((r.score for r in records), default=0)
-    max_solves = max((r.solve_count for r in records), default=0)
-    value = (rec.score / max_score) if max_score else 0.0
-    rarity = (1 - rec.solve_count / max_solves) if max_solves else 1.0
-    return value >= value_threshold or rarity >= rarity_threshold
-
-
 # ─── 题目记录 ───
 
 
@@ -166,6 +144,7 @@ class ChallengeRecord:
     status: str = QUEUED
     attempts: int = 0                  # 已成功分发的次数 (基础设施失败不计)
     next_eligible_at: float = 0.0      # dispatch 失败后的冷却截止时间戳
+    dispatch_fails: int = 0            # 连续分发失败次数 (开靶机/下载/启动 solver)
 
     # 运行实例
     url: Optional[str] = None          # web 题靶机 URL (每次 start 可能变化)
@@ -275,7 +254,13 @@ class MasterState:
             return sum(1 for r in self.records.values() if r.attempts >= 1)
 
     def pending_submits(self, cid: str) -> int:
-        """已看到但还没收到提交结果的 flag 数 (用于 solver 死亡后延迟判定)。"""
+        """已看到但还没收到提交结果的 flag 数 (solver 死亡后延迟判定用)。
+
+        用 flags_seen 而非 flags_submitted: submitter.submit() 是异步入队,
+        flags_submitted 要等 submitter 线程 record_submit 才更新, 死亡检测
+        在同一 tick 会误判 pending=0 → 提前 rotate (2026-08-20 实测竞态)。
+        f2 重跑场景的卡死根因在 _recycle_for_next_flag 清 results_received,
+        不在公式 (已修复)。"""
         with self._lock:
             rec = self.records.get(cid)
             if rec is None:

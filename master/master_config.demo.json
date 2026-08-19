@@ -4,7 +4,6 @@
   "max_solvers": 5,
   "max_challenges": 3,
   "solver_timeout": 60,
-  "max_retries_per_challenge": 0,
   "poll_interval": 1,
   "llm_priority": false,
   "submit_min_interval": 1,

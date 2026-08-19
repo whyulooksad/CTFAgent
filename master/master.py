@@ -45,7 +45,6 @@ from challenge_state import (
     TERMINAL_STATES,
     TIMEOUT,
     extract_flags,
-    retry_eligible,
 )
 from solver_pool import DockerBackend, FakeBackend, ProcessBackend, SolverBackend, SolverHandle
 from submitter import Submitter
@@ -56,6 +55,9 @@ CHALLENGES_DIR = REPO_DIR / "challenges"
 
 # dispatch 基础设施失败 (开靶机/下载附件) 的冷却时间
 DISPATCH_COOLDOWN = 30.0
+# 连续分发失败上限: 超过后本圈让路 (ld=current_round)，避免 ld=0 永久
+# 阻塞 _advance_round_if_done 导致整个轮转冻结 (2026-08-20 修复)
+MAX_DISPATCH_FAILS = 3
 # 失败重试重新入队前的冷却
 RETRY_COOLDOWN = 5.0
 
@@ -70,9 +72,6 @@ class Config:
     max_solvers: int = 5                     # 并发 Solver 槽位数 (手动可配)
     max_challenges: int = 20                 # 尝试题目数上限 (去重计)
     solver_timeout: int = 3600               # 兜底超时: 单次 solver 整体上限 (秒)
-    max_retries_per_challenge: int = 1       # 失败重试次数上限
-    retry_value_threshold: float = 0.6       # 高价值判定: 分数归一化阈值
-    retry_rarity_threshold: float = 0.7      # 高价值判定: 解出稀有度阈值
     # 轮转调度 (时间片轮转 + 渐进式时间预算):
     #   第 1 圈每道题 round_time_base 秒, 超时换题 (保留 cc session);
     #   所有题做完一圈后 current_round+1, 时间上限 +round_time_step;
@@ -410,6 +409,7 @@ class Master:
         # 不会重复提交。曾经这里 unlink progress.md 防误检测，反而破坏了续跑上下文。
 
         rec.attempts += 1
+        rec.dispatch_fails = 0  # 分发成功, 清连续失败计数
         rec.started_at = time.time()
         rec.finished_at = None
         rec.error = ""
@@ -448,9 +448,31 @@ class Master:
         return False  # 连接层失败: 靶机已关/DNS 不通
 
     def _dispatch_cooldown(self, rec, error: str) -> None:
+        """分发基础设施失败: 冷却后重试；连续失败超上限 → 本圈让路。
+
+        让路语义: last_done_round = current_round (本圈已尽力, 不阻塞轮转),
+        保持 QUEUED 且不消耗 attempts, 圈数推进后自然重新进入候选。
+        否则 ld=0 的题会卡住 _advance_round_if_done 的
+        `any(ld < current_round)` 判定, 导致全队列第二轮永远不来 (旧 bug)。
+        """
+        rec.dispatch_fails = getattr(rec, "dispatch_fails", 0) + 1
+        fail_n = rec.dispatch_fails
+        if fail_n >= MAX_DISPATCH_FAILS:
+            rec.last_done_round = self.current_round
+            rec.next_eligible_at = time.time() + 3
+            rec.dispatch_fails = 0  # 让路后清零, 下圈重新有 MAX_DISPATCH_FAILS 次机会
+            self.state.set_status(rec.id, QUEUED, error)
+            self.log.error(
+                "%s 连续分发失败 %d 次 (%s)，本圈让路，下圈再试 (不阻塞轮转)",
+                rec.id, fail_n, error,
+            )
+            return
         rec.next_eligible_at = time.time() + DISPATCH_COOLDOWN
         self.state.set_status(rec.id, QUEUED, error)
-        self.log.warning("分发 %s 失败: %s，冷却 %.0fs 后重试", rec.id, error, DISPATCH_COOLDOWN)
+        self.log.warning(
+            "分发 %s 失败: %s，冷却 %.0fs 后重试 (第 %d/%d 次失败)",
+            rec.id, error, DISPATCH_COOLDOWN, rec.dispatch_fails, MAX_DISPATCH_FAILS,
+        )
 
     def _monitor_solvers(self) -> None:
         """检查每个运行中的 solver: flag / 超时 / 死亡。"""
@@ -500,17 +522,49 @@ class Master:
                 self._round_rotate(rec, "solver 已结束且无待定 flag")
                 continue
 
-            # 3. 超时检测: 当前圈时间上限 = 基础 + (圈数-1)*步进, 多 flag 题放大
-            base = self._round_timeout(rec)
-            if rec.started_at and time.time() - rec.started_at > base:
-                self.log.warning("%s 本圈超时 (%ds, 第 %d 圈)，换题保留断点", cid, base, self.current_round)
-                self.backend.stop(handle)
-                self._round_rotate(rec, f"本圈超时 ({base}s)")
+            # 3. 超时检测: 有可换的题 → 用当前圈时间上限 (到点换题);
+            #    没有其他可做的题 (全终态/解出/无新题) → 轮转换的是空气,
+            #    让当前题连续做到兜底上限, 不再被圈超时打断
+            if self._has_other_candidate(rec):
+                base = self._round_timeout(rec)
+                if rec.started_at and time.time() - rec.started_at > base:
+                    self.log.warning("%s 本圈超时 (%ds, 第 %d 圈)，换题保留断点", cid, base, self.current_round)
+                    self.backend.stop(handle)
+                    self._round_rotate(rec, f"本圈超时 ({base}s)")
+            else:
+                base = self.cfg.solver_timeout
+                if rec.started_at and time.time() - rec.started_at > base:
+                    self.log.warning("%s 无题可换，连续解题超时 (%ds)，终态", cid, base)
+                    self.backend.stop(handle)
+                    self._finalize(cid, TIMEOUT, f"连续解题超时 ({base}s)")
+
+    def _has_other_candidate(self, rec) -> bool:
+        """是否存在其他可轮转的题: 只要还有 QUEUED 且冷却已过的题就换。
+
+        不看 last_done_round: 每圈最后一批跑时, 同圈已 rotate 的题虽然
+        ld=current_round, 但它们是"等待下圈"而不是终态, 轮转仍应换题,
+        否则最后一批独占 solver_timeout (生产 3600s) 让全队列干等,
+        圈推进被拖慢数倍 (2026-08-20 修复)。
+        """
+        now = time.time()
+        for r in self.state.all_records():
+            if r.id == rec.id:
+                continue
+            if r.status == QUEUED and (r.next_eligible_at or 0) <= now:
+                return True
+        return False
 
     def _round_timeout(self, rec) -> int:
-        """当前圈的单题时间上限: (round_time_base + (round-1)*step) × flag 数。"""
+        """当前圈的单题时间上限。
+
+        单 flag 题: base (round_time_base + (round-1)*step), 不乘系数;
+        多 flag 题: base × flag数 × 0.7 (多 flag 给更多时间, 系数只作用于多 flag)。
+        """
         base = self.cfg.round_time_base + (self.current_round - 1) * self.cfg.round_time_step
-        return base * max(1, int(getattr(rec, "flag_count", 1) or 1))
+        fc = max(1, int(getattr(rec, "flag_count", 1) or 1))
+        if fc <= 1:
+            return base
+        return int(base * fc * 0.7)
 
     def _round_rotate(self, rec, reason: str) -> None:
         """本圈做完: 释放槽位/靶机, 记 last_done_round, 下圈再试 (最后一圈则终态)。"""
@@ -555,10 +609,11 @@ class Master:
         if self.running:
             return  # 还有 solver 在跑, 等它结束
         self.current_round += 1
+        # 日志显示单 flag 圈超时 = base (多 flag 系数只作用于多 flag 题)
+        base = self.cfg.round_time_base + (self.current_round - 1) * self.cfg.round_time_step
         self.log.info(
-            "=== 全部题目已完成第 %d 圈，进入第 %d 圈 (时间上限 %d 秒) ===",
-            self.current_round - 1, self.current_round,
-            self.cfg.round_time_base + (self.current_round - 1) * self.cfg.round_time_step,
+            "=== 全部题目已完成第 %d 圈，进入第 %d 圈 (单 flag 时间上限 %d 秒) ===",
+            self.current_round - 1, self.current_round, base,
         )
 
     def _drain_results(self) -> None:
@@ -647,7 +702,9 @@ class Master:
                 + str(len(got)) + " 个: " + ", ".join(got)
                 + "。这些 flag 已计分，不要再提交，去找剩余的 flag (注意换攻击点/入口)。"
             )
-        rec.results_received = []
+        # 注意: 不能清 results_received! pending_submits 按
+        # flags_submitted - results_received 计算, 清空会让已提交的 flag
+        # 永远 pending → 死亡检测 continue → 卡 RUNNING → 轮转冻结 (2026-08-20)
         rec.next_eligible_at = time.time() + 3
         rec.attempts -= 1         # 不消耗重试配额 (这是同一轮攻略的延续)
         self.state.set_status(rec.id, QUEUED)
@@ -709,25 +766,20 @@ class Master:
             self.log.info("%s 手动题不重试，终态: %s", cid, status)
             return
 
-        max_attempts = 1 + self.cfg.max_retries_per_challenge
-        if (
-            rec.attempts < max_attempts
-            and retry_eligible(
-                rec,
-                self.state.all_records(),
-                self.cfg.retry_value_threshold,
-                self.cfg.retry_rarity_threshold,
-            )
-        ):
-            rec.next_eligible_at = time.time() + RETRY_COOLDOWN
-            self.state.set_status(cid, QUEUED)
-            self.log.info(
-                "%s 高价值题 (%d 分/%d 解)，%.0fs 后重试 (第 %d/%d 次)",
-                cid, rec.score, rec.solve_count, RETRY_COOLDOWN, rec.attempts + 1, max_attempts,
-            )
+        # 轮转机制 (取代旧"高价值题才重试"): 失败/崩溃 → 本圈让路,
+        # 下圈再试; 圈数由 max_rounds 兜底 (2026-08-20)
+        if self.current_round >= self.cfg.max_rounds:
+            self.state.set_status(cid, TIMEOUT, f"{error} (达到最大轮数 {self.cfg.max_rounds})")
+            self.log.info("%s 终态: %s (达到最大轮数 %d)", cid, error or "-", self.cfg.max_rounds)
         else:
-            self.state.set_status(cid, status, error)
-            self.log.info("%s 终态: %s (%s)", cid, status, error or "-")
+            rec.last_done_round = self.current_round
+            rec.next_eligible_at = time.time() + RETRY_COOLDOWN
+            rec.dispatch_fails = 0
+            self.state.set_status(cid, QUEUED, error)
+            self.log.info(
+                "%s 失败 (%s)，本圈让路，第 %d 圈再试",
+                cid, error or "-", self.current_round + 1,
+            )
 
     def _release(self, cid: str) -> None:
         """槽位释放 (correct 后由 drain 处理过状态，这里只清 handle)。"""

@@ -4,9 +4,6 @@
   "max_solvers": 3,
   "max_challenges": 3,
   "solver_timeout": 1500,
-  "max_retries_per_challenge": 0,
-  "retry_value_threshold": 0.6,
-  "retry_rarity_threshold": 0.7,
   "poll_interval": 10,
   "llm_priority": true,
   "llm_priority_effort": "low",
@@ -16,5 +13,8 @@
   "state_file": "master_state_docker.json",
   "log_file": "master_docker.log",
   "dashboard_port": 8081,
-  "resident": false
+  "resident": false,
+  "round_time_base": 1200,
+  "round_time_step": 600,
+  "max_rounds": 5
 }
