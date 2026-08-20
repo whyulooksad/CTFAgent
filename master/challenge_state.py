@@ -144,7 +144,8 @@ class ChallengeRecord:
     status: str = QUEUED
     attempts: int = 0                  # 已成功分发的次数 (基础设施失败不计)
     next_eligible_at: float = 0.0      # dispatch 失败后的冷却截止时间戳
-    dispatch_fails: int = 0            # 连续分发失败次数 (开靶机/下载/启动 solver)
+    yielded_round: int = 0             # 本圈基础设施失败让路的圈号 (没进过 solver,
+                                       # 空槽时最高优先补试, 不阻塞圈推进)
 
     # 运行实例
     url: Optional[str] = None          # web 题靶机 URL (每次 start 可能变化)

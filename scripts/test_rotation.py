@@ -203,7 +203,7 @@ def scenario_a() -> None:
     check("第 2 圈实际时间上限 90s", "单 flag 时间上限 90 秒" in log,
           f"实际: {[l for l in log.splitlines() if '进入第' in l]}")
     check("第 3 圈实际时间上限 120s", "单 flag 时间上限 120 秒" in log)
-    check("第 1 圈超时为 60s (×0.5)", "本圈超时 (60s" in log,
+    check("第 1 圈超时为 60s", "本圈超时 (60s" in log,
           f"实际: {[l for l in log.splitlines() if '本圈超时' in l][:2]}")
     fails = sorted((r for r in recs.values() if r["id"].startswith("fk")),
                    key=lambda r: r["id"])
@@ -224,7 +224,7 @@ def scenario_a() -> None:
 # ───────────────────── 场景 B: 分发失败让路 (旧 bug 回归) ─────────────────────
 
 def scenario_b() -> None:
-    print("\n=== 场景 B: 开靶机持续失败 3 次 → 本圈让路, 不阻塞轮转 ===")
+    print("\n=== 场景 B: 开靶机持续失败 → 每次让路后按高优先级补试, 不阻塞轮转 ===")
     M.DISPATCH_COOLDOWN = 2  # 测试加速: 冷却 2s (生产 30s)
     cfg = make_cfg("b")
     cleanup(cfg)  # 清上次运行残留
@@ -241,8 +241,8 @@ def scenario_b() -> None:
     st = load_state(cfg)
     recs = {r["id"]: r for r in st["records"].values()}
 
-    n_yield = log.count("连续分发失败 3 次")
-    check("fk1 连续分发失败 3 次后让路 (3 圈各 1 次)", n_yield >= 3, f"让路次数={n_yield}")
+    n_fail = log.count("分发 fk1 失败")
+    check("fk1 每圈都被优先补试 (失败次数>=圈数)", n_fail >= 3, f"失败次数={n_fail}")
     check("进入第 2 圈", "进入第 2 圈" in log, "fk1 阻塞了轮转! (旧 bug)")
     check("进入第 3 圈", "进入第 3 圈" in log)
     check("正常题 t1 终态 correct", recs.get("t1", {}).get("status") == "submitted_correct",
@@ -250,9 +250,55 @@ def scenario_b() -> None:
     check("正常题 t2 终态 correct", recs.get("t2", {}).get("status") == "submitted_correct")
     check("fk1 未消耗重试配额 (attempts=0)", recs.get("fk1", {}).get("attempts") == 0,
           f"fk1 attempts={recs.get('fk1', {}).get('attempts')}")
+    check("fk1 没进过 solver 不算做过 (ld=0)", recs.get("fk1", {}).get("last_done_round") == 0,
+          f"fk1 ld={recs.get('fk1', {}).get('last_done_round')}")
     check("fk1 终态 timeout (max_rounds 兜底)", recs.get("fk1", {}).get("status") == "timeout",
           f"fk1={recs.get('fk1', {}).get('status')}")
     check("总时长 < 120s", elapsed < 120, f"elapsed={elapsed:.0f}s")
+    print(f"  (耗时 {elapsed:.0f}s)")
+    cleanup(cfg)
+
+
+# ───────────────────── 场景 G: 基础设施失败最高优先补试 ─────────────────────
+
+def scenario_g() -> None:
+    """单槽验证: 空槽时基础设施失败的题 (没进过 solver) 排最前, 每次冷却
+    过就被优先拉起补试, 平台恢复第一时间能打; 正常题不被打死。"""
+    print("\n=== 场景 G: 失败题最高优先补试 (单槽) ===")
+    M.DISPATCH_COOLDOWN = 2  # 测试加速
+    cfg = make_cfg("g", max_solvers=1)
+    cleanup(cfg)
+    adapter = TestAdapter(fail_cids={"fk1"})  # fk1 开靶机永远失败
+    backend = FakeBackend(solve_delay=1.0)
+
+    t0 = time.time()
+    try:
+        run_master(cfg, adapter, backend, timeout=180)
+    finally:
+        elapsed = time.time() - t0
+
+    log = log_text(cfg)
+    st = load_state(cfg)
+    recs = {r["id"]: r for r in st["records"].values()}
+
+    n_fail = log.count("分发 fk1 失败")
+    # 失败题在正常题解出后仍被反复拉起 → 空槽优先补试
+    t1_done_at = next((i for i, l in enumerate(log.splitlines()) if "FLAG ACCEPTED: t1" in l), -1)
+    fail_after_t1 = sum(1 for l in log.splitlines()[t1_done_at:] if "分发 fk1 失败" in l)
+    check("fk1 冷却后反复优先补试 (失败次数>=5)", n_fail >= 5, f"失败次数={n_fail}")
+    check("正常题解出后 fk1 仍被优先拉起 (补试>=2)", fail_after_t1 >= 2,
+          f"t1 后补试次数={fail_after_t1}")
+    check("正常题 t1/t2/t3 全部解出", all(
+        recs.get(c, {}).get("status") == "submitted_correct" for c in ("t1", "t2", "t3")),
+        f"{[(c, recs.get(c, {}).get('status')) for c in ('t1','t2','t3')]}")
+    check("fk1 没进过 solver (ld=0, attempts=0)",
+          recs.get("fk1", {}).get("last_done_round") == 0
+          and recs.get("fk1", {}).get("attempts") == 0,
+          f"fk1 ld={recs.get('fk1', {}).get('last_done_round')} attempts={recs.get('fk1', {}).get('attempts')}")
+    check("不阻塞轮转 (进入第 3 圈)", "进入第 3 圈" in log)
+    check("fk1 终态 timeout", recs.get("fk1", {}).get("status") == "timeout",
+          f"fk1={recs.get('fk1', {}).get('status')}")
+    check("总时长 < 180s", elapsed < 180, f"elapsed={elapsed:.0f}s")
     print(f"  (耗时 {elapsed:.0f}s)")
     cleanup(cfg)
 
@@ -442,5 +488,6 @@ if __name__ == "__main__":
     scenario_d()
     scenario_e()
     scenario_f()
+    scenario_g()
     print(f"\n===== 结果: {PASS} 通过 / {FAIL} 失败 =====")
     sys.exit(1 if FAIL else 0)

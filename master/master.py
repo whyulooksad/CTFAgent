@@ -55,9 +55,6 @@ CHALLENGES_DIR = REPO_DIR / "challenges"
 
 # dispatch 基础设施失败 (开靶机/下载附件) 的冷却时间
 DISPATCH_COOLDOWN = 30.0
-# 连续分发失败上限: 超过后本圈让路 (ld=current_round)，避免 ld=0 永久
-# 阻塞 _advance_round_if_done 导致整个轮转冻结 (2026-08-20 修复)
-MAX_DISPATCH_FAILS = 3
 # 失败重试重新入队前的冷却
 RETRY_COOLDOWN = 5.0
 
@@ -335,6 +332,11 @@ class Master:
         if not queued:
             return None
         ordered = prioritizer.rule_order(queued)
+        # 基础设施失败 (本圈让路过, 没进过 solver) 最高优先: 空槽先补试它,
+        # 平台恢复第一时间拉起, 不浪费圈次 (2026-08-20)
+        yielded = [r for r in queued if getattr(r, "yielded_round", 0) == self.current_round]
+        if yielded:
+            ordered = yielded + [r for r in ordered if r not in yielded]
         if self.cfg.llm_priority:
             ordered = prioritizer.llm_order(ordered)
         return ordered[0]
@@ -409,7 +411,7 @@ class Master:
         # 不会重复提交。曾经这里 unlink progress.md 防误检测，反而破坏了续跑上下文。
 
         rec.attempts += 1
-        rec.dispatch_fails = 0  # 分发成功, 清连续失败计数
+        rec.yielded_round = 0  # 分发成功, 清基础设施失败让路标记
         rec.started_at = time.time()
         rec.finished_at = None
         rec.error = ""
@@ -448,30 +450,18 @@ class Master:
         return False  # 连接层失败: 靶机已关/DNS 不通
 
     def _dispatch_cooldown(self, rec, error: str) -> None:
-        """分发基础设施失败: 冷却后重试；连续失败超上限 → 本圈让路。
+        """分发基础设施失败 (开靶机/下载附件/启动 solver): 本圈让路, 冷却后可再试。
 
-        让路语义: last_done_round = current_round (本圈已尽力, 不阻塞轮转),
-        保持 QUEUED 且不消耗 attempts, 圈数推进后自然重新进入候选。
-        否则 ld=0 的题会卡住 _advance_round_if_done 的
-        `any(ld < current_round)` 判定, 导致全队列第二轮永远不来 (旧 bug)。
+        失败 1 次即让路 (yielded_round 标记本圈已试过), 不动 last_done_round:
+        没进过 solver 的题不算"本圈做过", 冷却后按最高优先级重新拉起补试
+        (空槽先试失败题), 同时不阻塞圈推进 (2026-08-20 优化)。
         """
-        rec.dispatch_fails = getattr(rec, "dispatch_fails", 0) + 1
-        fail_n = rec.dispatch_fails
-        if fail_n >= MAX_DISPATCH_FAILS:
-            rec.last_done_round = self.current_round
-            rec.next_eligible_at = time.time() + 3
-            rec.dispatch_fails = 0  # 让路后清零, 下圈重新有 MAX_DISPATCH_FAILS 次机会
-            self.state.set_status(rec.id, QUEUED, error)
-            self.log.error(
-                "%s 连续分发失败 %d 次 (%s)，本圈让路，下圈再试 (不阻塞轮转)",
-                rec.id, fail_n, error,
-            )
-            return
+        rec.yielded_round = self.current_round
         rec.next_eligible_at = time.time() + DISPATCH_COOLDOWN
         self.state.set_status(rec.id, QUEUED, error)
         self.log.warning(
-            "分发 %s 失败: %s，冷却 %.0fs 后重试 (第 %d/%d 次失败)",
-            rec.id, error, DISPATCH_COOLDOWN, rec.dispatch_fails, MAX_DISPATCH_FAILS,
+            "分发 %s 失败: %s，本圈让路，%.0fs 后按高优先级重试",
+            rec.id, error, DISPATCH_COOLDOWN,
         )
 
     def _monitor_solvers(self) -> None:
@@ -592,19 +582,29 @@ class Master:
     def _advance_round_if_done(self) -> None:
         """所有非终态题都做过本圈 (且无运行中) → 圈数+1, 时间上限提升。"""
         if self.current_round >= self.cfg.max_rounds:
-            # 最后一圈结束: 还没解出的题终态化 (否则 QUEUED+last_done_round>=max 永不分发)
+            # 最后一圈结束: 还没解出的题终态化 (否则 QUEUED+ld>=max 永不分发)
             for r in self.state.all_records():
-                if r.status == QUEUED and getattr(r, "last_done_round", 0) >= self.cfg.max_rounds:
+                if r.status == QUEUED and (
+                    getattr(r, "last_done_round", 0) >= self.cfg.max_rounds
+                    # 基础设施失败题 ld 可能一直 0 (没进过 solver), 但每圈都
+                    # 试过了 (yielded_round 累计), 同样该终态 (2026-08-20)
+                    or getattr(r, "yielded_round", 0) >= self.cfg.max_rounds
+                ):
                     r.finished_at = time.time()
                     self.state.set_status(r.id, TIMEOUT, f"达到最大轮数 ({self.cfg.max_rounds}) 未解出")
                     self.log.info("%s 终态: 达到最大轮数未解出", r.id)
             return
         recs = self.state.all_records()
-        active = [r for r in recs if r.status in ACTIVE_STATES or r.status == QUEUED]
-        if not active:
-            return
-        # 新拉到的题 (last_done_round < current_round) 说明本圈还有题没做
-        if any(getattr(r, "last_done_round", 0) < self.current_round for r in active):
+        # 排除本圈基础设施失败让路的题 (yielded): 它们没进过 solver 不算"做过",
+        # 但也别阻塞圈推进 —— 冷却后会按高优先级补试
+        active = [
+            r for r in recs
+            if (r.status in ACTIVE_STATES or r.status == QUEUED)
+            and getattr(r, "yielded_round", 0) != self.current_round
+        ]
+        # 注意: active 空 (全终态或全 yielded) 也要推进圈数, 否则
+        # 失败题永远停在当前圈 → master 永不退出 (2026-08-20 修复)
+        if active and any(getattr(r, "last_done_round", 0) < self.current_round for r in active):
             return
         if self.running:
             return  # 还有 solver 在跑, 等它结束
@@ -774,7 +774,7 @@ class Master:
         else:
             rec.last_done_round = self.current_round
             rec.next_eligible_at = time.time() + RETRY_COOLDOWN
-            rec.dispatch_fails = 0
+            rec.yielded_round = 0
             self.state.set_status(cid, QUEUED, error)
             self.log.info(
                 "%s 失败 (%s)，本圈让路，第 %d 圈再试",
