@@ -15,6 +15,15 @@ IMAGE="${1:-ctf-solver-hosted}"
 SNAP=$(readlink -f cred_snapshots/current)
 echo "[build-hosted] 快照: $SNAP"
 
+# 1b. 校验快照是 deepseek 托管配置 (防止宿主机 cred_snapshot 重新生成
+#     其它 provider 快照覆盖 current 导致构建错镜像; 托管用 deepseek 网关)
+if ! grep -q 'provider: deepseek' "$SNAP/hermes/config.yaml" 2>/dev/null; then
+    echo "[build-hosted] !! 错误: current 快照不是 deepseek 配置 (hermes config.yaml 无 'provider: deepseek')" >&2
+    echo "[build-hosted] !! 请恢复 deepseek 快照后重试" >&2
+    exit 1
+fi
+echo "[build-hosted] 快照校验通过: deepseek 托管配置"
+
 # 2. 复制快照到构建上下文并脱敏 (cred_snapshots/ 被 .dockerignore 排除)
 rm -rf docker/hosted/snap_build
 mkdir -p docker/hosted/snap_build
@@ -38,9 +47,9 @@ sed -i 's|^DEEPSEEK_API_KEY=.*|DEEPSEEK_API_KEY={{DEEPSEEK_API_KEY}}|' \
 # subapi (本地专用) 等其它 key 一律清空, 托管只用 deepseek 网关
 sed -i 's|^OPENAI_API_KEY=.*|OPENAI_API_KEY=|' \
     docker/hosted/snap_build/hermes/.env
-# 兜底: skills 文档若残留真实 key (sk- 后 30+ 字符, 文档词如 sk-error-2016 不会命中) → 占位
-grep -rlE "sk-[A-Za-z0-9]{25,}" docker/hosted/snap_build 2>/dev/null | while read -r f; do
-    sed -i -E "s|sk-[A-Za-z0-9]{25,}|{{DEEPSEEK_API_KEY}}|g" "$f"
+# 兜底: skills 文档若残留真实 key (sk- 前缀或点号分隔 key 格式, 文档词如 *** 不会命中) → 占位
+grep -rlE "sk-[A-Za-z0-9]{25,}|[0-9a-f]{32}\.[A-Za-z0-9]{20,}" docker/hosted/snap_build 2>/dev/null | while read -r f; do
+    sed -i -E "s|sk-[A-Za-z0-9]{25,}|{{DEEPSEEK_API_KEY}}|g; s|[0-9a-f]{32}\.[A-Za-z0-9]{20,}|{{DEEPSEEK_API_KEY}}|g" "$f"
 done
 
 # 2c. claude settings: 占位符模板 (不复制宿主真实 key)
@@ -55,10 +64,10 @@ cat > docker/hosted/claude-settings.json << 'EOF'
 EOF
 echo "[build-hosted] 脱敏完成 (key → {{DEEPSEEK_API_KEY}}, 历史会话已剔除)"
 
-# 3. 确认脱敏后无真实 key 残留 (sk- 后 20+ 字符才算 key; "Task-specific" 等文档子串不算)
-if grep -rEq "sk-[A-Za-z0-9]{25,}" docker/hosted/snap_build docker/hosted/claude-settings.json 2>/dev/null; then
+# 3. 确认脱敏后无真实 key 残留 (sk- 前缀或点号分隔 key 格式; "Task-specific" 等文档子串不算)
+if grep -rEq "sk-[A-Za-z0-9]{25,}|[0-9a-f]{32}\.[A-Za-z0-9]{20,}" docker/hosted/snap_build docker/hosted/claude-settings.json 2>/dev/null; then
     echo "[build-hosted] !! 错误: 快照仍有真实 key 残留, 终止构建" >&2
-    grep -rlE "sk-[A-Za-z0-9]{25,}" docker/hosted/snap_build docker/hosted/claude-settings.json 2>/dev/null | head -5 >&2
+    grep -rlE "sk-[A-Za-z0-9]{25,}|[0-9a-f]{32}\.[A-Za-z0-9]{20,}" docker/hosted/snap_build docker/hosted/claude-settings.json 2>/dev/null | head -5 >&2
     exit 1
 fi
 echo "[build-hosted] 安全检查通过: 无真实 key"

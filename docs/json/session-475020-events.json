@@ -1,0 +1,166 @@
+{
+  "pagination": {
+    "page": 1,
+    "page_size": 50,
+    "total": 4,
+    "total_pages": 1
+  },
+  "session": {
+    "baseline_len": 2,
+    "closed_reason": "compacted",
+    "explicit_id": "",
+    "first_captured_at": "2026-08-20T22:33:01Z",
+    "group_id": 475751,
+    "id": 475020,
+    "last_active_at": "2026-08-20T22:33:01Z",
+    "model": "deepseek-v4-pro",
+    "protocol": "anthropic_messages",
+    "status": "active",
+    "task_code": "task_KfsYnsaG5N",
+    "title": "Perform a web search for the query: CVE-2025-67303 ComfyUI-Manager RCE component file storage vulnerability exploit",
+    "usage": {
+      "cache_read": 0,
+      "cache_write": 0,
+      "input": 8445,
+      "output": 742,
+      "reasoning": 0
+    },
+    "working_directory": ""
+  },
+  "steps": [
+    {
+      "captured_at": "2026-08-20T22:33:01Z",
+      "error": "推断此处发生上下文压缩",
+      "event_type": "session_note",
+      "id": 17880484,
+      "items": [],
+      "raw_exchange_id": 2661007,
+      "render_state": "confirmed",
+      "seq": 0,
+      "state": "confirmed",
+      "stop_reason": "",
+      "usage": {
+        "cache_read": null,
+        "cache_write": null,
+        "input": null,
+        "output": null,
+        "reasoning": null
+      }
+    },
+    {
+      "captured_at": "2026-08-20T22:33:01Z",
+      "error": "",
+      "event_type": "system_note",
+      "id": 17880485,
+      "items": [
+        {
+          "args": null,
+          "call_id": "",
+          "char_len": 193,
+          "fp": "***REDACTED-HEX***",
+          "is_error": false,
+          "kind": "system_note",
+          "name": "",
+          "role": "system",
+          "text": "x-anthropic-billing-header: cc_version=2.1.234.322; cc_entrypoint=sdk-cli;You are a Claude agent, built on Anthropic's Claude Agent SDK.You are an assistant for performing a web search tool use"
+        }
+      ],
+      "raw_exchange_id": 2661007,
+      "render_state": "confirmed",
+      "seq": 1,
+      "state": "confirmed",
+      "stop_reason": "",
+      "usage": {
+        "cache_read": null,
+        "cache_write": null,
+        "input": null,
+        "output": null,
+        "reasoning": null
+      }
+    },
+    {
+      "captured_at": "2026-08-20T22:33:01Z",
+      "error": "",
+      "event_type": "user_message",
+      "id": 17880486,
+      "items": [
+        {
+          "args": null,
+          "call_id": "",
+          "char_len": 115,
+          "fp": "***REDACTED-HEX***",
+          "is_error": false,
+          "kind": "user_text",
+          "name": "",
+          "role": "user",
+          "text": "Perform a web search for the query: CVE-2025-67303 ComfyUI-Manager RCE component file storage vulnerability exploit"
+        }
+      ],
+      "raw_exchange_id": 2661007,
+      "render_state": "confirmed",
+      "seq": 2,
+      "state": "confirmed",
+      "stop_reason": "",
+      "usage": {
+        "cache_read": null,
+        "cache_write": null,
+        "input": null,
+        "output": null,
+        "reasoning": null
+      }
+    },
+    {
+      "captured_at": "2026-08-20T22:33:01Z",
+      "error": "",
+      "event_type": "assistant_message",
+      "id": 17880487,
+      "items": [
+        {
+          "args": null,
+          "call_id": "",
+          "char_len": 142,
+          "fp": "***REDACTED-HEX***",
+          "is_error": false,
+          "kind": "thinking",
+          "name": "",
+          "role": "assistant",
+          "text": "The user wants me to perform a web search for the query about CVE-2025-67303 ComfyUI-Manager RCE component file storage vulnerability exploit."
+        },
+        {
+          "args": null,
+          "call_id": "",
+          "char_len": 908,
+          "fp": "***REDACTED-HEX***",
+          "is_error": false,
+          "kind": "thinking",
+          "name": "",
+          "role": "assistant",
+          "text": "The user wants a summary answering: \"CVE-2025-67303 ComfyUI-Manager RCE component file storage vulnerability exploit\". Need base on provided search results. Need accurate summary. Include key details: vulnerability description, affected versions, root cause, exploit chain, patch, PoC availability, exploitation status. Keep concise but thorough. Use only search results. Need be careful about dates weird future 2026 but that's what results say. Include CVSS 7.5, CWE-420/CWE-552 etc. Exploit chain: read/overwrite config.ini via /userdata/ API, set security_level weak, reboot, install malicious git repo via /customnode/install/git_url, RCE on restart. Patch v3.38, ComfyUI v0.3.76. Mention PoC available, exploited in wild per KEVIntel. Could mention VulnCheck KEV, Shadowserver. Need not cite sources formally? The instruction says summary based only provided search results. I can mention. Let's write."
+        },
+        {
+          "args": null,
+          "call_id": "",
+          "char_len": 1614,
+          "fp": "***REDACTED-HEX***",
+          "is_error": false,
+          "kind": "assistant_text",
+          "name": "",
+          "role": "assistant",
+          "text": "CVE-2025-67303 is a high-severity vulnerability in **ComfyUI-Manager** affecting versions **prior to 3.38**. It allows unauthenticated remote attackers to manipulate configuration and critical data because ComfyUI-Manager stored its files under `user/default/ComfyUI-Manager/`, an insufficiently protected location exposed through ComfyUI’s `/userdata/` web API without proper access control.\n\n**Exploit chain for RCE:**\n1. Attacker reads `config.ini` via `GET /userdata/ComfyUI-Manager%2Fconfig.ini`.\n2. Attacker overwrites the file via `POST /userdata/ComfyUI-Manager%2Fconfig.ini`, changing `security_level` to `weak`.\n3. Attacker triggers a restart with `/api/manager/reboot`.\n4. With weakened security, attacker uses `/customnode/install/git_url` to install a malicious Git repository containing an `__init__.py` payload into `custom_nodes/`.\n5. Upon restart/load, the malicious code executes, achieving remote code execution.\n\n**Details:**\n- CVSS v3.1: **7.5** (`AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N`), though some assessments rate practical impact as high as 9.8 due to RCE.\n- CWE: CWE-420 (Unprotected Alternate Channel); also described as CWE-552/CWE-219.\n- Requires network access to ComfyUI, typically port 8188; local-only default installations are not affected, but externally exposed instances are high risk.\n- Patch: upgrade to **ComfyUI-Manager v3.38+** and **ComfyUI v0.3.76+**. The fix migrates configuration to protected `user/__manager/` using the System User Protection API.\n- Exploitation status: reported exploited in the wild, public PoCs exist, and Nuclei detection templates are available."
+        }
+      ],
+      "raw_exchange_id": 2661007,
+      "render_state": "tentative",
+      "seq": 3,
+      "state": "tentative",
+      "stop_reason": "end_turn",
+      "usage": {
+        "cache_read": 0,
+        "cache_write": 0,
+        "input": 8445,
+        "output": 742,
+        "reasoning": null
+      }
+    }
+  ]
+}

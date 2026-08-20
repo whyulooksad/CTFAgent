@@ -247,6 +247,9 @@ def test_platform_boot_wait() -> None:
 
     # 模拟容器启动窗口: 前 2 次预检不可达，第 3 次就绪
     seq = {"n": 0}
+    # 注意: 类上访问 staticmethod 会解包成普通函数, 恢复时必须重新 staticmethod 包装,
+    # 否则 Master._target_alive 变普通函数 → self._target_alive(url) 双参 TypeError
+    # (曾导致后续测试的 master 线程在 _dispatch 崩溃, 题目永远 queued)
     orig_alive = Master._target_alive
     def flaky_alive(url):
         seq["n"] += 1
@@ -271,7 +274,7 @@ def test_platform_boot_wait() -> None:
         assert m.state.get(web.id).status == SUBMITTED_CORRECT
         m.submitter.stop()
     finally:
-        Master._target_alive = orig_alive
+        Master._target_alive = staticmethod(orig_alive)
 
     # 手动题语义不变: 不可达立即终态
     man = m._build_manual_challenge({"type": "web", "url": "http://127.0.0.1:9", "title": "x"})
@@ -282,7 +285,7 @@ def test_platform_boot_wait() -> None:
         m._dispatch(rec2)
         assert rec2.status == FAILED, f"手动题应立即终态: {rec2.status}"
     finally:
-        Master._target_alive = orig_alive
+        Master._target_alive = staticmethod(orig_alive)
     print("[PASS] platform-boot-wait")
 
 
@@ -299,6 +302,10 @@ def test_e2e() -> None:
         max_solvers=2,
         max_challenges=5,
         solver_timeout=6,
+        # 轮转机制 (2026-08-20): 有可换的题时走 round_timeout 而非 solver_timeout,
+        # 测试用小 round 快速跑完 2 圈终态 (t-wrong 每圈都 wrong, t-fail-hard 每圈超时)
+        round_time_base=4,
+        max_rounds=2,
         poll_interval=0.5,
         submit_min_interval=0.2,
         llm_priority=False,   # e2e 不真调 codex
@@ -326,13 +333,14 @@ def test_e2e() -> None:
         assert r.status == SUBMITTED_CORRECT, f"{cid}: {r.status} != submitted_correct"
         assert r.flag == expected_flag, f"{cid}: {r.flag} != {expected_flag}"
 
-    # 错误 flag: 低价值题 (value=0.1, rarity=0.5) 不重试
+    # 错误 flag: 轮转机制 (2026-08-20) 下 wrong 也走"本圈让路下圈再试",
+    # max_rounds=2 跑满 2 圈后终态 TIMEOUT (旧断言 FAILED/不重试已被轮转取代)
     r = recs["t-wrong"]
-    assert r.status == FAILED and r.attempts == 1, \
+    assert r.status == TIMEOUT and r.attempts == 2, \
         f"t-wrong: {r.status} attempts={r.attempts}"
     assert r.last_submit_status == "wrong", r.last_submit_status
 
-    # 高价值难题 (value=1.0): 超时重试一次后终态
+    # 高价值难题: 每圈超时轮转, 2 圈后终态 TIMEOUT
     r = recs["t-fail-hard"]
     assert r.status == TIMEOUT and r.attempts == 2, \
         f"t-fail-hard: {r.status} attempts={r.attempts}"
@@ -526,6 +534,76 @@ def test_manual_and_resident() -> None:
     print("[PASS] manual+resident")
 
 
+def test_duplicate_restores_terminal() -> None:
+    """
+    回归: 容器重启丢 master_state.json 后重做已通关题 (E3-03 实锤 2026-08-20)。
+
+    事故链: 托管容器重启(临时盘) → flags_seen/终态全丢 → 已通关单 flag 题
+    重新入队 → solver 重做解出同一 flag → 提交 → 平台返回 duplicate
+    (该 flag 已计过分) → 旧逻辑只 continue 跳过 → 状态仍 QUEUED/RUNNING
+    → 下一轮又重做 → 死循环白烧。
+
+    修复断言: duplicate 且 rec 非终态 → 恢复 SUBMITTED_CORRECT + 释放,
+    不再继续重做; 多 flag 部分已得也记录进度不重复提交。
+    """
+    state_file = SCRIPT_DIR / "tests" / "master_state_duprestore.json"
+    log_file = SCRIPT_DIR / "tests" / "master_duprestore.log"
+    flags_file = SCRIPT_DIR / "tests" / "master_flags_duprestore.jsonl"
+    for p in (state_file, log_file, flags_file):
+        p.unlink(missing_ok=True)
+
+    import logging
+    root = logging.getLogger("master")
+    root.setLevel(logging.INFO)
+    fh = logging.FileHandler(log_file, encoding="utf-8")
+    fh.setFormatter(logging.Formatter("[%(asctime)s] %(levelname)-7s %(message)s", "%H:%M:%S"))
+    root.addHandler(fh)
+
+    cfg = Config(
+        adapter="mock", backend="fake", llm_priority=False,
+        max_solvers=1, max_challenges=10, poll_interval=0.3, solver_timeout=60,
+        submit_min_interval=0.2, max_submit_per_challenge=3,
+        state_file=str(state_file), log_file=str(log_file), flags_file=str(flags_file),
+    )
+    m = Master(cfg, adapter=MockAdapter(), backend=FakeBackend())
+
+    # 模拟: 容器重启丢状态后, 平台 list 重建一条单 flag 记录 (QUEUED, flags_seen 空)
+    rec = m.state.sync_challenge(
+        Challenge(id="dup-e3", title="E3-03单flag", type="web",
+                  score=250, solve_count=100, flag_count=1,
+                  description="文件检测对抗评估"))
+    assert rec.status == QUEUED and rec.flags_seen == []
+
+    # solver 重做又解出同一 flag → master 检测 → 提交 → 平台返回 duplicate
+    rec.flags_seen.append("flag{e3_03}")          # mark_flag_seen 已记录
+    m.submitter._results.put({"cid": "dup-e3", "flag": "flag{e3_03}",
+                              "status": "correct", "message": "duplicate: 已计分",
+                              "data": {"duplicate": True}})
+    m._drain_results()
+    rec = m.state.get("dup-e3")
+    assert rec.status == SUBMITTED_CORRECT, f"duplicate 应恢复终态: {rec.status}"
+    assert rec.flags_correct == 1, rec.flags_correct
+    log_text = log_file.read_text(encoding="utf-8")
+    assert "duplicate 恢复通关终态" in log_text, log_text
+
+    # 多 flag 部分已得: duplicate → 记录进度, 不终态不重复提交
+    rec2 = m.state.sync_challenge(
+        Challenge(id="dup-mf", title="多flag", type="web",
+                  score=500, solve_count=50, flag_count=3,
+                  description="3 flag"))
+    rec2.flags_seen.append("flag{mf1}")
+    m.submitter._results.put({"cid": "dup-mf", "flag": "flag{mf1}",
+                              "status": "correct", "message": "duplicate: 已计分",
+                              "data": {"duplicate": True}})
+    m._drain_results()
+    rec2 = m.state.get("dup-mf")
+    assert rec2.status != SUBMITTED_CORRECT, f"多flag未拿满不终态: {rec2.status}"
+    assert rec2.flags_correct == 1, rec2.flags_correct
+    log_text = log_file.read_text(encoding="utf-8")
+    assert "记录进度" in log_text, log_text
+    print("[PASS] duplicate-restores-terminal")
+
+
 if __name__ == "__main__":
     test_extract_flags()
     test_rule_order()
@@ -534,5 +612,6 @@ if __name__ == "__main__":
     test_manual_and_resident()
     test_platform_boot_wait()
     test_multiflag_no_loop()
+    test_duplicate_restores_terminal()
     test_e2e()
     print("ALL PASS")

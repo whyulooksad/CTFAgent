@@ -135,8 +135,13 @@ def make_backend(name: str, cfg: Optional[Config] = None) -> SolverBackend:
     if name == "process":
         return ProcessBackend(agent_cli=getattr(cfg, "agent_cli", "codex"))
     if name == "docker":
-        from cred_snapshot import ensure_snapshot
-        snap = ensure_snapshot()  # 精制快照 (spec §7)，每次 Master 启动生成一份
+        # 快照: 默认复用 cred_snapshots/current (deepseek 配置, 镜像/本地一致)。
+        # 需要从宿主机重新生成时: CTF_SNAPSHOT_REFRESH=1 环境变量显式触发。
+        if os.environ.get("CTF_SNAPSHOT_REFRESH") == "1":
+            from cred_snapshot import ensure_snapshot
+            snap = ensure_snapshot()
+        else:
+            snap = REPO_DIR / "cred_snapshots" / "current"
         return DockerBackend(image=cfg.docker_image if cfg else "ctf-solver:latest",
                              snapshot_dir=snap,
                              agent_cli=getattr(cfg, "agent_cli", "codex"))
@@ -447,6 +452,7 @@ class Master:
         rec.attempts += 1
         rec.yielded_round = 0  # 分发成功, 清基础设施失败让路标记
         rec.started_at = time.time()
+        rec.started_round = self.current_round  # 超时预算按此圈 base (2026-08-21)
         rec.finished_at = None
         rec.error = ""
         rec.work_dir = str(handle.work_dir)
@@ -640,8 +646,12 @@ class Master:
 
         单 flag 题: base (round_time_base + (round-1)*step), 不乘系数;
         多 flag 题: base × flag数 × 0.7 (多 flag 给更多时间, 系数只作用于多 flag)。
+        注意: 用 started_round (本次分发所在圈) 而非 current_round —— 长跑题
+        solver 存活跨圈时 current_round 已推进, 若按当前圈算预算会被放大,
+        占槽时间被拉长 (2026-08-21 实锤: b-01 第 1 圈 3360s 被放大成 5040s)。
         """
-        base = self.cfg.round_time_base + (self.current_round - 1) * self.cfg.round_time_step
+        round_no = getattr(rec, "started_round", 0) or self.current_round
+        base = self.cfg.round_time_base + (round_no - 1) * self.cfg.round_time_step
         fc = max(1, int(getattr(rec, "flag_count", 1) or 1))
         if fc <= 1:
             return base
@@ -670,6 +680,32 @@ class Master:
             self.state.set_status(rec.id, QUEUED, reason)
             self.log.info("%s 本圈未解 (%s)，保留 session 等第 %d 圈", rec.id, reason, self.current_round + 1)
 
+    def _is_multiflag_longrun(self, rec) -> bool:
+        """多 flag 题 solver 存活跨圈长跑 (已得部分 flag 未拿满)。
+
+        这类题不参与"本圈完成"语义: solver 在持续攻剩余 flag, 它永远
+        ld < current_round → 会永久阻塞圈推进 → 其他轮转题等不到下一圈
+        → 空槽不填、排队题饿死 (2026-08-20 b 系实锤: b-02 6flag 长跑,
+        b-01/b-03 轮转后永远不再分发)。
+        判定: **solver 存活** 且 0 < flags_correct < flag_count。
+        solver 已死的多 flag 未通关题不属于长跑 —— 它们必须正常走
+        _recycle_for_next_flag 回收重分发 (场景 F: FakeBackend solver
+        写完 flag 就退出, 若误判为长跑会被圈推进跳过回收, attempts 卡 1)。
+        """
+        if rec is None:
+            return False
+        fc = max(1, int(getattr(rec, "flag_count", 1) or 1))
+        if not (fc > 1 and 0 < getattr(rec, "flags_correct", 0) < fc):
+            return False
+        # solver 存活检查: running 里且 backend 认为还活着才算长跑
+        handle = self.running.get(rec.id)
+        if handle is None:
+            return False
+        try:
+            return self.backend.is_alive(handle)
+        except Exception:
+            return False
+
     def _advance_round_if_done(self) -> None:
         """所有非终态题都做过本圈 (且无运行中) → 圈数+1, 时间上限提升。"""
         if self.current_round >= self.cfg.max_rounds:
@@ -691,17 +727,24 @@ class Master:
         recs = self.state.all_records()
         # 排除本圈基础设施失败让路的题 (yielded): 它们没进过 solver 不算"做过",
         # 但也别阻塞圈推进 —— 冷却后会按高优先级补试
+        # 同时排除多 flag 跨圈长跑题 (见 _is_multiflag_longrun): solver 存活
+        # 持续攻剩余 flag, 不算"本圈待完成", 否则永久阻塞圈推进 (2026-08-20)
         active = [
             r for r in recs
             if (r.status in ACTIVE_STATES or r.status == QUEUED)
             and getattr(r, "yielded_round", 0) != self.current_round
+            and not self._is_multiflag_longrun(r)
         ]
         # 注意: active 空 (全终态或全 yielded) 也要推进圈数, 否则
         # 失败题永远停在当前圈 → master 永不退出 (2026-08-20 修复)
         if active and any(getattr(r, "last_done_round", 0) < self.current_round for r in active):
             return
-        if self.running:
-            return  # 还有 solver 在跑, 等它结束
+        # 多 flag 长跑题不阻塞圈推进: 只等普通 solver 结束
+        if any(
+            not self._is_multiflag_longrun(self.state.get(cid))
+            for cid in self.running
+        ):
+            return  # 还有普通 solver 在跑, 等它结束
         self.current_round += 1
         # 日志显示单 flag 圈超时 = base (多 flag 系数只作用于多 flag 题)
         base = self.cfg.round_time_base + (self.current_round - 1) * self.cfg.round_time_step
@@ -721,10 +764,30 @@ class Master:
 
             if status == "correct":
                 extra = res.get("data") or {}
-                # duplicate: 平台幂等返回"该 flag 已计过分" —— 不计分不回收，
-                # 否则会死循环 (solver 重跑又解出同一 flag -> 又提交 -> 又 duplicate)
+                # duplicate: 平台幂等返回"该 flag 已计过分"。
+                # ① 终态已通关 (flags_seen 正常) 时: 防御性跳过, 不重复计分/不回收。
+                # ② 非终态 (容器重启丢 master_state.json 后重做, flags_seen 丢失):
+                #    平台确认该 flag 已计分 = 这题实际已通关 → 必须恢复终态并释放,
+                #    否则 solver 每轮重做都提交同 flag → 又 duplicate → 死循环
+                #    (2026-08-20 E3-03 实锤: 得分成功后 19:16:54 又被重新调度)。
                 if extra.get("duplicate"):
-                    self.log.warning("%s 重复 flag 已计过分，跳过: %s", cid, flag)
+                    if rec.status == SUBMITTED_CORRECT:
+                        self.log.warning("%s 重复 flag 已计过分，跳过: %s", cid, flag)
+                        continue
+                    fc = max(1, int(getattr(rec, "flag_count", 1) or 1))
+                    if fc <= 1 or (rec.flags_correct + 1) >= fc:
+                        self.state.mark_correct(cid, flag, all_flags_done=True)
+                        self.log.warning(
+                            "%s duplicate 恢复通关终态 (平台已计分): %s", cid, flag)
+                        handle = self.running.pop(cid, None)
+                        if handle:
+                            self.backend.stop(handle)
+                        self._release_target(rec)
+                    else:
+                        self.state.mark_correct(cid, flag, all_flags_done=False)
+                        self.log.warning(
+                            "%s duplicate 已计分, 记录进度 (%d/%d), 继续攻剩余 flag",
+                            cid, rec.flags_correct, fc)
                     continue
                 # 多 flag 题: 平台返回的进度判定是否通关
                 total = int(extra.get("total_flag_count") or rec.flag_count or 1)

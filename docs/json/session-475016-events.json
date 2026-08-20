@@ -1,0 +1,147 @@
+{
+  "pagination": {
+    "page": 1,
+    "page_size": 50,
+    "total": 3,
+    "total_pages": 1
+  },
+  "session": {
+    "baseline_len": 2,
+    "closed_reason": "compacted",
+    "explicit_id": "",
+    "first_captured_at": "2026-08-20T22:31:42Z",
+    "group_id": 475751,
+    "id": 475016,
+    "last_active_at": "2026-08-20T22:31:42Z",
+    "model": "deepseek-v4-pro",
+    "protocol": "anthropic_messages",
+    "status": "active",
+    "task_code": "task_KfsYnsaG5N",
+    "title": "Perform a web search for the query: ComfyUI-Manager component save path traversal packname vulnerability",
+    "usage": {
+      "cache_read": 0,
+      "cache_write": 0,
+      "input": 4471,
+      "output": 1144,
+      "reasoning": 0
+    },
+    "working_directory": ""
+  },
+  "steps": [
+    {
+      "captured_at": "2026-08-20T22:31:42Z",
+      "error": "",
+      "event_type": "system_note",
+      "id": 17880227,
+      "items": [
+        {
+          "args": null,
+          "call_id": "",
+          "char_len": 193,
+          "fp": "***REDACTED-HEX***",
+          "is_error": false,
+          "kind": "system_note",
+          "name": "",
+          "role": "system",
+          "text": "x-anthropic-billing-header: cc_version=2.1.234.322; cc_entrypoint=sdk-cli;You are a Claude agent, built on Anthropic's Claude Agent SDK.You are an assistant for performing a web search tool use"
+        }
+      ],
+      "raw_exchange_id": 2660920,
+      "render_state": "confirmed",
+      "seq": 0,
+      "state": "confirmed",
+      "stop_reason": "",
+      "usage": {
+        "cache_read": null,
+        "cache_write": null,
+        "input": null,
+        "output": null,
+        "reasoning": null
+      }
+    },
+    {
+      "captured_at": "2026-08-20T22:31:42Z",
+      "error": "",
+      "event_type": "user_message",
+      "id": 17880228,
+      "items": [
+        {
+          "args": null,
+          "call_id": "",
+          "char_len": 104,
+          "fp": "***REDACTED-HEX***",
+          "is_error": false,
+          "kind": "user_text",
+          "name": "",
+          "role": "user",
+          "text": "Perform a web search for the query: ComfyUI-Manager component save path traversal packname vulnerability"
+        }
+      ],
+      "raw_exchange_id": 2660920,
+      "render_state": "confirmed",
+      "seq": 1,
+      "state": "confirmed",
+      "stop_reason": "",
+      "usage": {
+        "cache_read": null,
+        "cache_write": null,
+        "input": null,
+        "output": null,
+        "reasoning": null
+      }
+    },
+    {
+      "captured_at": "2026-08-20T22:31:42Z",
+      "error": "",
+      "event_type": "assistant_message",
+      "id": 17880229,
+      "items": [
+        {
+          "args": null,
+          "call_id": "",
+          "char_len": 157,
+          "fp": "***REDACTED-HEX***",
+          "is_error": false,
+          "kind": "thinking",
+          "name": "",
+          "role": "assistant",
+          "text": "The user wants me to perform a web search for the query about \"ComfyUI-Manager component save path traversal packname vulnerability\". Let me search for this."
+        },
+        {
+          "args": null,
+          "call_id": "",
+          "char_len": 2116,
+          "fp": "***REDACTED-HEX***",
+          "is_error": false,
+          "kind": "thinking",
+          "name": "",
+          "role": "assistant",
+          "text": "The user is asking about \"ComfyUI-Manager component save pack traversal packname vulnerability\". I need to analyze the search results to see what matches.\n\nLooking at the results:\n- Result 1: Doyensec Advisory - ComfyUI Manager Path Traversal in Install Model save_path - CVE-2025-45074. This is about save_path field in /api/manager/queue/install_model endpoint. The user query mentions \"save pack traversal packname\" - this seems likely a slightly garbled version. \"save pack\" could be \"save_path\"? \"packname\" could be \"path\"? Let me re-read: \"component save pack traversal packname vulnerability\". Maybe they mean \"save_path traversal\" and \"packname\" might be a typo. But the result is directly about \"save_path\" path traversal in ComfyUI Manager.\n\n- Other results about CVE-2025-67303 - configuration overwrite / RCE via filename path traversal in config save interface.\n\nThe user query specifically says \"save pack traversal packname vulnerability\". It might be referring to \"save_path traversal\" and \"component pack name\"? Or maybe there's a specific vulnerability involving \"packname\" parameter. The search results don't explicitly mention \"packname\" except possibly not at all. The closest is Doyensec advisory about \"save_path\" field.\n\nI should answer based on provided results. The query mentions \"save pack traversal packname\" - I need to interpret. The Doyensec result covers save_path traversal in install_model endpoint. CVE-2025-45074. That seems most relevant.\n\nI should summarize accurately based only on provided search results. Include details about the vulnerability: component ComfyUI Manager, path traversal in save_path field, endpoint /api/manager/queue/install_model, before v3.31, CVSS 9.3 critical, CVE-2025-45074, allows unauthenticated attacker to copy remote/local file to arbitrary path, Arbitrary File Read or SSRF, etc.\n\nAlso mention related CVE-2025-67303 for context if relevant, but the query is about \"save pack traversal packname\". I'll focus on the path traversal vulnerability.\n\nI need to note the search results contain the advisory. Let me craft a concise, accurate summary."
+        },
+        {
+          "args": null,
+          "call_id": "",
+          "char_len": 2390,
+          "fp": "***REDACTED-HEX***",
+          "is_error": false,
+          "kind": "assistant_text",
+          "name": "",
+          "role": "assistant",
+          "text": "Based on the search results, the relevant vulnerability is **CVE-2025-45074: ComfyUI Manager Path Traversal in Install Model `save_path`** (the \"save pack/packname\" phrasing in the query most closely matches this `save_path` path traversal issue).\n\n## Summary\n\n**Component:** ComfyUI Manager  \n**Vulnerability Class:** CWE-35: Path Traversal  \n**CVE:** CVE-2025-45074  \n**CVSSv3:** 9.3 (Critical) — `CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:N`  \n**Status:** Open (as of the advisory)  \n**Affected versions:** ComfyUI Manager before v3.31  \n**Credits:** Savino Sisco, Leonardo Giovannini (Doyensec)\n\n### Details\n\nA path traversal vulnerability was discovered in **ComfyUI Manager**, a ComfyUI extension for managing custom nodes and models that is included by default in ComfyUI Desktop.\n\nThe flaw affects the **`save_path` field** in the **`/api/manager/queue/install_model`** endpoint. It allows an **unauthenticated attacker** to copy a remote or local file to an arbitrary path on the system.\n\n### Technical behavior\n\n- In `get_model_dir()`, when `save_path` is not `\"default\"`, the code attempts to block path traversal by rejecting paths that start with `/` (absolute) or contain `..`.\n- However, if the path starts with `custom_nodes`, it is passed to `resolve_custom_node()`, which strips the `custom_nodes/` prefix, splits the path, and resolves the first element as a custom node repo name.\n- This weak validation/prefix handling enables path traversal through the `save_path` value.\n\n### Impact\n\n- On the **default security level**, exploitation is limited because the destination filename must have the `.safetensors` extension, constraining the issue to an **Arbitrary File Write** and preventing direct Remote Code Execution.\n- The issue can still be abused as an **Arbitrary File Read** or **SSRF** by fetching a local or remote file and copying it into the application's web-root assets directory, then retrieving it with a subsequent HTTP request.\n\n### Related note\n\nThe search results also include a separate but related ComfyUI-Manager issue, **CVE-2025-67303**, which involves insufficiently protected file storage accessible via the web interface in versions prior to 3.38, allowing remote manipulation of configuration and critical data (reported as leading to remote code execution). However, that CVE is distinct from the `save_path` path traversal described above."
+        }
+      ],
+      "raw_exchange_id": 2660920,
+      "render_state": "tentative",
+      "seq": 2,
+      "state": "tentative",
+      "stop_reason": "end_turn",
+      "usage": {
+        "cache_read": 0,
+        "cache_write": 0,
+        "input": 4471,
+        "output": 1144,
+        "reasoning": null
+      }
+    }
+  ]
+}

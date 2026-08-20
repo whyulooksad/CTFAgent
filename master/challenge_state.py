@@ -152,6 +152,9 @@ class ChallengeRecord:
     attachment_path: Optional[str] = None
     work_dir: Optional[str] = None
     started_at: Optional[float] = None
+    started_round: int = 0             # 本次分发发生在第几圈 (超时预算按此圈 base,
+                                       # 不随 current_round 漂移 —— 2026-08-21 修复:
+                                       # 长跑题跨圈后预算被放大, 占槽时间被拉长)
     finished_at: Optional[float] = None
     cc_session_id: Optional[str] = None   # 主解题 Agent 会话 id (轮转断点恢复)
     last_done_round: int = 0              # 最近一次做完的圈数 (本圈做完不再分发)

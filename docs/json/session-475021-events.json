@@ -1,0 +1,166 @@
+{
+  "pagination": {
+    "page": 1,
+    "page_size": 50,
+    "total": 4,
+    "total_pages": 1
+  },
+  "session": {
+    "baseline_len": 2,
+    "closed_reason": "",
+    "explicit_id": "",
+    "first_captured_at": "2026-08-20T22:33:00Z",
+    "group_id": 475751,
+    "id": 475021,
+    "last_active_at": "2026-08-20T22:33:00Z",
+    "model": "deepseek-v4-pro",
+    "protocol": "anthropic_messages",
+    "status": "active",
+    "task_code": "task_KfsYnsaG5N",
+    "title": "Perform a web search for the query: CVE-2025-45074 ComfyUI Manager save_path install_model get_model_dir resolve_custom_node PoC",
+    "usage": {
+      "cache_read": 0,
+      "cache_write": 0,
+      "input": 2577,
+      "output": 1678,
+      "reasoning": 0
+    },
+    "working_directory": ""
+  },
+  "steps": [
+    {
+      "captured_at": "2026-08-20T22:33:00Z",
+      "error": "推断此处发生上下文压缩",
+      "event_type": "session_note",
+      "id": 17880523,
+      "items": [],
+      "raw_exchange_id": 2661021,
+      "render_state": "confirmed",
+      "seq": 0,
+      "state": "confirmed",
+      "stop_reason": "",
+      "usage": {
+        "cache_read": null,
+        "cache_write": null,
+        "input": null,
+        "output": null,
+        "reasoning": null
+      }
+    },
+    {
+      "captured_at": "2026-08-20T22:33:00Z",
+      "error": "",
+      "event_type": "system_note",
+      "id": 17880524,
+      "items": [
+        {
+          "args": null,
+          "call_id": "",
+          "char_len": 193,
+          "fp": "***REDACTED-HEX***",
+          "is_error": false,
+          "kind": "system_note",
+          "name": "",
+          "role": "system",
+          "text": "x-anthropic-billing-header: cc_version=2.1.234.322; cc_entrypoint=sdk-cli;You are a Claude agent, built on Anthropic's Claude Agent SDK.You are an assistant for performing a web search tool use"
+        }
+      ],
+      "raw_exchange_id": 2661021,
+      "render_state": "confirmed",
+      "seq": 1,
+      "state": "confirmed",
+      "stop_reason": "",
+      "usage": {
+        "cache_read": null,
+        "cache_write": null,
+        "input": null,
+        "output": null,
+        "reasoning": null
+      }
+    },
+    {
+      "captured_at": "2026-08-20T22:33:00Z",
+      "error": "",
+      "event_type": "user_message",
+      "id": 17880525,
+      "items": [
+        {
+          "args": null,
+          "call_id": "",
+          "char_len": 128,
+          "fp": "***REDACTED-HEX***",
+          "is_error": false,
+          "kind": "user_text",
+          "name": "",
+          "role": "user",
+          "text": "Perform a web search for the query: CVE-2025-45074 ComfyUI Manager save_path install_model get_model_dir resolve_custom_node PoC"
+        }
+      ],
+      "raw_exchange_id": 2661021,
+      "render_state": "confirmed",
+      "seq": 2,
+      "state": "confirmed",
+      "stop_reason": "",
+      "usage": {
+        "cache_read": null,
+        "cache_write": null,
+        "input": null,
+        "output": null,
+        "reasoning": null
+      }
+    },
+    {
+      "captured_at": "2026-08-20T22:33:00Z",
+      "error": "",
+      "event_type": "assistant_message",
+      "id": 17880526,
+      "items": [
+        {
+          "args": null,
+          "call_id": "",
+          "char_len": 111,
+          "fp": "***REDACTED-HEX***",
+          "is_error": false,
+          "kind": "thinking",
+          "name": "",
+          "role": "assistant",
+          "text": "The user wants me to perform a web search for a specific query about CVE-2025-45074 related to ComfyUI Manager."
+        },
+        {
+          "args": null,
+          "call_id": "",
+          "char_len": 4311,
+          "fp": "***REDACTED-HEX***",
+          "is_error": false,
+          "kind": "thinking",
+          "name": "",
+          "role": "assistant",
+          "text": "We need answer user query based only provided search results. User asks: \"CVE-2025-45074 ComfyUI Manager save_path install_model get_model_dir resolve_custom_node PoC\". Need accurate summary using provided results. Need likely explain vulnerability, affected function, PoC maybe? Search results only two: Doyensec advisory PDF snippet, and gm7 article RCE chain. We need synthesize. Need be careful not overstate. The query mentions CVE-2025-45074, save_path, install_model, get_model_dir, resolve_custom_node, PoC. The Doyensec advisory provides technical details. The gm7 article likely RCE chain but not directly CVE? Need maybe mention PoC exists in article? Let's inspect.\n\nSearch result 1: Doyensec Advisory ComfyUI Manager Path Traversal in Install Model save_path. CVE-2025-45074. CVSS 9.3 critical. Path traversal before v3.31. Affects save_path field in /api/manager/queue/install_model endpoint. Allows unauthenticated attacker to copy remote or local file to arbitrary path. On default security level only exploitable if destination filename has .safetensors extension, limiting arbitrary file write and preventing RCE. Can abuse as Arbitrary File Read or SSRF by fetching local or remote file and copying it to assets directory of app's web root, allowing retrieve with HTTP request. Technical: In get_model_dir(), if save_path != \"default\", tries prevent path traversal by checking if path starts with \"/\" or contains \"..\". If passes, checks if starts with custom_nodes, passes to resolve_custom_node(); else base_model = os.path.join(models_base, data['save_path']). resolve_custom_node removes custom_nodes/* prefix, split on \"/\" first element passed to lookup_installed_custom_nodes_legacy. It includes snippets.\n\nSearch result 2: gm7 article: ComfyUI-Manager RCE chain. It says CRLF injection modify config lower security, unauthorized restart, install malicious custom node execute install.py RCE. Versions <3.39.2 and <4.0.5. Details about write_config fix replacing \\r \\n \\x00. Not specifically CVE-2025-45074. It might include PoC. We need answer query, perhaps \"CVE-2025-45074 ComfyUI Manager save_path install_model get_model_dir resolve_custom_node PoC\" means user wants info about this CVE and PoC. We can summarize from provided results.\n\nNeed include URLs maybe. Need accurate summary. We should mention Doyensec advisory has technical description and maybe not full PoC in snippet. The gm7 article gives RCE chain PoC maybe not same CVE. We must only use provided search results. Let's craft concise but detailed.\n\nPotential answer:\n- CVE-2025-45074 is a critical path traversal (CWE-35? Actually CWE-35? Doyensec says CWE-35: Path Traversal, typo? CWE-22 is path traversal. But use as provided) in ComfyUI Manager before v3.31.\n- Endpoint: /api/manager/queue/install_model, field save_path.\n- Affected code path: get_model_dir() handles save_path. If save_path != \"default\", it attempts to block absolute paths and \"..\" but if starts with \"custom_nodes\", passes to resolve_custom_node(); otherwise joins to models_base. resolve_custom_node() strips \"custom_nodes/\" prefix, takes first path segment as repo name, resolves installed custom node path.\n- Impact: unauthenticated attacker can copy local/remote file to arbitrary path. Default security level limits destination filename to .safetensors, so arbitrary file write but no RCE; can still be used for arbitrary file read/SSRF by copying file into web root assets and retrieving via HTTP. CVSS 9.3.\n- PoC: Doyensec advisory contains technical description; not full PoC in snippet. Another article describes a broader ComfyUI-Manager RCE chain affecting <3.39.2 / <4.0.5 using CRLF injection to lower security level, restart, install malicious custom node, install.py RCE; includes PoC and commit reference. That may be related but distinct. Need say \"According to search results, a PoC/exploit chain for ComfyUI-Manager RCE is described in gm7 article, but the provided snippet does not directly tie it to CVE-2025-45074; it uses CRLF injection in write_config etc.\" But user asked PoC maybe we need indicate where. Need not invent.\n\nLet's formulate final. Ensure no markdown? Fine.\n\nNeed mention \"before v3.31\" from Doyensec; but gm7 says affected versions <3.39.2 and <4.0.5 for RCE chain. We can distinguish.\n\nLet's produce."
+        },
+        {
+          "args": null,
+          "call_id": "",
+          "char_len": 2280,
+          "fp": "***REDACTED-HEX***",
+          "is_error": false,
+          "kind": "assistant_text",
+          "name": "",
+          "role": "assistant",
+          "text": "Based on the provided search results:\n\n**CVE-2025-45074** is a critical path traversal vulnerability in **ComfyUI Manager before v3.31**, discovered by Savino Sisco and Leonardo Giovannini and documented in a Doyensec advisory.\n\n### Vulnerable endpoint / parameter\n- Endpoint: `/api/manager/queue/install_model`\n- Vulnerable field: `save_path`\n- CVSSv3: **9.3 (Critical)**\n- Vulnerability class: path traversal\n\n### Affected functions / code path\nThe advisory describes the issue in `get_model_dir()`:\n\n- If `save_path` is not `\"default\"`, the code tries to block path traversal by rejecting paths starting with `/` or containing `..`.\n- If the path starts with `custom_nodes`, it is passed to `resolve_custom_node()`.\n- `resolve_custom_node()` removes the `custom_nodes/` prefix, splits the remaining path on `/`, and uses the first segment as a custom node repo name passed to `core.lookup_installed_custom_nodes_legacy()`.\n- Otherwise, the code builds `base_model = os.path.join(models_base, data['save_path'])`.\n\n### Impact\nAn unauthenticated attacker can copy a remote or local file to an arbitrary path on the system.\n\n- On the **default security level**, exploitation is limited because the destination filename must have the `.safetensors` extension. This restricts the issue to arbitrary file write and prevents escalation to remote code execution.\n- The vulnerability can still be abused as **Arbitrary File Read** or **SSRF** by fetching a local or remote file and copying it into the application’s web root `assets` directory, then retrieving it with a subsequent HTTP request.\n\n### PoC / exploit information\nThe provided Doyensec advisory snippet contains technical details but does not include a full PoC in the search result.\n\nA second result from `gm7.org` describes a broader **ComfyUI-Manager RCE chain**, affecting versions **<3.39.2** and **<4.0.5**. That chain uses:\n1. CRLF injection in `write_config()` to modify configuration and lower the security level,\n2. an unauthorized restart endpoint to load the modified config,\n3. installation of a malicious custom node to execute `install.py`, achieving RCE.\n\nHowever, the snippet does not explicitly tie that RCE chain to CVE-2025-45074; it appears to describe a related/separate ComfyUI-Manager exploit chain."
+        }
+      ],
+      "raw_exchange_id": 2661021,
+      "render_state": "tentative",
+      "seq": 3,
+      "state": "tentative",
+      "stop_reason": "end_turn",
+      "usage": {
+        "cache_read": 0,
+        "cache_write": 0,
+        "input": 2577,
+        "output": 1678,
+        "reasoning": null
+      }
+    }
+  ]
+}

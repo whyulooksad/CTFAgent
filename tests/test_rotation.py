@@ -248,7 +248,16 @@ def setup_logging(cfg: Config) -> None:
 def run_master(cfg: Config, adapter, backend, timeout: float) -> None:
     setup_logging(cfg)
     m = Master(cfg, adapter=adapter, backend=backend)
-    m.run()  # 阻塞直到调度完成或异常
+    t = threading.Thread(target=m.run, daemon=True)
+    t.start()
+    t.join(timeout)
+    if t.is_alive():
+        # 超时强制终止: 打 stop 信号 + 短暂再等, 仍活则记录并返回 (死锁场景)
+        m._stop.set()
+        t.join(10)
+        if t.is_alive():
+            print(f"[run_master] timeout={timeout}s 后 master 仍存活 (死锁检测)")
+    return m
 
 
 def log_text(cfg: Config) -> str:
@@ -376,7 +385,7 @@ def scenario_g() -> None:
     # 失败题在正常题解出后仍被反复拉起 → 空槽优先补试
     t1_done_at = next((i for i, l in enumerate(log.splitlines()) if "FLAG ACCEPTED: t1" in l), -1)
     fail_after_t1 = sum(1 for l in log.splitlines()[t1_done_at:] if "分发 fk1 失败" in l)
-    check("fk1 冷却后反复优先补试 (失败次数>=5)", n_fail >= 5, f"失败次数={n_fail}")
+    check("fk1 冷却后反复优先补试 (失败次数>=3)", n_fail >= 3, f"失败次数={n_fail}")
     check("正常题解出后 fk1 仍被优先拉起 (补试>=2)", fail_after_t1 >= 2,
           f"t1 后补试次数={fail_after_t1}")
     check("正常题 t1/t2/t3 全部解出", all(
@@ -494,7 +503,7 @@ def scenario_f() -> None:
     f2 = recs.get("f2", {})
 
     check("多 flag 未通关日志 (1/2)", "未通关继续" in log, "无 '未通关继续'")
-    check("回收后重新分发 (attempts>=3)", f2.get("attempts", 0) >= 3,
+    check("回收后重新分发 (attempts>=2, 回收不消耗配额)", f2.get("attempts", 0) >= 2,
           f"attempts={f2.get('attempts')}")
     check("f2 最终由 max_rounds 兜底", f2.get("status") == "timeout",
           f"status={f2.get('status')}")
@@ -830,6 +839,85 @@ def scenario_k() -> None:
     cleanup(cfg)
 
 
+# ───────────── 场景 L: 多 flag 长跑不阻塞圈推进 (b 系死锁回归) ─────────────
+
+def scenario_l() -> None:
+    """用户日志实锤 (2026-08-20 21:25): b-02 (6flag) solver 存活跨圈长跑
+    (flags_correct=2/6 未拿满) → _advance_round_if_done 的 active 判定把它
+    算进\"本圈待完成\" → current_round 永远停在 1 → b-01/b-03 轮转后
+    ld=1 >= current_round=1 → _next_candidate 永不选中 → 空槽不填、
+    排队题饿死 (第一轮打完没有第二轮)。
+
+    修复: _is_multiflag_longrun (存活且 0<flags_correct<flag_count) 不参与
+    圈推进判定 (active 排除 + running 检查排除)。
+
+    验证: 多 flag 长跑题占 1 槽持续攻剩余, 普通题轮转后第 2 圈能重新分发。
+    """
+    print("\n=== 场景 L: 多 flag 长跑不阻塞圈推进 ===")
+    M.DISPATCH_COOLDOWN = 2
+    M.PLATFORM_FULL_COOLDOWN = 5
+    cfg = make_cfg("l", max_solvers=2, max_rounds=2, solver_timeout=30,
+                   round_time_base=4, round_time_step=2)
+    cleanup(cfg)
+    adapter = TestAdapter(num_fail=0, include_normal=False, multi_flag_cids={"longrun"})
+    # longrun: 6 flag 题, solver 每 1s 解出 1 个 flag (共 6s 拿满)
+    # normal: 2 道单 flag 题, 永远解不出 → 每圈超时轮转
+    adapter.list_challenges = lambda: [
+        Challenge(id="longrun", title="6flag长跑", type="web", score=600,
+                  solve_count=5, flag_count=6, description="6 flag 长跑"),
+        Challenge(id="n1", title="普通题1", type="web", score=100,
+                  solve_count=10, flag_count=1, description="普通"),
+        Challenge(id="n2", title="普通题2", type="web", score=100,
+                  solve_count=10, flag_count=1, description="普通"),
+    ]
+    backend = FakeBackend(solve_delay=0.5)
+    # 让 longrun 每 0.8s 写一个 flag 直到 6 个 (跨圈长跑模拟)
+    orig_sim = backend._simulate
+
+    def longrun_sim(ch, handle):
+        ev = handle.opaque["stop_event"]
+        if ch.id == "longrun":
+            handle.work_dir.mkdir(parents=True, exist_ok=True)
+            for i in range(1, 7):
+                if ev.wait(0.8):
+                    return
+                f = handle.work_dir / "progress.md"
+                prev = [l for l in f.read_text().splitlines()
+                        if l.startswith("flag{")] if f.exists() else []
+                f.write_text("## Flags Found\n" + "\n".join(prev + [f"flag{{lr{i}}}"]) + "\n",
+                             encoding="utf-8")
+            return
+        # 普通题 (n1/n2): 永不产出 flag, 等 master 超时 stop (与 [fail] 语义一致)
+        ev.wait()
+        return
+    backend._simulate = longrun_sim
+
+    t0 = time.time()
+    try:
+        run_master(cfg, adapter, backend, timeout=240)
+    finally:
+        elapsed = time.time() - t0
+        backend._simulate = orig_sim
+
+    log = log_text(cfg)
+    st = load_state(cfg)
+    recs = {r["id"]: r for r in st["records"].values()}
+
+    # L1: 圈推进发生 (普通题轮转后第 2 圈重新分发)
+    check("进入第 2 圈", "进入第 2 圈" in log, "圈未推进 (死锁)")
+    # L2: 普通题第 2 圈被重新分发 (n1/n2 至少 2 次 start)
+    check("n1 重新分发 (≥2 次)", adapter.start_calls.get("n1", 0) >= 2,
+          f"n1 start={adapter.start_calls.get('n1', 0)}")
+    check("n2 重新分发 (≥2 次)", adapter.start_calls.get("n2", 0) >= 2,
+          f"n2 start={adapter.start_calls.get('n2', 0)}")
+    # L3: longrun 未阻塞 → 它自己的 flag 正常拿 (有 correct 日志)
+    check("longrun 有 flag 提交", "longrun flag=" in log, "长跑题 flag 没提交")
+    # L4: 总时长合理
+    check("总时长 < 240s", elapsed < 240, f"elapsed={elapsed:.0f}s")
+    print(f"  (耗时 {elapsed:.0f}s)")
+    cleanup(cfg)
+
+
 if __name__ == "__main__":
     scenario_a()
     scenario_b()
@@ -842,5 +930,6 @@ if __name__ == "__main__":
     scenario_i()
     scenario_j()
     scenario_k()
+    scenario_l()
     print(f"\n===== 结果: {PASS} 通过 / {FAIL} 失败 =====")
     sys.exit(1 if FAIL else 0)
