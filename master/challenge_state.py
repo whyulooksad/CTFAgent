@@ -234,8 +234,10 @@ class MasterState:
                     rec.attachment_url = meta.attachment_url
                 if getattr(meta, "source", "platform") == "manual":
                     rec.source = "manual"
-                if getattr(meta, "flag_count", 1) > 1:
-                    rec.flag_count = meta.flag_count
+            # flag_count 新建/更新都同步 (新建分支漏设会让多 flag 题
+            # flag_count=1 → 解出 1 个就通关终态, 剩余 flag 全丢, 2026-08-20 修复)
+            if getattr(meta, "flag_count", 1) > 1:
+                rec.flag_count = meta.flag_count
             rec.updated_at = _now()
             return rec
 
@@ -294,9 +296,17 @@ class MasterState:
             return True
 
     def can_submit(self, cid: str) -> bool:
+        """单题提交上限。多 flag 题按 flag 数放大: 每 flag 保留完整额度,
+        否则 6 flag 题交 2 个就锁死 (2026-08-20 修复)。"""
         with self._lock:
             rec = self.records.get(cid)
-            return rec is not None and rec.submit_count < self.max_submit_per_challenge
+            if rec is None:
+                return False
+            limit = self.max_submit_per_challenge
+            fc = max(1, int(getattr(rec, "flag_count", 1) or 1))
+            if fc > 1:
+                limit = fc * self.max_submit_per_challenge
+            return rec.submit_count < limit
 
     def record_submit(self, cid: str, flag: str, status: str) -> None:
         """Submitter 线程在真正发起提交前调用 (占用一次提交配额)。"""

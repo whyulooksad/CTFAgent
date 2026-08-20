@@ -55,6 +55,11 @@ CHALLENGES_DIR = REPO_DIR / "challenges"
 
 # dispatch 基础设施失败 (开靶机/下载附件) 的冷却时间
 DISPATCH_COOLDOWN = 30.0
+# 平台 active 满 (start 409): 5 分钟后再试 (30s 重试无意义, 实例释放要分钟级)
+PLATFORM_FULL_COOLDOWN = 300.0
+# 平台容器启动等待上限 (次 × 30s; 12 次 ≈ 6 分钟。实测 tsec 容器就绪 2-3 分钟,
+# 6 分钟余量足够; 再久就是真起不来, 判死释放名额 (2026-08-20))
+MAX_BOOT_FAILS = 12
 # 失败重试重新入队前的冷却
 RETRY_COOLDOWN = 5.0
 
@@ -68,6 +73,7 @@ class Config:
     backend: str = "process"                 # process | docker | fake(测试)
     max_solvers: int = 5                     # 并发 Solver 槽位数 (手动可配)
     max_challenges: int = 20                 # 尝试题目数上限 (去重计)
+    platform_max_active: int = 3             # 平台同时活跃实例上限 (腾讯 409 报 3)
     solver_timeout: int = 3600               # 兜底超时: 单次 solver 整体上限 (秒)
     # 轮转调度 (时间片轮转 + 渐进式时间预算):
     #   第 1 圈每道题 round_time_base 秒, 超时换题 (保留 cc session);
@@ -187,6 +193,7 @@ class Master:
         self._flags_lock = threading.Lock()
         self.session_flags: list[dict] = []   # 本次启动解出的 flag (面板展示用)
         self._started_targets: set[str] = set()   # 已开靶机的 web 题 (仅平台题)
+        self._platform_full = False               # 本 tick 内平台 active 满 (409 熔断)
         self._stop = threading.Event()
         self._interrupted = False
         self.paused = False
@@ -311,12 +318,32 @@ class Master:
         max_challenges 上限只约束平台新题：已尝试题的重试、手动加入的题
         均不受上限限制 (手动加题是明确意图，不挤占平台名额)。
         """
+        self._platform_full = False  # 每个 tick 重置熔断标记
         while len(self.running) < self.cfg.max_solvers:
             allow_new = self._platform_attempted() < self.cfg.max_challenges
             rec = self._next_candidate(allow_new=allow_new)
             if rec is None:
                 break
+            # 平台 active 名额感知: 需要新 start 的平台 web/binary 题,
+            # 已开实例数 >= 平台上限 → 本轮停止 start, 等实例释放。
+            # 否则 3 个槽位一口气 start 3 个 → 平台 active 满 →
+            # 其余排队题全 409 饿死 (2026-08-20 用户日志实锤)。
+            # 复用 URL 的题 (预检失败等容器) 不算新开实例, 不受限。
+            if (
+                rec.type in ("web", "binary")
+                and rec.source != "manual"
+                and not (rec.url and getattr(rec, "boot_fails", 0) > 0)
+            ):
+                if len(self._started_targets) >= self.cfg.platform_max_active:
+                    self.log.info(
+                        "平台 active 实例已满 (%d/%d)，本轮不再 start，等待释放: %s",
+                        len(self._started_targets), self.cfg.platform_max_active, rec.id,
+                    )
+                    break
             self._dispatch(rec)
+            if self._platform_full:
+                # 平台 active 满: 本轮停止尝试, 等实例释放 (下一 tick 再试)
+                break
 
     def _next_candidate(self, allow_new: bool = True):
         now = time.time()
@@ -348,16 +375,25 @@ class Master:
 
         # 1. web/binary 题开靶机 (手动题: 用户输入的 URL 即靶机；binary 远程服务同此)
         if rec.type in ("web", "binary"):
-            try:
-                url = adapter.start_challenge(rec.id)
-                if not url:
-                    raise RuntimeError("start_challenge 未返回靶机 URL")
-                rec.url = url
-                if rec.source != "manual":
-                    self._started_targets.add(rec.id)
-            except Exception as e:
-                self._dispatch_cooldown(rec, f"开靶机失败: {e}")
-                return None
+            # 复用: 有 URL 且 (首次 start 后容器未就绪 或 预检失败等容器启动中)
+            # → 直接预检等它就绪, 不重复 POST start (平台会再开实例 → 409/泄漏)
+            if (
+                rec.source != "manual"
+                and rec.url
+                and (rec.attempts == 0 or getattr(rec, "boot_fails", 0) > 0)
+            ):
+                url = rec.url
+            else:
+                try:
+                    url = adapter.start_challenge(rec.id)
+                    if not url:
+                        raise RuntimeError("start_challenge 未返回靶机 URL")
+                    rec.url = url
+                    if rec.source != "manual":
+                        self._started_targets.add(rec.id)
+                except Exception as e:
+                    self._dispatch_cooldown(rec, f"开靶机失败: {e}")
+                    return None
 
         # 2. 下载附件 (已有本地文件则跳过，重试复用；手动题为本地路径拷贝)
         if rec.attachment_url and not rec.attachment_path:
@@ -370,13 +406,10 @@ class Master:
 
         # 2.5 web 靶机存活预检
         #   - 手动题: URL 填错立即终态反馈，不烧一整轮 solver
-        #   - 平台题重试: 平台 start 返回地址时容器可能仍在启动 (实测 tsec 容器
-        #     就绪有窗口期)，预检失败 -> 冷却等待容器就绪后复用，不能判死:
-        #     误杀会 close 刚开的容器 + 耗尽重试配额，且 close 失败还会泄漏
-        #     平台槽位 (腾讯侧 3 容器、master 侧无 solver 的错位就是这么来的)
-        if rec.type in ("web", "binary") and rec.url and (
-            rec.source == "manual" or rec.attempts >= 1
-        ):
+        #   - 平台题: 每次拿到 URL 都先确认容器就绪再进 solver (首次也要,
+        #     否则 solver 白跑一轮); 未就绪 → 复用 URL 等容器起来, 不重复
+        #     POST start; 连续多次仍不可达才判死 (容器启动慢, 阈值放宽)
+        if rec.type in ("web", "binary") and rec.url:
             if not self._target_alive(rec.url):
                 if rec.source == "manual":
                     rec.finished_at = time.time()
@@ -386,15 +419,16 @@ class Master:
                     return None
                 # 平台题: 等容器就绪，连续多次仍不可达才判死
                 rec.boot_fails = getattr(rec, "boot_fails", 0) + 1
-                if rec.boot_fails >= 8:  # 8 x 30s ≈ 4 分钟仍不就绪
+                if rec.boot_fails >= MAX_BOOT_FAILS:  # 16 x 30s ≈ 8 分钟仍不就绪
                     rec.finished_at = time.time()
                     self.state.set_status(rec.id, FAILED, f"靶机长时间未就绪: {rec.url}")
                     self._release_target(rec)
-                    self.log.warning("%s 靶机 %s 约4分钟未就绪，判失败", rec.id, rec.url)
+                    self.log.warning("%s 靶机 %s 约%d分钟未就绪，判失败",
+                                     rec.id, rec.url, MAX_BOOT_FAILS * DISPATCH_COOLDOWN // 60)
                     return None
                 self._dispatch_cooldown(
                     rec, f"靶机未就绪 ({rec.url})，等容器启动后重试 "
-                         f"({rec.boot_fails}/8)")
+                         f"({rec.boot_fails}/{MAX_BOOT_FAILS})")
                 return None
             rec.boot_fails = 0  # 就绪了，清计数
 
@@ -427,11 +461,23 @@ class Master:
     @staticmethod
     def _target_alive(url: str) -> bool:
         """
-        web 靶机存活探测: 直连 (不走代理)，5s 超时。有 HTTP 响应即算存活。
+        靶机存活探测: 直连 (不走代理)，5s 超时。任一探测方式成功即算存活。
+
+        题库类型多样 (a=web挖掘, b=多阶段渗透, c=面板, d=云, e=对抗规避,
+        f1=TCP内存安全, f2=MCU固件)，靶机可能是 HTTP 服务 / TCP 服务 /
+        UDP 服务 / 仅 ICMP 可达 —— 不能只按 HTTP 判断 (2026-08-20 修复,
+        否则 binary/其他非 HTTP 题永远被误判"未就绪")。
+
+        探测顺序:
+          1. HTTP GET      (web 服务, 403/404/500 也算活)
+          2. TCP connect   (TCP 服务 / 端口监听)
+          3. UDP send/recv (UDP 服务, 收到任何响应算活)
+          4. ICMP ping     (host 可达兜底)
 
         URL 可能是容器视角 (host.docker.internal，宿主机解析不了)，
         探测失败时等价换 127.0.0.1 再试一次。
         """
+        import socket
         import urllib.error
         import urllib.request
 
@@ -440,14 +486,49 @@ class Master:
             candidates.append(url.replace("host.docker.internal", "127.0.0.1"))
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
         for u in candidates:
+            from urllib.parse import urlparse
+            p = urlparse(u)
+            host = p.hostname or ""
+            port = p.port or (443 if p.scheme == "https" else 80)
+            # 1. HTTP GET (web 服务)
             try:
                 opener.open(urllib.request.Request(u), timeout=5)
                 return True
             except urllib.error.HTTPError:
                 return True  # 403/404/500 也是活的 (服务端有响应)
             except Exception:
-                continue
-        return False  # 连接层失败: 靶机已关/DNS 不通
+                pass  # 落到 TCP/UDP/ICMP
+            # 2. TCP connect (TCP 服务 / 端口监听)
+            try:
+                s = socket.create_connection((host, port), timeout=5)
+                s.close()
+                return True
+            except Exception:
+                pass
+            # 3. UDP 探测 (UDP 服务: 发一个字节, 收到任何响应算活)
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                s.settimeout(5)
+                s.sendto(b"\x00", (host, port))
+                s.recvfrom(512)
+                s.close()
+                return True
+            except Exception:
+                pass
+            # 4. ICMP ping (host 可达兜底; 无 root 权限时跳过, 不算失败)
+            # 跳过 loopback: ping 127.0.0.1 永远成功, 会让"容器未就绪"模拟失效
+            if host not in ("127.0.0.1", "::1", "localhost"):
+                try:
+                    import subprocess
+                    r = subprocess.run(
+                        ["ping", "-c", "1", "-W", "3", host],
+                        capture_output=True, timeout=8,
+                    )
+                    if r.returncode == 0:
+                        return True
+                except Exception:
+                    pass
+        return False  # 所有探测方式都不通: 靶机未就绪/DNS 不通
 
     def _dispatch_cooldown(self, rec, error: str) -> None:
         """分发基础设施失败 (开靶机/下载附件/启动 solver): 本圈让路, 冷却后可再试。
@@ -459,6 +540,16 @@ class Master:
         rec.yielded_round = self.current_round
         rec.next_eligible_at = time.time() + DISPATCH_COOLDOWN
         self.state.set_status(rec.id, QUEUED, error)
+        # 平台 active 满 (409 max active): 熔断本轮 fill, 别把排队题全试一遍;
+        # 冷却拉长到 5 分钟 —— 平台实例释放要分钟级, 30s 重试纯刷屏 (2026-08-20)
+        if "max active" in str(error) or "instances reached" in str(error):
+            self._platform_full = True
+            rec.next_eligible_at = time.time() + PLATFORM_FULL_COOLDOWN
+            self.log.warning(
+                "分发 %s 失败: %s，平台实例已满，本轮熔断 (5 分钟后重试)",
+                rec.id, error,
+            )
+            return
         self.log.warning(
             "分发 %s 失败: %s，本圈让路，%.0fs 后按高优先级重试",
             rec.id, error, DISPATCH_COOLDOWN,
@@ -592,6 +683,9 @@ class Master:
                 ):
                     r.finished_at = time.time()
                     self.state.set_status(r.id, TIMEOUT, f"达到最大轮数 ({self.cfg.max_rounds}) 未解出")
+                    # 必须释放平台实例, 否则 pending/让路题的容器永久泄漏
+                    # 占着 active 名额 → 全平台 409 (2026-08-20 修复)
+                    self._release_target(r)
                     self.log.info("%s 终态: 达到最大轮数未解出", r.id)
             return
         recs = self.state.all_records()
@@ -802,6 +896,7 @@ class Master:
                     time.sleep(wait)
                 try:
                     self.adapter.stop_challenge(rec.id)
+                    rec.url = None  # 实例已释放, URL 失效 (下次干净重 start)
                     self.log.info("靶机已释放: %s", rec.id)
                     return
                 except Exception as e:

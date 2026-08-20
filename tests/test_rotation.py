@@ -17,6 +17,7 @@ from __future__ import annotations
 import http.server
 import logging
 import shutil
+import socket
 import sys
 import threading
 import time
@@ -61,14 +62,27 @@ class _RotHandler(http.server.BaseHTTPRequestHandler):
 class TestAdapter(MockAdapter):
     """start_challenge 对指定 cid 永远抛异常 (模拟平台开靶机故障)。"""
 
-    def __init__(self, fail_cids=(), multi_flag_cids=(), num_fail=1, include_normal=True):
+    def __init__(self, fail_cids=(), multi_flag_cids=(), num_fail=1, include_normal=True,
+                 pending_cids=(), full_cids=(), ok_web_cids=(), ok_tcp_cids=(),
+                 ok_udp_cids=(), max_active=0):
         super().__init__()
         self.fail_cids = set(fail_cids)
         self.multi_flag_cids = set(multi_flag_cids)
         self.num_fail = num_fail
         self.include_normal = include_normal
+        self.pending_cids = set(pending_cids)  # start 成功但容器未就绪 (URL 不可达)
+        self.full_cids = set(full_cids)        # 平台 active 满 (max active 409)
+        self.ok_web_cids = set(ok_web_cids)    # 正常 web 题 (start 成功 + 容器就绪)
+        self.ok_tcp_cids = set(ok_tcp_cids)    # binary 题: 仅 TCP 端口开放 (HTTP 探测必失败)
+        self.ok_udp_cids = set(ok_udp_cids)    # UDP 服务题: 仅 UDP 端口收包响应
+        self.max_active = max_active           # 平台同时活跃实例上限 (0=不限制)
+        self.start_calls: dict[str, int] = {}  # start_challenge 调用次数
+        self._submit_count: dict[str, int] = {}  # 每题提交次数 (multi_flag 通关模拟)
+        self.stop_calls: dict[str, int] = {}   # stop_challenge 调用次数
         self._started: dict[str, str] = {}
         self._servers: dict[str, http.server.ThreadingHTTPServer] = {}
+        self._tcp_servers: dict[str, socket.socket] = {}
+        self._udp_servers: dict[str, socket.socket] = {}
         self._next_port = 18000
 
     def list_challenges(self):
@@ -88,13 +102,72 @@ class TestAdapter(MockAdapter):
             chs.append(Challenge(id=f"fk{i}", title=f"卡死题-{i}[fail]", type="web",
                                  score=500, solve_count=5,
                                  description="永远不产出 flag, 测超时轮转"))
+        # 场景 H 专用: pending (容器启动中) / full (平台满) 的 web 题
+        for cid in sorted(self.pending_cids):
+            chs.append(Challenge(id=cid, title=f"启动中题-{cid}", type="web",
+                                 score=450, solve_count=8, description="容器未就绪"))
+        for cid in sorted(self.full_cids):
+            chs.append(Challenge(id=cid, title=f"平台满题-{cid}", type="web",
+                                 score=500, solve_count=5, description="平台 active 满"))
+        # 场景 J 专用: 正常可解的 web 题 (平台名额允许时 start 成功)
+        for cid in sorted(self.ok_web_cids):
+            chs.append(Challenge(id=cid, title=f"正常web题-{cid}", type="web",
+                                 score=400, solve_count=7, description="正常 web"))
+        # 场景 K 专用: binary 题 (仅 TCP 端口开放, HTTP 探测必然失败)
+        for cid in sorted(self.ok_tcp_cids):
+            chs.append(Challenge(id=cid, title=f"二进制题-{cid}", type="binary",
+                                 score=400, solve_count=7, description="binary TCP 服务"))
+        # 场景 K 专用: UDP 服务题 (仅 UDP 端口收包响应, HTTP/TCP 探测必然失败)
+        for cid in sorted(self.ok_udp_cids):
+            chs.append(Challenge(id=cid, title=f"UDP服务题-{cid}", type="binary",
+                                 score=400, solve_count=7, description="UDP 服务"))
         return chs
 
     def start_challenge(self, cid: str) -> str:
+        self.start_calls[cid] = self.start_calls.get(cid, 0) + 1
         if cid in self.fail_cids:
             raise RuntimeError("模拟平台开靶机失败 (409 资源不足)")
-        if cid in self._started:
+        if cid in self.full_cids:
+            raise RuntimeError(
+                "start 409 且容器不可用: HTTP 409: max active challenge instances reached (3)")
+        # 场景 J: 模拟平台同时活跃实例上限 —— 已开实例数达到上限且本题未开过 → 409
+        if self.max_active and cid not in self._started \
+                and len(self._started) >= self.max_active:
+            raise RuntimeError(
+                "start 409 且容器不可用: HTTP 409: max active challenge instances reached "
+                f"({self.max_active})")
+        if cid in self.pending_cids:
+            self._started[cid] = "http://127.0.0.1:1/"  # 不可达: 模拟容器启动中 (预检会失败)
             return self._started[cid]
+        # binary 题: 仅监听 TCP 端口 (HTTP 探测失败, TCP connect 成功)
+        if cid in self.ok_tcp_cids:
+            srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            srv.bind(("127.0.0.1", 0))
+            srv.listen(1)
+            threading.Thread(target=srv.accept, daemon=True).start()  # 接受首个连接即满足预检
+            url = f"http://127.0.0.1:{srv.getsockname()[1]}/"
+            self._tcp_servers[cid] = srv
+            self._started[cid] = url
+            return url
+        # UDP 服务题: 仅 UDP 端口收包响应 (HTTP/TCP 探测失败, UDP recv 成功)
+        if cid in self.ok_udp_cids:
+            srv = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            srv.bind(("127.0.0.1", 0))
+            port = srv.getsockname()[1]
+
+            def _udp_echo(udp_srv=srv):
+                try:
+                    while True:
+                        data, addr = udp_srv.recvfrom(512)
+                        udp_srv.sendto(b"ok", addr)
+                except OSError:
+                    pass
+            threading.Thread(target=_udp_echo, daemon=True).start()
+            url = f"http://127.0.0.1:{port}/"
+            self._udp_servers[cid] = srv
+            self._started[cid] = url
+            return url
         # 真实 HTTP 服务: 平台题重试时 _target_alive 预检必须能连上
         srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _RotHandler)
         threading.Thread(target=srv.serve_forever, daemon=True).start()
@@ -104,17 +177,34 @@ class TestAdapter(MockAdapter):
         return url
 
     def stop_challenge(self, cid: str) -> None:
+        self.stop_calls[cid] = self.stop_calls.get(cid, 0) + 1
         srv = self._servers.pop(cid, None)
         if srv:
             srv.shutdown()
             srv.server_close()
+        tsrv = self._tcp_servers.pop(cid, None)
+        if tsrv:
+            try:
+                tsrv.close()
+            except OSError:
+                pass
+        usrv = self._udp_servers.pop(cid, None)
+        if usrv:
+            try:
+                usrv.close()
+            except OSError:
+                pass
         self._started.pop(cid, None)
 
     def submit(self, cid: str, flag: str) -> SubmitResult:
         if cid in self.multi_flag_cids:
-            # 永远只认 1/2 个 flag (测未通关回收路径)
-            return SubmitResult("correct", "测试平台: 1/2", data={
-                "total_flag_count": 2, "correct_flag_count": 1,
+            # 按提交次数递增: 第 1 次 1/2, 第 2 次 2/2 (通关) —— 测多 flag 完整闭环
+            n = self._submit_count.get(cid, 0) + 1
+            self._submit_count[cid] = n
+            total = 2
+            done = min(n, total)
+            return SubmitResult("correct", f"测试平台: {done}/{total}", data={
+                "total_flag_count": total, "correct_flag_count": done,
             })
         return SubmitResult("correct", "测试平台: 全接受")
 
@@ -172,8 +262,9 @@ def load_state(cfg: Config) -> dict:
 def cleanup(cfg: Config) -> None:
     for p in (cfg.state_file, cfg.log_file, cfg.flags_file):
         Path(p).unlink(missing_ok=True)
-    for cid in ("t1", "t2", "t3", "f2", "d1",
-                "fk1", "fk2", "fk3", "fk4", "fk5", "fk6"):
+    for cid in ("t1", "t2", "t3", "f2", "d1", "h6f",
+                "fk1", "fk2", "fk3", "fk4", "fk5", "fk6",
+                "pk1", "pk2", "pk3"):
         shutil.rmtree(REPO / "challenges" / "fake" / cid, ignore_errors=True)
 
 
@@ -481,6 +572,264 @@ def scenario_e() -> None:
     cleanup(cfg)
 
 
+# ───────────────────── 场景 H: 熔断 + URL 复用 + 提交上限 ─────────────────────
+
+def scenario_h() -> None:
+    """三个新修复的集成验证:
+    H1. 409 熔断: "max active" 的题不阻塞/不饿死正常题, 也不连发 409
+    H2. URL 复用: 容器未就绪 (预检失败) 的题不再重复 POST start
+    H3. 多 flag 提交上限: 6 flag 题额度 = 18, 不会交 2 个就锁死
+    """
+    print("\n=== 场景 H: 熔断 + URL 复用 + 多flag提交上限 ===")
+    M.DISPATCH_COOLDOWN = 2  # 测试加速
+    M.PLATFORM_FULL_COOLDOWN = 5  # 测试加速 (409 让路长冷却只影响生产)
+    cfg = make_cfg("h", max_solvers=2, max_rounds=3, solver_timeout=30)
+    cleanup(cfg)
+    adapter = TestAdapter(
+        pending_cids={"pk1"},   # 容器启动中: 拿到 URL 但不可达
+        full_cids={"fk1"},      # 平台 active 满
+        num_fail=0,
+    )
+    backend = FakeBackend(solve_delay=1.0)
+
+    t0 = time.time()
+    try:
+        run_master(cfg, adapter, backend, timeout=240)
+    finally:
+        elapsed = time.time() - t0
+
+    log = log_text(cfg)
+    st = load_state(cfg)
+    recs = {r["id"]: r for r in st["records"].values()}
+
+    # H1: 熔断 —— fk1 (max active) 失败后不饿死正常题
+    check("平台满熔断日志出现", "平台实例已满，本轮熔断" in log, "无熔断日志")
+    check("正常题 t1 不被 409 题饿死 (correct)",
+          recs.get("t1", {}).get("status") == "submitted_correct",
+          f"t1={recs.get('t1', {}).get('status')}")
+    check("正常题 t2 不被 409 题饿死 (correct)",
+          recs.get("t2", {}).get("status") == "submitted_correct")
+    check("fk1 让路不阻塞圈推进", "进入第 2 圈" in log)
+    check("fk1 终态 timeout (max_rounds 兜底)",
+          recs.get("fk1", {}).get("status") == "timeout",
+          f"fk1={recs.get('fk1', {}).get('status')}")
+
+    # H2: URL 复用 —— pk1 预检失败后不再重复 POST start
+    pk_calls = adapter.start_calls.get("pk1", 0)
+    check("pk1 start_challenge 只调 1 次 (复用 URL)", pk_calls == 1,
+          f"pk1 start 次数={pk_calls}")
+    check("pk1 有复用等待日志 (靶机未就绪)", "靶机未就绪" in log)
+
+    # H3: 多 flag 提交上限放大 (单测)
+    m = Master(cfg, adapter=TestAdapter(num_fail=0), backend=FakeBackend())
+    rec6 = m.state.sync_challenge(
+        Challenge(id="h6f", title="六flag", type="crypto", flag_count=6,
+                  score=500, solve_count=5, description=""))
+    ok_6 = True
+    for i in range(6 * 3):  # 18 次内都应允许 (0..17 → submit_count=18)
+        if not m.state.can_submit("h6f"):
+            ok_6 = False
+            break
+        m.state.record_submit("h6f", f"flag{i}", "submitting")
+    check("6 flag 题前 18 次提交都允许", ok_6, "额度没放大!")
+    check("6 flag 题第 19 次被拒", not m.state.can_submit("h6f"), "第 19 次应超限")
+
+    check("总时长 < 240s", elapsed < 240, f"elapsed={elapsed:.0f}s")
+    print(f"  (耗时 {elapsed:.0f}s)")
+    cleanup(cfg)
+
+
+# ───────────────────── 场景 I: 多 flag 通关闭环 + 判死释放 ─────────────────────
+
+class MultiFlagBackend(FakeBackend):
+    """模拟多 flag solver: 每轮写出 cid_flags 里的全部 flag (第 2 轮起只新 flag 被提交)。"""
+
+    def __init__(self, cid_flags: dict, solve_delay: float = 0.5):
+        super().__init__(solve_delay=solve_delay)
+        self.cid_flags = cid_flags
+
+    def _simulate(self, ch, handle):
+        flags = self.cid_flags.get(ch.id)
+        if flags is None:
+            return super()._simulate(ch, handle)  # 无多 flag 配置 → 默认行为
+        handle.work_dir.mkdir(parents=True, exist_ok=True)
+        for i, f in enumerate(flags):
+            time.sleep(self.solve_delay * (i + 1))
+            with open(handle.work_dir / "progress.md", "w", encoding="utf-8") as fh:
+                fh.write("## Flags Found\n" + "\n".join(flags[:i + 1]) + "\n")
+        # 写完所有 flag 后线程结束 (solver 退出)
+
+
+def scenario_i() -> None:
+    """偶发补充 1: 多 flag 题完整闭环 —— 解出 flag1 → 1/2 回收 → 重跑
+    写出 flag1+flag2 → flag2 新提交 → 2/2 通关终态, 靶机释放。
+    偶发补充 2: pending 题 16 次预检失败 → 判死 + stop_challenge 释放实例。"""
+    print("\n=== 场景 I: 多 flag 通关闭环 + pending 判死释放 ===")
+    M.DISPATCH_COOLDOWN = 2  # 测试加速
+    cfg = make_cfg("i", max_solvers=3, max_rounds=3, solver_timeout=30)
+    cleanup(cfg)
+    adapter = TestAdapter(
+        multi_flag_cids={"f2"},
+        pending_cids={"pk1"},   # 永远容器未就绪 → boot_fails 判死
+        num_fail=0,
+    )
+    backend = MultiFlagBackend({"f2": ["flag{f2_alpha}", "flag{f2_beta}"]})
+
+    t0 = time.time()
+    try:
+        run_master(cfg, adapter, backend, timeout=240)
+    finally:
+        elapsed = time.time() - t0
+
+    log = log_text(cfg)
+    st = load_state(cfg)
+    recs = {r["id"]: r for r in st["records"].values()}
+
+    # I1: 多 flag 通关 (f2 是 crypto 题无靶机, 不查 stop)
+    f2 = recs.get("f2", {})
+    check("多 flag 先未通关 (1/2)", "未通关继续" in log, "无 1/2 回收日志")
+    check("多 flag 最终通关 (2/2)", "通关 2/2" in log, "无 2/2 通关日志")
+    check("f2 终态 submitted_correct", f2.get("status") == "submitted_correct",
+          f"f2={f2.get('status')}")
+    check("f2 两个 flag 都已提交", len(f2.get("flags_submitted", [])) >= 2,
+          f"submitted={f2.get('flags_submitted')}")
+
+    # I2: pending 题终态时释放平台实例 (max_rounds 兜底 + stop)
+    pk = recs.get("pk1", {})
+    check("pk1 终态 (timeout 兜底)", pk.get("status") == "timeout",
+          f"pk1={pk.get('status')} error={pk.get('error', '')[:60]}")
+    check("pk1 终态时释放平台实例 (stop 被调)", adapter.stop_calls.get("pk1", 0) >= 1,
+          f"stop_calls={adapter.stop_calls.get('pk1', 0)}")
+    check("pk1 从未重复 POST (start 只 1 次)", adapter.start_calls.get("pk1", 0) == 1,
+          f"start_calls={adapter.start_calls.get('pk1', 0)}")
+    check("其他题不受影响 (t1 correct)", recs.get("t1", {}).get("status") == "submitted_correct",
+          f"t1={recs.get('t1', {}).get('status')}")
+    check("总时长 < 240s", elapsed < 240, f"elapsed={elapsed:.0f}s")
+    print(f"  (耗时 {elapsed:.0f}s)")
+    cleanup(cfg)
+
+
+# ───────────────── 场景 J: 平台 active 名额感知 (409 风暴根治) ─────────────────
+
+def scenario_j() -> None:
+    """用户日志实锤 (2026-08-20): 第 2 圈 3 个槽一口气 start 3 个实例
+    → 平台 active 满 (3) → 其余排队题全 409 饿死, 尝试数卡死。
+    修复: _fill_slots 名额感知 (已开实例 >= platform_max_active 不再 start),
+    预检失败题复用 URL 不重复 POST, 409 让路 5 分钟长冷却。
+    验证: ① 平台满时不再尝试新题 (无 409 刷屏) ② 预检失败题 start 只 1 次
+    ③ 名额释放后排队题能进 (不饿死) ④ 全部终态。"""
+    print("\n=== 场景 J: 平台 active 名额感知 (409 风暴根治) ===")
+    M.DISPATCH_COOLDOWN = 2  # 测试加速
+    M.PLATFORM_FULL_COOLDOWN = 5
+    cfg = make_cfg("j", max_solvers=3, max_rounds=2, solver_timeout=30,
+                   platform_max_active=3)
+    cleanup(cfg)
+    adapter = TestAdapter(
+        pending_cids={"pk1", "pk2", "pk3"},  # 容器永不就绪 → 占满 3 名额后判死释放
+        ok_web_cids={"w1", "w2"},            # 正常 web 题: 名额释放后应能 start 并解出
+        num_fail=0,
+        include_normal=False,
+        max_active=3,                        # 模拟平台 active 上限 (409 语义)
+    )
+    backend = FakeBackend(solve_delay=0.5)
+
+    t0 = time.time()
+    try:
+        run_master(cfg, adapter, backend, timeout=240)
+    finally:
+        elapsed = time.time() - t0
+
+    log = log_text(cfg)
+    st = load_state(cfg)
+    recs = {r["id"]: r for r in st["records"].values()}
+
+    # J1: 平台满时 master 不再尝试 start 新题 (名额感知日志出现)
+    #     注: MAX_BOOT_FAILS=12 判死较快, pk 可能先释放名额让 w 直接进,
+    #     此时名额未满日志不出现, 但"w 不被 409 饿死"仍然成立
+    n409 = sum(1 for l in log.splitlines() if "start 409" in l)
+    check("平台名额感知 (已满日志 或 无 409 刷屏)",
+          "平台 active 实例已满" in log or n409 == 0, f"无名额感知且疑似 409 (n={n409})")
+    # J2: 没有 409 刷屏 (w1/w2 在平台满时根本没被尝试 start)
+    check("无 409 刷屏 (w1/w2 没被反复 start)", n409 == 0, f"409 行数={n409}")
+    # J3: 预检失败题 (pk) 复用 URL 不重复 POST start
+    for cid in ("pk1", "pk2", "pk3"):
+        check(f"{cid} start 只 1 次 (复用 URL)", adapter.start_calls.get(cid, 0) == 1,
+              f"start_calls={adapter.start_calls.get(cid, 0)}")
+    # J4: 名额释放后排队题能进 (w1/w2 解出, 不饿死)
+    check("w1 名额释放后解出", recs.get("w1", {}).get("status") == "submitted_correct",
+          f"w1={recs.get('w1', {}).get('status')}")
+    check("w2 名额释放后解出", recs.get("w2", {}).get("status") == "submitted_correct",
+          f"w2={recs.get('w2', {}).get('status')}")
+    # J5: pk 终态 (boot 判死 或 max_rounds 兜底, 两者都释放实例) + 实例释放
+    for cid in ("pk1", "pk2", "pk3"):
+        status = recs.get(cid, {}).get("status")
+        ok_term = status in ("failed", "timeout")
+        check(f"{cid} 终态 (判死/兜底)", ok_term,
+              f"{cid}={status} err={recs.get(cid, {}).get('error', '')[:40]}")
+        check(f"{cid} 实例已释放 (stop 被调)", adapter.stop_calls.get(cid, 0) >= 1,
+              f"stop_calls={adapter.stop_calls.get(cid, 0)}")
+    check("总时长 < 240s", elapsed < 240, f"elapsed={elapsed:.0f}s")
+    print(f"  (耗时 {elapsed:.0f}s)")
+    cleanup(cfg)
+
+
+# ───────────── 场景 K: binary 题 TCP 靶机预检 (f1-04 修复回归) ─────────────
+
+def scenario_k() -> None:
+    """用户日志实锤 (2026-08-20): f1-04 (binary) 永远"靶机未就绪 (7/16)"——
+    容器其实 2-3 分钟就起来了, 但 _target_alive 只做 HTTP GET 探测,
+    binary 靶机是 TCP 服务 (nc/自定义协议), HTTP 必然失败 → 误判未就绪。
+    修复: HTTP 探测失败后退化 TCP connect, 端口开放即算存活。
+    验证: binary 题 (仅 TCP 端口, 无 HTTP 响应) 能通过预检进入 solver。"""
+    print("\n=== 场景 K: binary 题 TCP 靶机预检 (f1-04 修复回归) ===")
+    M.DISPATCH_COOLDOWN = 2
+    M.PLATFORM_FULL_COOLDOWN = 5
+    M.MAX_BOOT_FAILS = 6  # 测试加速: 6x2s=12s 判死
+    cfg = make_cfg("k", max_solvers=3, max_rounds=2, solver_timeout=30,
+                   platform_max_active=3)
+    cleanup(cfg)
+    adapter = TestAdapter(
+        ok_tcp_cids={"k1", "k2"},   # binary: 仅 TCP 端口开放, HTTP 探测必失败
+        ok_udp_cids={"ku1"},        # UDP 服务: 仅 UDP 端口收包响应
+        ok_web_cids={"kw1"},        # web: HTTP 正常 (对照)
+        num_fail=0,
+        include_normal=False,
+    )
+    backend = FakeBackend(solve_delay=0.5)
+
+    t0 = time.time()
+    try:
+        run_master(cfg, adapter, backend, timeout=240)
+    finally:
+        elapsed = time.time() - t0
+
+    log = log_text(cfg)
+    st = load_state(cfg)
+    recs = {r["id"]: r for r in st["records"].values()}
+
+    # K1: binary 题通过预检进 solver 并解出 (不再被 HTTP 探测误判卡死)
+    for cid in ("k1", "k2"):
+        check(f"{cid} (binary TCP) 预检通过并解出",
+              recs.get(cid, {}).get("status") == "submitted_correct",
+              f"{cid}={recs.get(cid, {}).get('status')} err={recs.get(cid, {}).get('error', '')[:50]}")
+        check(f"{cid} start 只 1 次", adapter.start_calls.get(cid, 0) == 1,
+              f"start_calls={adapter.start_calls.get(cid, 0)}")
+    # K2: UDP 服务题通过预检 (HTTP/TCP 都不通, 靠 UDP 探测)
+    check("ku1 (UDP 服务) 预检通过并解出",
+          recs.get("ku1", {}).get("status") == "submitted_correct",
+          f"ku1={recs.get('ku1', {}).get('status')} err={recs.get('ku1', {}).get('error', '')[:50]}")
+    # K3: 无"靶机未就绪"误判 (binary/udp 题不该再走 boot 循环)
+    n_boot = sum(1 for l in log.splitlines()
+                 if "靶机未就绪" in l and ("k1" in l or "k2" in l or "ku1" in l))
+    check("非 HTTP 题无 boot 误判循环", n_boot == 0, f"boot 行数={n_boot}")
+    # K4: 对照 web 题正常
+    check("web 对照题 kw1 解出", recs.get("kw1", {}).get("status") == "submitted_correct",
+          f"kw1={recs.get('kw1', {}).get('status')}")
+    check("总时长 < 240s", elapsed < 240, f"elapsed={elapsed:.0f}s")
+    print(f"  (耗时 {elapsed:.0f}s)")
+    cleanup(cfg)
+
+
 if __name__ == "__main__":
     scenario_a()
     scenario_b()
@@ -489,5 +838,9 @@ if __name__ == "__main__":
     scenario_e()
     scenario_f()
     scenario_g()
+    scenario_h()
+    scenario_i()
+    scenario_j()
+    scenario_k()
     print(f"\n===== 结果: {PASS} 通过 / {FAIL} 失败 =====")
     sys.exit(1 if FAIL else 0)
