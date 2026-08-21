@@ -126,7 +126,7 @@ monitor 输出带 `flag_candidates` 列表时，你必须：
 
 ### 3.5 主解题 Agent 在翻系统代码吗？
 从 codex.log 看到它在读 /opt/ctf-agent 下的 docker/、master/、scripts/、solver/
-这些目录（这些是 agent 系统自己的代码，不是题目，里面没有 flag）。
+这四个目录时（这些是 agent 系统自己的代码，不是题目，里面没有 flag）。
 
 - 是 -> 写 dead_ends.md 硬约束：题目是远程 URL / 附件文件，系统目录不是题目，
   不要花时间翻它们，回到题目上。
