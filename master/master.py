@@ -45,6 +45,7 @@ from challenge_state import (
     TERMINAL_STATES,
     TIMEOUT,
     extract_flags,
+    extract_flags_all,
 )
 from solver_pool import DockerBackend, FakeBackend, ProcessBackend, SolverBackend, SolverHandle
 from submitter import Submitter
@@ -598,6 +599,23 @@ class Master:
             if manual_accepted:
                 continue
 
+            # 1b. flag 全量收集 (2026-08-21): 扫描 work_dir 所有文本文件
+            #     (board.md / codex.log / codex_round*.log / 产物), 补上 agent
+            #     漏写 progress.md 的 flag。**不直接提交**: 候选记录来源后交
+            #     Hermes 审查 (flag_candidates.jsonl), 确认后命令解题者补写
+            #     progress.md, 由正常 _read_flags 流程提交。
+            new_cands = self._collect_flag_candidates(rec)
+            # 过滤: 已 seen 的 (progress.md 已处理/已提交过) 不再收集
+            new_cands = [(f, s) for f, s in new_cands if f not in rec.flags_seen]
+            if new_cands:
+                n = self._append_flag_candidates(rec, new_cands)
+                if n > 0:
+                    self.log.info(
+                        "全量收集 %d 个 flag 候选 (交 Hermes 审查, 不直接提交): %s",
+                        n, ", ".join(f for f, _ in new_cands[:10]))
+                # 注意: 不 submit! (审查通过后由解题者补写 progress.md →
+                # _read_flags 正常提交)
+
             # 2. 死亡检测: solver 自行结束 (正常收工/崩溃)。有 flag 由上面处理;
             #    无 flag → 本圈做完, 保留 session, 下圈再试 (轮转)
             if not self.backend.is_alive(handle):
@@ -734,10 +752,23 @@ class Master:
             if (r.status in ACTIVE_STATES or r.status == QUEUED)
             and getattr(r, "yielded_round", 0) != self.current_round
             and not self._is_multiflag_longrun(r)
+            # 已达 max_challenges 上限时, 未尝试的新题 (attempts=0) 本轮不会
+            # 再被分发 (allow_new=False), 不能阻塞圈推进 —— 否则轮转题永远
+            # 等不到下一圈 (2026-08-21 用户实测: 5/5 上限后排队题 ld=0 卡死)
+            and not (
+                getattr(r, "attempts", 0) == 0
+                and r.source != "manual"
+                and self._platform_attempted() >= self.cfg.max_challenges
+            )
         ]
         # 注意: active 空 (全终态或全 yielded) 也要推进圈数, 否则
         # 失败题永远停在当前圈 → master 永不退出 (2026-08-20 修复)
         if active and any(getattr(r, "last_done_round", 0) < self.current_round for r in active):
+            return
+        # 面板模式 (resident): 队列完全空 (还没有任何题, 等平台接入/手动加题)
+        # 时不推进圈数 —— 否则 5s 空转一圈, 接入前 current_round 已到 max_rounds,
+        # 新拉的题直接按最后一圈算甚至被终态 (2026-08-21 用户实测: 接入前圈已空转到 3)
+        if self.cfg.resident and not recs:
             return
         # 多 flag 长跑题不阻塞圈推进: 只等普通 solver 结束
         if any(
@@ -1072,6 +1103,90 @@ class Master:
         except FileNotFoundError:
             return []
         return extract_flags(text)
+
+    def _collect_flag_candidates(self, rec) -> list[tuple[str, str]]:
+        """flag 全量收集 (2026-08-21 功能): 扫描 work_dir 所有文本文件,
+        提取 flag{...}/ctf{...} 候选, 补上 agent 漏写 progress.md 的 flag。
+
+        待办 TODO-flag-collection.md: 不能完全信任 agent 听话 (progress.md 的
+        Flags Found 段可能不写/写错/漏写)。board.md (hermes 记录)、codex.log/
+        codex_round*.log (agent 输出)、产物文件里都可能出现 flag。
+
+        **不直接提交** (2026-08-21 用户要求): 候选记录来源后交给 Hermes 审查
+        (flag_candidates.jsonl), 由 Hermes 判断是否真实 flag 并命令解题者补写
+        progress.md, 再由正常 _read_flags 流程提交。返回 [(flag, source_file)]。
+        """
+        wd = getattr(rec, "work_dir", None)
+        if not wd:
+            return []
+        work_dir = Path(wd)
+        if not work_dir.exists():
+            return []
+        # 扫描的文本文件: md 文档 + 日志 + 产物 (跳过二进制/大文件)
+        found: list[tuple[str, str]] = []
+        seen = set()
+        for p in work_dir.rglob("*"):
+            if not p.is_file():
+                continue
+            if p.name in (".cc_session", ".hermes_session", "monitor_state.json",
+                          "branch_state.json", "branch.pid", "submit_results.jsonl",
+                          "flag_candidates.jsonl"):
+                continue
+            try:
+                if p.stat().st_size > 2_000_000:  # 2MB 上限, 防卡死
+                    continue
+            except OSError:
+                continue
+            # 只读文本类: md/log/txt/json 或扩展名未知但含文本
+            if p.suffix.lower() not in (".md", ".log", ".txt", ".json", ".py",
+                                        ".sh", ".php", ".html", ".xml", ".yml", ".yaml"):
+                continue
+            try:
+                text = p.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            for flag in extract_flags_all(text):
+                if flag not in seen:
+                    seen.add(flag)
+                    found.append((flag, p.name))
+        return found
+
+    def _append_flag_candidates(self, rec, candidates: list[tuple[str, str]]) -> int:
+        """把新收集的 flag 候选追加到 work_dir/flag_candidates.jsonl (不提交)。
+
+        每行: {"flag": ..., "source": ..., "collected_at": ..., "status": "pending"}
+        status 由 Hermes 审查后改: pending -> confirmed(真 flag, 已命令补写) /
+        rejected(噪音)。返回本次新增数。
+        """
+        wd = getattr(rec, "work_dir", None)
+        if not wd or not candidates:
+            return 0
+        path = Path(wd) / "flag_candidates.jsonl"
+        try:
+            existing = set()
+            if path.exists():
+                for ln in path.read_text(encoding="utf-8", errors="replace").splitlines():
+                    try:
+                        existing.add(json.loads(ln).get("flag", ""))
+                    except (json.JSONDecodeError, TypeError):
+                        continue
+            added = 0
+            with open(path, "a", encoding="utf-8") as f:
+                for flag, source in candidates:
+                    if flag in existing:
+                        continue
+                    f.write(json.dumps({
+                        "flag": flag,
+                        "source": source,
+                        "collected_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                        "status": "pending",
+                    }, ensure_ascii=False) + "\n")
+                    existing.add(flag)
+                    added += 1
+            return added
+        except OSError as e:
+            self.log.error("写 flag_candidates.jsonl 失败: %s", e)
+            return 0
 
     # ─── 手动控制 (Phase 3 面板 / 测试用) ───
 

@@ -43,9 +43,13 @@ BOARD_IDEA_LIMIT = 15
 class MonitorState:
     """跨轮次持久化的状态。"""
     last_log_offset: int = 0  # 上次读到的 codex.log 位置
+    last_log_mtime: float = 0.0  # 上次读到的 codex.log 修改时间 (检测日志被覆盖/轮次切换)
+    last_log_size: int = 0  # 上次读到的 codex.log 大小
     start_time: float = 0.0
     board_over_notified: bool = False  # board 超限已通知过 Hermes (防每 10s 空转触发)
     last_branch_mtime: float = 0.0  # 上次检查的 branch_result_*.md 最晚 mtime (新增结果触发)
+    last_candidates_mtime: float = 0.0  # 上次检查的 flag_candidates.jsonl mtime (新候选触发)
+    last_candidates_count: int = 0  # 上次通知的 flag_candidates.jsonl pending 数 (新增候选触发)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -99,13 +103,30 @@ def read_log_increment(path: Path, state: MonitorState) -> str:
     claude 引擎下 codex.log 是 stream-json JSONL，deepseek 思维链会产生大量
     thinking_tokens 计数消息 (每 1-2 token 一条) —— 纯噪音且撑大日志。
     这里过滤掉它们，只留 assistant/tool 等有效消息给 Hermes 判断。
+
+    2026-08-21 修复 (日志分析报告): 跨轮次重启时, 若 codex.log 被覆盖变小
+    (claude 启动 `> codex.log`), 旧逻辑把 offset 归零后会把**第一轮旧日志
+    当增量重读** → 触发 Hermes 误判"cc 在推进" (实际是旧内容)。现在:
+    - 检测到日志被覆盖 (mtime 变化 且 size 变小) → 视为新轮次日志, 重置
+      offset 从 0 读**新**内容; 若新内容为空 (cc 刚启动未落盘) → 返回空
+      (不触发); 若新内容存在 → 只报新增量。
+    - 记录 last_log_mtime/size 供下次判断。
     """
     if not path.exists():
         return ""
     size = path.stat().st_size
-    # 日志被截断或重置 (新轮次 codex.log 被覆盖)
-    if size < state.last_log_offset:
+    mtime = path.stat().st_mtime
+
+    # 日志被覆盖/重置 (新轮次 claude 启动 `> codex.log`):
+    # mtime 变新 且 size 变小 (或首轮 state 未初始化)
+    replaced = (
+        state.last_log_offset > 0
+        and mtime > state.last_log_mtime
+        and size < state.last_log_size
+    )
+    if replaced:
         state.last_log_offset = 0
+
     offset = state.last_log_offset
     increment = ""
     if size > offset:
@@ -120,6 +141,9 @@ def read_log_increment(path: Path, state: MonitorState) -> str:
                 continue
             lines.append(ln)
         increment = "\n".join(lines)
+
+    state.last_log_mtime = mtime
+    state.last_log_size = size
     return increment
 
 
@@ -130,6 +154,34 @@ def check_flag_found(progress: dict, log_increment: str) -> Optional[str]:
         if match:
             return match.group(0)
     return None
+
+
+def check_flag_candidates(work_dir: Path, state: MonitorState) -> list[dict]:
+    """检测 flag_candidates.jsonl 中 status=pending 的候选 (master 全量收集的
+    flag, 待 Hermes 审查)。已通知过的 (last_candidates_count 相等) 不重复触发。"""
+    path = work_dir / "flag_candidates.jsonl"
+    if not path.exists():
+        state.last_candidates_count = 0
+        return []
+    try:
+        lines = [l for l in path.read_text(encoding="utf-8", errors="replace").splitlines() if l.strip()]
+    except OSError:
+        return []
+    pending = []
+    for ln in lines:
+        try:
+            rec = json.loads(ln)
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if rec.get("status") == "pending":
+            pending.append(rec)
+    count = len(pending)
+    # 有新的 pending 候选 (数量增加) 才触发
+    if count > state.last_candidates_count:
+        state.last_candidates_count = count
+        return pending
+    state.last_candidates_count = count
+    return []
 
 
 def check_branch_results(work_dir: Path, state: MonitorState) -> bool:
@@ -205,6 +257,9 @@ def run_monitor(work_dir: Path) -> Optional[dict]:
     # branch_result 变化检测 (subagent 完成 -> 可能带 flag，需 Hermes 审核)
     branch_changed = check_branch_results(work_dir, state)
 
+    # flag 候选检测 (master 全量收集 -> 待 Hermes 审查, 2026-08-21)
+    flag_candidates = check_flag_candidates(work_dir, state)
+
     # 快速检测 flag
     flag = check_flag_found(progress, log_increment)
 
@@ -215,9 +270,13 @@ def run_monitor(work_dir: Path) -> Optional[dict]:
     # 日志停滞检测
     is_stale = False
     stale_seconds = 0
+    log_mtime = 0.0
+    # 无论有无增量都记录日志 mtime (2026-08-21: 之前只有无增量路径设置,
+    # 有增量时 log_mtime=0 → log_mtime_iso=None, Hermes 拿不到日志写入时间)
+    if log_path.exists():
+        log_mtime = log_path.stat().st_mtime
     if log_path.exists() and not log_increment:
-        mtime = log_path.stat().st_mtime
-        stale_seconds = int(time.time() - mtime)
+        stale_seconds = int(time.time() - log_mtime)
         if stale_seconds > STALE_LOG_SECONDS:
             is_stale = True
 
@@ -227,6 +286,7 @@ def run_monitor(work_dir: Path) -> Optional[dict]:
     # 决定是否输出
     has_new_log = bool(log_increment.strip())
     has_flag = flag is not None
+    has_candidates = bool(flag_candidates)
 
     if (
         not has_new_log
@@ -236,6 +296,7 @@ def run_monitor(work_dir: Path) -> Optional[dict]:
         and not has_human_guidance
         and not notify_board_over
         and not branch_changed
+        and not has_candidates
     ):
         # 一切正常，无新日志 -> 静默
         return None
@@ -244,7 +305,10 @@ def run_monitor(work_dir: Path) -> Optional[dict]:
     log_line_count = len(log_increment.strip().split("\n")) if log_increment.strip() else 0
 
     output = {
+        # 真实当前时间 (2026-08-21 修复: 之前 Hermes 靠 monitor 注入的旧 timestamp
+        # 误判"才运行 1 分钟", 实际已过去数小时 —— 现在注入真实时钟+日志状态)
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "now_iso": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "work_dir": str(work_dir),
         "elapsed_minutes": int(elapsed / 60),
         "progress": {
@@ -255,9 +319,24 @@ def run_monitor(work_dir: Path) -> Optional[dict]:
         },
         "log_increment_lines": log_line_count,
         "log_increment_hint": "(有新日志，请自行 tail codex.log 读取)" if log_line_count > 0 else "(无新日志)",
+        # 日志最后写入时间 + 停滞秒数 (Hermes 据此判断 cc 是否真的在推进)
+        "log_mtime_iso": (time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(log_mtime))
+                          if log_mtime else None),
+        "log_stale_seconds": stale_seconds,
+        "log_status": (
+            "新日志(本轮有产出)" if has_new_log
+            else f"无新日志, 已停滞 {stale_seconds}s" if stale_seconds > 0
+            else "无日志(cc 可能刚启动)"
+        ),
         "human_guidance": "有新的待处理人工指导，请读 human_guidance.md" if has_human_guidance else None,
         "flag_found": flag,
         "branch_results_changed": branch_changed,
+        # flag 全量收集候选 (master 扫描 work_dir 捞到, 待 Hermes 审查, 2026-08-21)
+        "flag_candidates": [
+            {"flag": c.get("flag", ""), "source": c.get("source", ""),
+             "collected_at": c.get("collected_at", "")}
+            for c in flag_candidates
+        ] if flag_candidates else None,
         "is_stale": is_stale,
         "stale_seconds": stale_seconds,
         "is_timeout": is_timeout,

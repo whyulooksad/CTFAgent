@@ -53,7 +53,7 @@ def _now() -> str:
 _FLAG_HEADER = re.compile(r"^##\s*Flags Found\b")
 # 与 monitor.py 的 FLAG_PATTERN 同源，外加前缀边界: 避免把 "SCTF{...}"
 # 截成 "CTF{...}" 这类子串误匹配；非 flag{}/ctf{} 前缀走原始行回退
-_FLAG_TOKEN = re.compile(r"(?<![A-Za-z0-9_])(?:flag|ctf)\{[^}]+\}", re.IGNORECASE)
+_FLAG_TOKEN = re.compile(r"(?<![A-Za-z0-9])(?:flag|ctf)\{[^}\n]{1,128}\}", re.IGNORECASE)
 
 # 回退行的"像 flag"判据参数。实测 (2026-08-15 ezssti) 模型会把进度笔记写进
 # Flags Found 段 (如 "- 2026-08-15: 已按要求完整读取...准备继续侦察")，
@@ -118,6 +118,31 @@ def extract_flags(progress_text: str) -> list[str]:
             if cleaned and _looks_like_flag(cleaned) and cleaned not in flags:
                 flags.append(cleaned)
     return flags
+
+
+def extract_flags_all(text: str) -> list[str]:
+    """全量提取 flag 候选 (2026-08-21 flag 收集功能)。
+
+    不限于 progress.md 的 Flags Found 段 —— 从任意文本 (board.md / codex.log /
+    codex_round*.log / 各种产物) 正则提取 flag{...}/ctf{...} token。
+
+    与 extract_flags 的区别: extract_flags 只解析 Flags Found 段 (run.sh 收工
+    确认制用); extract_flags_all 用于 master 侧"flag 全量收集"——agent 可能把
+    flag 写进日志/board 但漏写 progress.md, 全量扫描能捞回这些漏网 flag。
+
+    过滤:
+    - 空/超长 token 丢弃
+    - 保留原始大小写 (平台可能区分 flag{}/FLAG{})
+    - 去重保持顺序
+    """
+    if not text:
+        return []
+    seen: list[str] = []
+    for m in _FLAG_TOKEN.finditer(text):
+        token = m.group(0)
+        if token not in seen:
+            seen.append(token)
+    return seen
 
 
 # ─── 题目记录 ───

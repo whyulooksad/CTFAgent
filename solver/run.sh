@@ -513,6 +513,19 @@ cleanup() {
         echo "[run.sh] Hermes warmup stopped"
     fi
 
+    # 2026-08-21 修复: 超时/被杀前补提取 session_id 写 .cc_session。
+    # 之前 session 提取只在 claude 正常结束后执行, 超时强杀 (master 收 SIGTERM)
+    # 时 run.sh 直接走 cleanup, .cc_session 从未写入 → master 轮转拿到 None →
+    # 第二轮新开会话, 上下文丢失 (用户实测 c-03/c-06/c-08 第二轮全是新 session)。
+    # 这里从 codex.log 提取最后一次出现的 session_id, 供 master 下轮 resume。
+    if [ -f "$WORK_DIR/codex.log" ]; then
+        SID=$(grep -oP '(session id: |"session_id":"|session_id:\s*)\K[0-9a-f-]+' "$WORK_DIR/codex.log" | tail -1)
+        if [ -n "$SID" ]; then
+            printf '%s' "$SID" > "$WORK_DIR/.cc_session"
+            echo "[run.sh] cleanup: 提取 session_id -> .cc_session ($SID)"
+        fi
+    fi
+
     python3 "$SCRIPT_DIR/branch.py" shutdown --work-dir "$WORK_DIR" 2>/dev/null || true
     kill $BRANCH_DAEMON_PID 2>/dev/null || true
     echo "[run.sh] Done. Work dir: $WORK_DIR"
@@ -523,7 +536,11 @@ trap cleanup EXIT
 # ─── 自动续跑循环 ───
 
 INTERRUPTED=0
-trap 'INTERRUPTED=1; echo "[run.sh] 收到中断信号，正在停止..."' SIGINT SIGTERM
+# 2026-08-21 修复: SIGINT/SIGTERM 时 bash 前台管道等 claude (忽略 SIGINT) 不结束
+# → trap 不执行 → 8s 后 SIGKILL → cleanup 丢失 → .cc_session 空 → 第二轮无法 resume。
+# claude 调用已改后台 (CLAUDE_PID), 这里精确杀本轮的 claude + 过滤进程 + cleanup。
+# CLAUDE_PID/FILTER_PID 为空时 kill 报错被 2>/dev/null 吞掉 (信号在首次调用前到达)。
+trap 'echo "[run.sh] 收到中断信号，正在停止..."; kill -9 $CLAUDE_PID 2>/dev/null; trap - EXIT; cleanup; exit 0' SIGINT SIGTERM
 
 # 按题目类型构建 Codex prompt
 case "$CHALLENGE_TYPE" in
@@ -651,13 +668,45 @@ while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
             # set +e 局部关 -e: claude 失败时管道非 0 不能终止脚本 (要进 resume 循环);
             # PIPESTATUS[0] 取 claude 退出码 (|| true 会覆盖 PIPESTATUS, 不可用)
             # HOSTED_TIMEOUT (托管 entrypoint 设置): 防网关挂起时无限等 (timeout 0=不限, 本地不变)
+            # 2026-08-21 保 session 诊断: claude 启动后若无 codex.log 产出 (挂起/无响应),
+            # 后台探针在 60s 后标记 CC_STALLED=1; 主进程结束后据此告警并决定是否
+            # 重试原 session (不换新 —— 见下方 resume 失败分支)。探针不能 kill claude
+            # (可能只是慢), 只做诊断标记。
+            CC_STALLED=0
+            LOG_START_SIZE=$(stat -c %s codex.log 2>/dev/null || echo 0)
+            (
+                sleep 60
+                CUR_SIZE=$(stat -c %s codex.log 2>/dev/null || echo 0)
+                if [ "$CUR_SIZE" -le "$LOG_START_SIZE" ]; then
+                    echo "[run.sh] 警告: claude 启动 60s 无 codex.log 产出 (可能挂起/resume 失败)" >> "$WORK_DIR/run_warnings.log" 2>/dev/null || true
+                fi
+            ) &
+            CC_PROBE_PID=$!
             set +e
+            # 2026-08-21 修复 (核心): 前台管道 `claude|grep` 在 SIGINT 时,
+            # bash 等管道所有进程结束才处理信号; claude 在 deepseek API 请求中
+            # 忽略 SIGINT → 管道永不结束 → bash 不执行 trap → 8s 后 master
+            # SIGKILL → cleanup 丢失 → .cc_session 空 → 第二轮无法 resume 原会话。
+            # 改为: claude 后台执行 + 进程替换过滤 + wait。
+            #   - `>(grep --line-buffered ... > codex.log)`: claude 输出实时流进
+            #     grep (管道, 非文件重定向), 每行 flush → codex.log 实时且有过滤
+            #     (thinking_tokens 噪音不能进 codex.log, 否则 hermes 监督误判)
+            #   - $! = claude (timeout) PID → wait 拿准确退出码
+            #   - master SIGINT 后 SIGKILL claude → wait 返回 → 走 EXIT → cleanup
             timeout ${HOSTED_TIMEOUT:-0} claude -p "${AGENT_EXEC_EXTRA[@]}" \
               ${RESUME_ARGS[@]+"${RESUME_ARGS[@]}"} \
               "$CODEX_PROMPT" \
-                < /dev/null 2>&1 | grep -v '"subtype":"thinking_tokens"' > codex.log
-            EXIT_CODE=${PIPESTATUS[0]}
+                < /dev/null 2>&1 > >(grep --line-buffered -v '"subtype":"thinking_tokens"' > codex.log) &
+            CLAUDE_PID=$!
+            wait $CLAUDE_PID
+            EXIT_CODE=$?
             set -e
+            kill $CC_PROBE_PID 2>/dev/null || true
+            # 探针判定: claude 结束但 codex.log 无产出 → 明确告警 (保 session 诊断)
+            CUR_SIZE=$(stat -c %s codex.log 2>/dev/null || echo 0)
+            if [ "$CUR_SIZE" -le "$LOG_START_SIZE" ]; then
+                echo "[run.sh] 诊断: claude 本轮无 codex.log 产出 (exit=$EXIT_CODE, resume=${RESUME_SESSION:-无}) $(date +%H:%M:%S)" >> "$WORK_DIR/run_warnings.log" 2>/dev/null || true
+            fi
         elif [ "$AGENT_CLI" = "hermes" ]; then
             # hermes 主引擎 (chat 协议, 托管兜底): hermes chat -q <prompt>
             # --ignore-rules: 只按 CODEX_PROMPT 工作, 跳过 AGENTS.md (claude 特定指令)
@@ -712,19 +761,36 @@ while [ $RETRY -lt $MAX_RETRIES ] && [ $INTERRUPTED -eq 0 ]; do
             fi
         fi
         # 非工具往返错误 / 拿不到 SID / resume 超阈值 → 收工检查 (下一轮新 session)
-        # 轮转断点: 若本次失败是因为 resume 上一圈 session (RESUME_SESSION 非空),
-        # 说明该 session 已失效 → 清空, 后续轮次换全新 session, 避免死循环重放坏 session
+        # 2026-08-21: SIGINT (master 超时停 solver) 时 claude 被杀 exit=130,
+        # 不能走 resume 重试 (会再启动 claude 卡住 → master 8s 强杀 → cleanup 丢失)
+        if [ $INTERRUPTED -eq 1 ]; then
+            echo "[run.sh] 中断信号期间 claude 退出 (exit=$EXIT_CODE)，直接收尾"
+            break
+        fi
+        # 轮转断点 (2026-08-21 保 session 策略): 本次失败若是因为 resume 上一圈
+        # session, 说明该 session 可能已失效。**先保留 RESUME_SESSION 重试一次
+        # (claude 偶发 No conversation found 后重试可恢复)**; 仍失败才清空换新,
+        # 且换新前确认 work_dir 的 board/progress 在 (降级也从存档恢复)。
         if [ -n "$RESUME_SESSION" ]; then
-            echo "[run.sh] 上一圈 session ($RESUME_SESSION) resume 失败，放弃断点，后续换全新 session"
+            if [ "$RESUME_FAILS" -lt 1 ] && [ -f "$WORK_DIR/board.md" ]; then
+                echo "[run.sh] 上一圈 session resume 失败，保留断点重试一次 (保 session)"
+                RESUME_FAILS=$((RESUME_FAILS + 1))
+                sleep 3
+                continue
+            fi
+            echo "[run.sh] 上一圈 session ($RESUME_SESSION) resume 再次失败，放弃断点，后续换全新 session (board/progress 已保留，降级从存档恢复)"
             RESUME_SESSION=""
         fi
         echo "[run.sh] $AGENT_CLI exec 退出码 $EXIT_CODE (无法恢复)，进入收工检查"
         break
     done
 
-    # Ctrl+C 被按下 -> 不续跑，直接退出
+    # Ctrl+C 被按下 -> 不续跑，直接退出 (2026-08-21 修复: 之前是无效 break,
+    # SIGINT 后不收尾继续走收工检查 → master 等 8s SIGKILL → cleanup 丢失 →
+    # .cc_session 从未写入 → 第二轮无法 resume 原会话)
     if [ $INTERRUPTED -eq 1 ]; then
-        break
+        echo "[run.sh] 收到中断信号，直接退出 (触发 cleanup 提取 session)"
+        exit 0
     fi
 
     # ── 收工确认制 (每轮先纠错，再判定通关) ──

@@ -152,6 +152,12 @@ class ProcessBackend(SolverBackend):
         注意 run.sh 退出后组内可能残留孙进程 (如在途 hermes chat)，
         wait() 收割 leader 后 pgid 就查不到了，所以先取 pgid、
         leader 退出后再对组内残留补一刀 SIGKILL。
+
+        2026-08-21 修复: claude (deepseek API 请求中) 可能忽略 SIGINT,
+        run.sh 等 claude 退出一直阻塞 → trap/cleanup 不执行 → 8s 后 SIGKILL
+        全组 → .cc_session 丢失 → 第二轮无法 resume 原会话。
+        现在 SIGINT 后先 SIGKILL 组内 claude 子进程 (让 run.sh 的 claude
+        返回 → trap 执行 cleanup 提取 session), 再等 run.sh 退出。
         """
         proc = handle.proc
         if proc is None:
@@ -162,6 +168,23 @@ class ProcessBackend(SolverBackend):
             pgid = None
 
         self._signal_group(proc, signal.SIGINT)
+        # 2026-08-21 修复 (核心): claude 在 deepseek API 请求中忽略 SIGINT,
+        # run.sh 的 bash 等 claude (前台管道或 wait) 不结束 → 不执行 trap →
+        # 8s 后 SIGKILL 全组 → cleanup 丢失 → .cc_session 空 → 第二轮无法 resume。
+        # 方案: SIGINT 后立即 SIGKILL 组内 claude/codex 进程 (让 run.sh 的
+        # claude 返回 → bash 走失败分支 → EXIT → cleanup 提取 session 写
+        # .cc_session), 然后等 run.sh 正常退出。
+        if pgid is not None:
+            try:
+                for p in _iter_group(pgid):
+                    cmd = " ".join(p.cmdline()) if hasattr(p, "cmdline") else ""
+                    if ("claude" in cmd or "codex" in cmd) and p.pid != proc.pid:
+                        try:
+                            os.kill(p.pid, signal.SIGKILL)
+                        except (ProcessLookupError, PermissionError):
+                            pass
+            except Exception:
+                pass
         try:
             proc.wait(timeout=8)
         except subprocess.TimeoutExpired:
@@ -190,6 +213,42 @@ class ProcessBackend(SolverBackend):
             os.killpg(os.getpgid(proc.pid), sig)
         except (ProcessLookupError, PermissionError):
             pass
+
+
+def _iter_group(pgid: int):
+    """遍历进程组内的进程 (读 /proc/*/stat 的 pgrp 字段, 无 psutil 依赖)。"""
+    try:
+        for entry in os.listdir("/proc"):
+            if not entry.isdigit():
+                continue
+            try:
+                stat_path = Path("/proc") / entry / "stat"
+                with open(stat_path, "r") as f:
+                    stat_text = f.read()
+                # stat 格式: pid (comm) state ppid pgrp session ...
+                # comm 可能含空格/括号, 用最后一个 ')' 之后的部分
+                rparen = stat_text.rfind(")")
+                fields = stat_text[rparen + 1:].split()
+                if len(fields) >= 2 and fields[1] == str(pgid):
+                    yield _ProcInfo(int(entry))
+            except (OSError, ValueError):
+                continue
+    except OSError:
+        return
+
+
+class _ProcInfo:
+    """轻量进程信息 (cmdline 读取失败时返回空)。"""
+
+    def __init__(self, pid: int):
+        self.pid = pid
+
+    def cmdline(self) -> list:
+        try:
+            return (Path("/proc") / str(self.pid) / "cmdline") \
+                .read_bytes().split(b"\x00")[:-1] or []
+        except OSError:
+            return []
 
 
 def _read_claude_env(snapshot_dir: Optional[Path] = None) -> dict:

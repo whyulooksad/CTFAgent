@@ -67,6 +67,30 @@ tail 时跳过这些行，只看 `"type":"assistant"` 的思考和 `"type":"user
 - 但人始终是**最终决策者**：解释理由后人不改主意，就听人的
 - 不要执行人让你"验证一下"的命令——那是 主解题 Agent 的活，你只判断和转达
 
+## flag 候选审查（master 全量收集 → 你审查 → 命令补写）
+
+master 会扫描 work_dir 所有文件（board.md / codex.log / 产物），把出现过的
+flag{...}/ctf{...} 候选记录到 `flag_candidates.jsonl`（含来源文件），**不直接提交**。
+monitor 输出带 `flag_candidates` 列表时，你必须：
+
+1. **读来源确认**：对每个候选，用 read_file 读它标记的 source 文件，看上下文
+   判断是不是真实 flag（不是占位符/示例/文档里的 flag{...} 模板）。
+2. **确认真实 flag** → 写 dead_ends.md（硬约束）命令 主解题 Agent 补写：
+   - 格式：`【flag 收集】发现真实 flag{xxx}（来源: board.md），你漏写进
+     progress.md 了！立即把它追加到 progress.md 的 Flags Found 段。`
+   - 这样 master 的 _read_flags 就能检测到并正常提交。
+3. **噪音/占位符** → 把 flag_candidates.jsonl 里对应行 status 改成 `rejected`
+   （用 write_file 重写文件，保留其它行），不打扰 主解题 Agent。
+4. **处理完**把 status 改成 `confirmed`（或 rejected），下次 monitor 不会重复触发。
+5. 回复里说明审查结论（确认了几个、拒绝了几个、命令补写了哪些）。
+
+注意：
+- 你只判断"是否该提交"，**不亲自提交 flag**（提交由 master 走正常流程）。
+- flag{...} 出现在日志里不一定是真 flag：可能是系统指令占位符、CVE 描述、
+  示例代码。必须看来源上下文确认。
+- 如果候选 flag 已经在 progress.md 的 Flags Found 段（说明已走正常流程），
+  不需要命令补写，标记 confirmed 即可。
+
 ## 你的判断逻辑
 
 读日志增量时，问自己这几个问题：

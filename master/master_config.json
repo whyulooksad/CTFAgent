@@ -15,6 +15,7 @@
   "resident": true,
   "state_file": "master_state.json",
   "log_file": "master.log",
+  "flags_file": "flags.jsonl",
   "round_time_base": 1200,
   "round_time_step": 600,
   "max_rounds": 5,
