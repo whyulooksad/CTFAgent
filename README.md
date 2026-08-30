@@ -1,9 +1,44 @@
-# CTF Agent
+# CTF Agent 🤖
 
-Claude (deepseek) 解题 + Hermes 监督 + Subagent 并行试探的 CTF 自动解题系统。
-支持多题调度、时间片轮转、跨轮次 session 恢复、flag 全量收集与人工审查。
+> 多 Agent 协作的 CTF 自动化解题系统：主解题 Agent + Hermes 监督者 + Subagent 并行试探。
+> 支持多题调度、时间片轮转、跨轮次会话恢复、flag 全量收集与人工审查。
 
-## 架构
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.10-3776AB?logo=python&logoColor=white" alt="Python" />
+  <img src="https://img.shields.io/badge/Shell-Bash-4EAA25?logo=gnubash&logoColor=white" alt="Shell" />
+  <img src="https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white" alt="Docker" />
+  <img src="https://img.shields.io/badge/Multi--Agent-orange" alt="Multi-Agent" />
+  <img src="https://img.shields.io/badge/LLM-DeepSeek%20%7C%20GPT-blue" alt="LLM" />
+  <br/>
+  <img src="https://img.shields.io/github/stars/whyulooksad/CTFAgent?style=social" alt="Stars" />
+  <img src="https://img.shields.io/github/languages/top/whyulooksad/CTFAgent" alt="Top Language" />
+  <img src="https://img.shields.io/badge/tests-200%2B-green" alt="Tests" />
+</p>
+
+## 目录
+
+- [成绩与亮点](#成绩与亮点)
+- [系统架构](#系统架构)
+- [核心机制](#核心机制)
+- [运行模式](#运行模式)
+- [项目结构](#项目结构)
+- [测试](#测试)
+- [关键参数](#关键参数)
+- [部署与镜像](#部署与镜像)
+- [历史要点](#历史要点)
+
+## 成绩与亮点
+
+| 指标 | 结果 |
+|------|------|
+| TSecBench 测试集 | **19650 分**（完成率 83.8%） |
+| DASCTF 西湖论剑 | **第 21 名** |
+
+- **监督者模式**：Hermes 持续读日志理解进度，软建议（guidance）/ 硬约束（dead_ends）双通道经 PostToolUse Hook 实时注入，读后清空不占 token
+- **跨轮次会话恢复**：时间片轮转换题不丢断点，下圈 `--resume` 原 Agent 会话续跑
+- **flag 全量收集**：扫描全部产物提取候选 → Hermes 审查 → 补写 → 提交，不信任单点汇报
+
+## 系统架构
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
@@ -20,16 +55,16 @@ Claude (deepseek) 解题 + Hermes 监督 + Subagent 并行试探的 CTF 自动�
 │  Solver (ctf-solver 容器 或 run.sh 子进程)                         │
 │  ┌────────────────────────────────────────────────────────────┐  │
 │  │      Hermes (监督者/外接大脑)                                │  │
-│  │  monitor.py 增量读 codex.log → hermes agent (flash)         │  │
+│  │  monitor.py 增量读 agent.log → hermes agent (flash)         │  │
 │  │  写 guidance.md / dead_ends.md / board.md                   │  │
 │  │  审查 flag_candidates → 命令补写 / 标记 rejected             │  │
 │  └──────────────────┬─────────────────────────────────────────┘  │
 │                     │ md 文档 + PostToolUse hook                  │
 │                     ▼                                             │
 │  ┌────────────────────────────────────────────────────────────┐  │
-│  │      Claude Code (主解题者, deepseek-v4-pro)                │  │
-│  │  --resume 原会话续跑 | 按题型 prompt ≤10 轮                 │  │
-│  │  guidance/dead_ends hook 实时注入(读后清空)                 │  │
+│  │      主解题 Agent (AGENT_CLI: codex / claude / hermes)       │  │
+│  │  --resume 原会话续跑 | 按题型 prompt ≤10 轮                  │  │
+│  │  guidance/dead_ends hook 实时注入(读后清空)                  │  │
 │  └──────────────────┬─────────────────────────────────────────┘  │
 │                     │ branch.py (daemon, 异步)                    │
 │                     ▼                                             │
@@ -39,51 +74,75 @@ Claude (deepseek) 解题 + Hermes 监督 + Subagent 并行试探的 CTF 自动�
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-四个角色：
-- **Master 调度器** -- 从平台拉题、调度 solver、时间片轮转（每圈换题保留断点）、回收 flag 提交、状态持久化
-- **Claude (cc)** -- 主解题者，容器/子进程内唯一决策者，负责侦察、分析、决策、利用全流程
-- **Hermes** -- 监督者/外接大脑，持续读 codex.log 理解进度，给建议(guidance)/下死命令(dead_ends)/维护看板(board.md)
-- **Subagent** -- 试探者，branch.py daemon 异步管理，并行试探分岔路口
+### 四个角色
+
+| 角色 | 职责 |
+|------|------|
+| **Master 调度器** | 从平台拉题、调度 solver、时间片轮转（每圈换题保留断点）、回收 flag 提交、状态持久化 |
+| **主解题 Agent** | 容器/子进程内唯一决策者，负责侦察、分析、决策、利用全流程 |
+| **Hermes** | 监督者/外接大脑，持续读 agent.log 理解进度，给建议(guidance)/下死命令(dead_ends)/维护看板(board.md) |
+| **Subagent** | 试探者，branch.py daemon 异步管理，并行试探分岔路口 |
 
 支持的题目类型：Web（靶场 URL）、Crypto（本地附件）、Misc（本地附件）、Binary（远程服务/制品）。
 多 flag 题（flag_count>1）：拿满才走，时间片预算 = base × flag数 × 0.7。
 
-## 运行模式（重要）
+### 引擎选择
 
-**本地模式 = 面板驱动**：solver 放 Docker 容器（DockerBackend + ctf-solver 镜像）。
+通过环境变量 `AGENT_CLI` 切换解题引擎（默认 `codex`）：
+
+| AGENT_CLI | 引擎 |
+|-----------|------|
+| `codex`（默认） | Codex CLI（bypass 模式） |
+| `claude` | Claude Code + `deepseek-v4-pro` 模型，支持 `--resume` |
+| `hermes` | Hermes agent 作为主引擎（托管模式兜底） |
+
+## 核心机制
+
+### 时间片轮转 + 跨轮次 session 恢复
+
+- 每道题每圈一个时间预算：`round_time_base + (圈号-1)×round_time_step`，多 flag 乘 0.7
+- 超时 → 换题（保留断点）→ 下圈带 `--resume <sid>` 续跑**原 agent 会话**（非读 board 降级）
+- 关键文件：work_dir/.cc_session（主 Agent）、.hermes_session（hermes），master 轮转时读取存 cc_session_id
+- run.sh 进程替换 `>(grep --line-buffered ...)` 过滤 thinking_tokens + 实时落盘 agent.log
+
+### flag 全量收集（不直接提交）
+
+1. master 扫描 work_dir 全部文本文件（board/agent.log/产物）提取 `flag{...}` 候选
+2. 写 `flag_candidates.jsonl`（含来源，pending）→ monitor 触发 Hermes 审查
+3. Hermes 读来源确认：真 flag → dead_ends.md 命令解题者补写 progress.md；噪音 → 标 rejected
+4. 补写后 master 走正常 `_read_flags` 提交（不信任 agent 一定写 progress.md）
+
+### 多 flag 长跑
+
+- flag_count>1 的题"拿满再走"，每圈完整预算、到点轮转、下圈 resume 续攻
+- `_round_timeout` 用 `started_round`（分发时圈号）算预算，避免跨圈漂移放大占槽
+
+## 运行模式
+
+### 本地模式 = 面板驱动
+
+solver 放 Docker 容器（DockerBackend + ctf-solver 镜像）。
+
 ```bash
 cd ~/ctf-agent
 python3 master/master.py --config master/master_config.json
 # 浏览器开 http://localhost:8081 → 「平台接入」输入 token → 热切换拉题
 ```
+
 启动时不需要环境变量 token；接入信息通过面板 `connect_platform` API 热切换。
 
-**托管模式 = 免面板**：平台注入 BENCHMARK_BASE_URL/BENCHMARK_TOKEN/DEEPSEEK_API_KEY，
-entrypoint 直接连，solver 为容器内 run.sh 子进程（backend=process）。
+### 托管模式 = 免面板
+
+平台注入 BENCHMARK_BASE_URL/BENCHMARK_TOKEN/DEEPSEEK_API_KEY，entrypoint 直接连，solver 为容器内 run.sh 子进程（backend=process）。
+
 ```bash
 # 构建托管镜像（自动先建本地基础镜像）
 bash docker/hosted/build-hosted.sh   # → ctf-solver-hosted:latest + tar.gz
 ```
 
-**测试模式**：`backend: fake`（不起真实 agent）+ `adapter: mock`（内置假题），秒级跑调度逻辑。
+### 测试模式
 
-## 核心机制
-
-### 时间片轮转 + 跨轮次 session 恢复
-- 每道题每圈一个时间预算：`round_time_base + (圈号-1)×round_time_step`，多 flag 乘 0.7
-- 超时 → 换题（保留断点）→ 下圈带 `--resume <sid>` 续跑**原 claude 会话**（非读 board 降级）
-- 关键文件：work_dir/.cc_session（claude）、.hermes_session（hermes），master 轮转时读取存 cc_session_id
-- run.sh 进程替换 `>(grep --line-buffered ...)` 过滤 thinking_tokens + 实时落盘 codex.log
-
-### flag 全量收集（不直接提交）
-- master 扫描 work_dir 全部文本文件（board/codex.log/产物）提取 flag{...} 候选
-- 写 `flag_candidates.jsonl`（含来源，pending）→ monitor 触发 Hermes 审查
-- Hermes 读来源确认：真 flag → dead_ends.md 命令解题者补写 progress.md；噪音 → 标 rejected
-- 补写后 master 走正常 `_read_flags` 提交（不信任 agent 一定写 progress.md）
-
-### 多 flag 长跑
-- flag_count>1 的题"拿满再走"，每圈完整预算、到点轮转、下圈 resume 续攻
-- `_round_timeout` 用 `started_round`（分发时圈号）算预算，避免跨圈漂移放大占槽
+`backend: fake`（不起真实 agent）+ `adapter: mock`（内置假题），秒级跑调度逻辑。
 
 ## 项目结构
 
@@ -100,9 +159,9 @@ bash docker/hosted/build-hosted.sh   # → ctf-solver-hosted:latest + tar.gz
 │   ├── adapters/             # none/mock/tsec/live 平台适配
 │   └── master_config*.json   # 场景配置: .json(本地面板) .hosted(托管) .demo/.smoke/.tsec
 ├── solver/                   # 单题 Solver (容器内或子进程)
-│   ├── run.sh                # 启动脚本 + claude 后台调用 + cleanup 提取 session
+│   ├── run.sh                # 启动脚本 + agent 后台调用 + cleanup 提取 session
 │   ├── AGENTS.md / TOOLS.md  # 解题指令 / 工具手册
-│   ├── monitor.py            # Hermes 的眼睛 (增量读 codex.log + flag 候选触发)
+│   ├── monitor.py            # Hermes 的眼睛 (增量读 agent.log + flag 候选触发)
 │   ├── hermes_monitor.md     # Hermes 监督 prompt
 │   ├── branch.py             # Subagent daemon + CLI
 │   ├── dashboard.py/.html    # 单题面板
@@ -122,6 +181,7 @@ bash docker/hosted/build-hosted.sh   # → ctf-solver-hosted:latest + tar.gz
 ## 测试
 
 全部在 `tests/`，无需真实 API（除标注外）：
+
 ```bash
 python3 tests/test_master.py              # 调度器回归 9/9 (fake 后端)
 python3 tests/test_rotation.py            # 轮转/圈推进 103/103
@@ -129,9 +189,10 @@ python3 tests/test_round_resume.py        # 跨轮次 session 机制 22/22 (含 
 python3 tests/test_flag_collection.py     # flag 收集 36/36
 python3 tests/test_flag_collection_edges.py # 边界: 去重/seen/损坏/rejected 18/18
 python3 tests/test_flag_collection_e2e.py # 收集→审查→补写→提交 闭环
-python3 tests/test_session_e2e_real.py    # 真实 claude/hermes resume (花 API 费)
+python3 tests/test_session_e2e_real.py    # 真实 agent/hermes resume (花 API 费)
 python3 tests/test_sim_live.py            # 真实 agent 仿真 (花 API 费, 无解题)
 ```
+
 注意：`test_rotation.py` 单独跑耗时约 5-8 分钟（场景多）。
 
 ## 关键参数 (master_config.json)
@@ -165,6 +226,18 @@ bash docker/hosted/build-hosted.sh
 
 ## 历史要点
 
-- 2026-08-21 修复跨轮次 session 恢复：run.sh 前台管道在 SIGINT 时被 claude 卡住 → 改后台+进程替换；master stop SIGINT 后 SIGKILL claude → cleanup 提取 session
+- 2026-08-21 修复跨轮次 session 恢复：run.sh 前台管道在 SIGINT 时被 agent 卡住 → 改后台+进程替换；master stop SIGINT 后 SIGKILL agent → cleanup 提取 session
 - 2026-08-21 修复 started_round 预算漂移：长跑题跨圈预算被 current_round 放大
 - 2026-08-21 flag 全量收集：不直接提交 → Hermes 审查 → dead_ends 命令补写
+
+---
+
+## 相关文档
+
+| 文档 | 说明 |
+|------|------|
+| [README.en.md](./README.en.md) | English README |
+| [docs/ctf-agent-design.md](./docs/ctf-agent-design.md) | 设计实施文档 |
+| [docs/api_doc.md](./docs/api_doc.md) | 平台 API 文档 |
+| [solver/AGENTS.md](./solver/AGENTS.md) | 解题 Agent 系统指令 |
+| [solver/hermes_monitor.md](./solver/hermes_monitor.md) | Hermes 监督 Prompt |
