@@ -232,6 +232,12 @@ bash docker/hosted/build-hosted.sh
 
 ---
 
+## 友情链接
+
+- [Linux.do 社区](https://linux.do/) - 中文技术社区，欢迎来玩
+
+---
+
 ## 相关文档
 
 | 文档 | 说明 |
