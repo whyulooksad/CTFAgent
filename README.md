@@ -234,7 +234,7 @@ bash docker/hosted/build-hosted.sh
 
 ## 友情链接
 
-- [Linux.do 社区](https://linux.do/) - 中文技术社区，欢迎来玩
+本项目完全开源。我们感谢 [LINUX DO](https://linux.do/) 社区对开源软件的支持与帮助。
 
 ---
 
